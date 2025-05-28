@@ -41,7 +41,7 @@ func scanTLSVersion(host string, port string, version uint16) (bool, *x509.Certi
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Uso: go run sslscan <host>[:port]")
+		fmt.Println("Usage: sslscan <host>[:port]")
 		return
 	}
 
