@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
+
+	b "github.com/olelbis/sslscango/build"
 )
 
 var tlsVersions = map[uint16]string{
@@ -40,8 +43,16 @@ func scanTLSVersion(host string, port string, version uint16) (bool, *x509.Certi
 }
 
 func main() {
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Println("Errore nel recuperare il path dell'eseguibile:", err)
+		return
+	}
+
+	exeName := filepath.Base(exePath)
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: sslscan <host>[:port]")
+		fmt.Println("Usage: " + exeName + " <host>[:port]")
+		fmt.Printf("\n"+exeName+" Release: %s\nBuild Time: %s\nBuild User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		return
 	}
 
