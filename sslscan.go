@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -26,6 +27,11 @@ type CertInfo struct {
 }
 
 var certInfos []CertInfo
+var (
+	host      = flag.String("host", "", "Hostname or server IP (mandatory)")
+	port      = flag.String("port", "443", "TLS server port")
+	certChain = flag.Bool("cert", false, "Print cerificate chain")
+)
 
 func scanTLSVersion(host string, port string, version uint16) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
@@ -70,30 +76,49 @@ func PrintCertInfos(certInfos []CertInfo) {
 }
 
 func main() {
+
+	flag.Parse()
+	//args := flag.Args()
+
 	exePath, err := os.Executable()
 	if err != nil {
 		fmt.Println("Errore nel recuperare il path dell'eseguibile:", err)
-		return
+		os.Exit(1)
 	}
 
 	exeName := filepath.Base(exePath)
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: " + exeName + " <host>[:port]")
+	if *host == "" {
+		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
+		fmt.Println("Error: il parametro --host è obbligatorio.")
+		fmt.Println("Usage: " + exeName + " [-cert] -host <host> [-port port]")
+
+		os.Exit(1)
+	}
+	/**
+	if len(args) < 1 {
+		fmt.Println("Usage: " + exeName + " [-cert] -host <host> [-port port]")
 		fmt.Printf("\n"+exeName+" Release: %s\nBuild Time: %s\nBuild User: %s\n", b.Version, b.BuildTime, b.BuildUser)
-		return
+		os.Exit(1)
 	}
 
-	input := os.Args[1]
-	host, port, err := net.SplitHostPort(input)
-	if err != nil {
-		host = input
-		port = "443"
-	}
+		exeName := filepath.Base(exePath)
+		if len(os.Args) < 2 {
+			fmt.Println("Usage: " + exeName + " [-cert] <host>[:port]")
+			fmt.Printf("\n"+exeName+" Release: %s\nBuild Time: %s\nBuild User: %s\n", b.Version, b.BuildTime, b.BuildUser)
+			os.Exit(0)
+		}
 
-	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", host, port)
+		input := os.Args[1]
+		host, port, err := net.SplitHostPort(input)
+		if err != nil {
+			host = input
+			port = "443"
+		}
+	**/
+	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
 	for version, name := range tlsVersions {
-		supported, cert, cipher, err := scanTLSVersion(host, port, version)
+		supported, cert, cipher, err := scanTLSVersion(*host, *port, version)
 		if err != nil {
 			fmt.Printf("%s: errore %v\n", name, err)
 			continue
@@ -106,7 +131,9 @@ func main() {
 				fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
 				fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
 				fmt.Printf("   DNS: %s\n", cert.DNSNames)
-				PrintCertInfos(certInfos)
+				if *certChain {
+					PrintCertInfos(certInfos)
+				}
 			}
 		} else {
 			fmt.Printf("\n🚫 "+"%s: unsupported\n", name)
