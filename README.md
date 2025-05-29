@@ -9,6 +9,11 @@
 `sslscango` It is a utility that takes inspiration from the original `sslscan`, with fewer features, but with the aim of being used in those work contexts where it is not permitted to install anything on your machines, or where you are not allowed access to the internet network.
 
 This is early development version.
+## Roadmap:
+
+- [ ] Save certificate chain on file
+- [ ] Generate report
+- [ ] TBD
 
  ## Building from source
 
