@@ -1,4 +1,5 @@
 #!/bin/bash
+#tbd need some logic
 
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
