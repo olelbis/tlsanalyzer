@@ -89,32 +89,12 @@ func main() {
 	exeName := filepath.Base(exePath)
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
-		fmt.Println("Error: il parametro --host è obbligatorio.")
+		fmt.Println("Error: parameter --host is mandatory.")
 		fmt.Println("Usage: " + exeName + " [-cert] -host <host> [-port port]")
 
 		os.Exit(1)
 	}
-	/**
-	if len(args) < 1 {
-		fmt.Println("Usage: " + exeName + " [-cert] -host <host> [-port port]")
-		fmt.Printf("\n"+exeName+" Release: %s\nBuild Time: %s\nBuild User: %s\n", b.Version, b.BuildTime, b.BuildUser)
-		os.Exit(1)
-	}
 
-		exeName := filepath.Base(exePath)
-		if len(os.Args) < 2 {
-			fmt.Println("Usage: " + exeName + " [-cert] <host>[:port]")
-			fmt.Printf("\n"+exeName+" Release: %s\nBuild Time: %s\nBuild User: %s\n", b.Version, b.BuildTime, b.BuildUser)
-			os.Exit(0)
-		}
-
-		input := os.Args[1]
-		host, port, err := net.SplitHostPort(input)
-		if err != nil {
-			host = input
-			port = "443"
-		}
-	**/
 	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
 	for version, name := range tlsVersions {
