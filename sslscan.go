@@ -31,9 +31,10 @@ var (
 	host      = flag.String("host", "", "Hostname or server IP (mandatory)")
 	port      = flag.String("port", "443", "TLS server port")
 	certChain = flag.Bool("cert", false, "Print cerificate chain")
+	timeout   = flag.Int("timeout", 5, "Connection Timeout")
 )
 
-func scanTLSVersion(host string, port string, version uint16) (bool, *x509.Certificate, string, error) {
+func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
 		ServerName:         host, // Abilita il supporto SNI
@@ -42,7 +43,7 @@ func scanTLSVersion(host string, port string, version uint16) (bool, *x509.Certi
 		MaxVersion:         version,
 	}
 
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 5 * time.Second}, "tcp", address, config)
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
 		return false, nil, "", nil
 	}
@@ -90,7 +91,7 @@ func main() {
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [-cert] -host <host> [-port port]")
+		fmt.Println("Usage: " + exeName + " [--cert] --host <host> [--port <portnumber>] [--timeout <sec>]")
 
 		os.Exit(1)
 	}
@@ -98,7 +99,7 @@ func main() {
 	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
 	for version, name := range tlsVersions {
-		supported, cert, cipher, err := scanTLSVersion(*host, *port, version)
+		supported, cert, cipher, err := scanTLSVersion(*host, *port, version, *timeout)
 		if err != nil {
 			fmt.Printf("%s: errore %v\n", name, err)
 			continue
