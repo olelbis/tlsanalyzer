@@ -13,7 +13,7 @@ This is early development version.
 - [x] Timeout flag
 - [x] Print certificate chain
 - [ ] Save certificate chain on file
-- [ ] Generate report
+- [ ] Generate reports
 - [ ] TBD
 
  ## Building from source
