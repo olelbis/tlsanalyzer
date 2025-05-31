@@ -27,6 +27,8 @@ type CertInfo struct {
 }
 
 var certInfos []CertInfo
+
+// Command line flags definition
 var (
 	host      = flag.String("host", "", "Hostname or server IP (mandatory)")
 	port      = flag.String("port", "443", "TLS server port")
@@ -37,7 +39,7 @@ var (
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
-		ServerName:         host, // Abilita il supporto SNI
+		ServerName:         host, // Enable SNI support
 		InsecureSkipVerify: true,
 		MinVersion:         version,
 		MaxVersion:         version,
@@ -67,10 +69,10 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	return true, nil, cipher, nil
 }
 
-// Funzione che stampa i certificati
+// Certificate Informaion print function
 func PrintCertInfos(certInfos []CertInfo) {
 	for i, ci := range certInfos {
-		fmt.Printf("Certificato %d:\n", i)
+		fmt.Printf("Certificate %d:\n", i)
 		fmt.Printf("  CN:  %s\n", ci.CommonName)
 		fmt.Printf("  PEM:\n%s\n", ci.PEM)
 	}
@@ -79,7 +81,6 @@ func PrintCertInfos(certInfos []CertInfo) {
 func main() {
 
 	flag.Parse()
-	//args := flag.Args()
 
 	exePath, err := os.Executable()
 	if err != nil {
