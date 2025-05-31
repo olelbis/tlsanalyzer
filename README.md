@@ -10,6 +10,8 @@
 This is early development version.
 ## Roadmap:
 
+- [x] Timeout flag
+- [x] Print certificate chain
 - [ ] Save certificate chain on file
 - [ ] Generate report
 - [ ] TBD
