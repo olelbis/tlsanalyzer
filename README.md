@@ -13,7 +13,7 @@ This is early development version.
 - [x] Timeout flag
 - [x] Print certificate chain
 - [x] Certificate Expiration check
-- [ ] Save certificate chain on file
+- [x] Save certificate chain on file
 - [ ] Generate reports
 - [ ] TBD
 
