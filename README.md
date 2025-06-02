@@ -16,6 +16,7 @@ This is early development version.
 - [x] Save certificate chain on file
 - [ ] Generate reports
 - [ ] Add the minimum version to start the scan from
+- [ ] Full build (shell)script
 
  ## Building from source
 
