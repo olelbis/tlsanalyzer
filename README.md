@@ -24,6 +24,31 @@ If you want to build `sslscango` from source, please verify to have already inst
 
 Then run this command:
 
+ ## How it works
+
 ```bash
 go build -v -ldflags="-X 'github.com/olelbis/sslscango/build.Version=$(cat VERSION)' -X 'github.com/olelbis/sslscango/build.BuildUser=Team sslscango' -X 'github.com/olelbis/sslscango/build.BuildTime=$(date)'"
 ```
+```bash
+olelbis@mymachost sslscango % sslscango --host example.com --port 443                       
+
+TLS Analisys for: [example.com:443]
+
+🚫 TLS 1.0: unsupported
+
+🚫 TLS 1.1: unsupported
+
+✅ TLS 1.2: supported
+   Cipher suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+   CN: *.example.com
+   Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
+   Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
+   DNS: [*.example.com example.com]
+
+✅ TLS 1.3: supported
+   Cipher suite: TLS_AES_256_GCM_SHA384
+   CN: *.example.com
+   Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
+   Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
+   DNS: [*.example.com example.com]
+   ```
