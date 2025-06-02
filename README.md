@@ -14,6 +14,7 @@ This is early development version.
 - [x] Print certificate chain
 - [x] Certificate Expiration check
 - [x] Save certificate chain on file
+- [x] Fix ordered test (go range behaviour)
 - [ ] Generate reports
 - [ ] Add the minimum version to start the scan from
 - [ ] Full build (shell)script
@@ -24,13 +25,16 @@ If you want to build `sslscango` from source, please verify to have already inst
 
 Then run this command:
 
- ## How it works
-
 ```bash
 go build -v -ldflags="-X 'github.com/olelbis/sslscango/build.Version=$(cat VERSION)' -X 'github.com/olelbis/sslscango/build.BuildUser=Team sslscango' -X 'github.com/olelbis/sslscango/build.BuildTime=$(date)'"
 ```
+ 
+ ## How it works
+
+Basic execution:
+
 ```bash
-olelbis@mymachost sslscango % sslscango --host example.com --port 443                       
+olelbis@mymachost sslscango % sslscango --host example.com                        
 
 TLS Analisys for: [example.com:443]
 

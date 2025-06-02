@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,7 +38,24 @@ var (
 	checkCertExpiry = flag.Bool("checkcert", false, "Check if the certificate is about to expire")
 	timeout         = flag.Int("timeout", 5, "Connection Timeout")
 	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
+	minVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 )
+
+// TLS String to Constant Conversion
+func tlsVersionToUint16(ver string) uint16 {
+	switch ver {
+	case "1.0":
+		return tls.VersionTLS10
+	case "1.1":
+		return tls.VersionTLS11
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
+	default:
+		return tls.VersionTLS10
+	}
+}
 
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
@@ -124,9 +142,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	minVersion := tlsVersionToUint16(*minVersionStr)
+	//results := []Result{}
+
+	// Sort versions in ascending order
+	keys := make([]uint16, 0, len(tlsVersions))
+	for v := range tlsVersions {
+		if v >= minVersion {
+			keys = append(keys, v)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
-	for version, name := range tlsVersions {
+	//for version, name := range tlsVersions {
+	for _, version := range keys {
+		name := tlsVersions[version]
 		supported, cert, cipher, err := scanTLSVersion(*host, *port, version, *timeout)
 		if err != nil {
 			fmt.Printf("%s: errore %v\n", name, err)
