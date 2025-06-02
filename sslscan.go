@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	b "github.com/olelbis/sslscango/build"
@@ -35,6 +36,7 @@ var (
 	certChain       = flag.Bool("cert", false, "Print cerificate chain")
 	checkCertExpiry = flag.Bool("checkcert", false, "Check if the certificate is about to expire")
 	timeout         = flag.Int("timeout", 5, "Connection Timeout")
+	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
 )
 
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
@@ -71,9 +73,9 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 }
 
 // Certificate Informaion print function
-func PrintCertInfos(certInfos []CertInfo) {
+func printCertInfos(certInfos []CertInfo) {
 	for i, ci := range certInfos {
-		fmt.Printf("Certificate %d:\n", i)
+		fmt.Printf("\nCertificate %d:\n", i)
 		fmt.Printf("  CN:  %s\n", ci.CommonName)
 		fmt.Printf("  PEM:\n%s\n", ci.PEM)
 	}
@@ -82,6 +84,25 @@ func PrintCertInfos(certInfos []CertInfo) {
 // Calculate the days remaining until the certificate expires
 func checkCertificateExpiry(cert *x509.Certificate) int {
 	return int(time.Until(cert.NotAfter).Hours() / 24)
+}
+
+func saveOrPrintCertToFile(prefix string, certInfos []CertInfo) {
+	var output = ""
+	if *outputFile != "" {
+		for _, ci := range certInfos {
+
+			output += ci.PEM
+		}
+		err := os.WriteFile(prefix+"_"+*outputFile, []byte(output), 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving to file: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Output saved to %s\n", prefix+"_"+*outputFile)
+		output = ""
+	} else {
+		printCertInfos(certInfos)
+	}
 }
 
 func main() {
@@ -98,7 +119,7 @@ func main() {
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>]")
+		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>]")
 
 		os.Exit(1)
 	}
@@ -127,9 +148,12 @@ func main() {
 				fmt.Printf("   DNS: %s\n", cert.DNSNames)
 
 				if *certChain {
-					PrintCertInfos(certInfos)
+					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), certInfos)
+					//printCertInfos(certInfos)
 				}
+				certInfos = nil
 			}
+
 		} else {
 			fmt.Printf("\n🚫 "+"%s: unsupported\n", name)
 		}
