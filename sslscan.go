@@ -180,7 +180,6 @@ func main() {
 
 				if *certChain {
 					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), certInfos)
-					//printCertInfos(certInfos)
 				}
 				certInfos = nil
 			}
