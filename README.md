@@ -15,7 +15,7 @@ This is early development version.
 - [x] Certificate Expiration check
 - [x] Save certificate chain on file
 - [ ] Generate reports
-- [ ] TBD
+- [ ] Add the minimum version to start the scan from
 
  ## Building from source
 
