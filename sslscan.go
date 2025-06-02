@@ -30,10 +30,11 @@ var certInfos []CertInfo
 
 // Command line flags definition
 var (
-	host      = flag.String("host", "", "Hostname or server IP (mandatory)")
-	port      = flag.String("port", "443", "TLS server port")
-	certChain = flag.Bool("cert", false, "Print cerificate chain")
-	timeout   = flag.Int("timeout", 5, "Connection Timeout")
+	host            = flag.String("host", "", "Hostname or server IP (mandatory)")
+	port            = flag.String("port", "443", "TLS server port")
+	certChain       = flag.Bool("cert", false, "Print cerificate chain")
+	checkCertExpiry = flag.Bool("checkcert", false, "Check if the certificate is about to expire")
+	timeout         = flag.Int("timeout", 5, "Connection Timeout")
 )
 
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
@@ -78,6 +79,11 @@ func PrintCertInfos(certInfos []CertInfo) {
 	}
 }
 
+// Calculate the days remaining until the certificate expires
+func checkCertificateExpiry(cert *x509.Certificate) int {
+	return int(time.Until(cert.NotAfter).Hours() / 24)
+}
+
 func main() {
 
 	flag.Parse()
@@ -92,7 +98,7 @@ func main() {
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [--cert] --host <host> [--port <portnumber>] [--timeout <sec>]")
+		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>]")
 
 		os.Exit(1)
 	}
@@ -112,7 +118,14 @@ func main() {
 				fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
 				fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
 				fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+
+				if *checkCertExpiry {
+					fmt.Printf("   Days to Expiration: %d\n", checkCertificateExpiry(cert))
+
+				}
+
 				fmt.Printf("   DNS: %s\n", cert.DNSNames)
+
 				if *certChain {
 					PrintCertInfos(certInfos)
 				}
