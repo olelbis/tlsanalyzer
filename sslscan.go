@@ -49,7 +49,7 @@ func clearScreen() {
 		fmt.Print("\033[H\033[2J")
 
 	default:
-		fmt.Println("Pulizia dello schermo non supportata su questo sistema.")
+		fmt.Println("Screen cleaning not supported on this system.")
 	}
 }
 
@@ -142,7 +142,7 @@ func main() {
 
 	exePath, err := os.Executable()
 	if err != nil {
-		fmt.Println("Errore nel recuperare il path dell'eseguibile:", err)
+		fmt.Println("Error getting executable path:", err)
 		os.Exit(1)
 	}
 
