@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -40,6 +41,17 @@ var (
 	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
 	minVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 )
+
+func clearScreen() {
+	switch runtime.GOOS {
+
+	case "linux", "darwin": // darwin = macOS
+		fmt.Print("\033[H\033[2J")
+
+	default:
+		fmt.Println("Pulizia dello schermo non supportata su questo sistema.")
+	}
+}
 
 // TLS String to Constant Conversion
 func tlsVersionToUint16(ver string) uint16 {
@@ -125,6 +137,7 @@ func saveOrPrintCertToFile(prefix string, certInfos []CertInfo) {
 
 func main() {
 
+	clearScreen()
 	flag.Parse()
 
 	exePath, err := os.Executable()
