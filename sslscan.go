@@ -150,7 +150,7 @@ func main() {
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>]")
+		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]")
 
 		os.Exit(1)
 	}
