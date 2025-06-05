@@ -16,7 +16,7 @@ This is early development version.
 - [x] Save certificate chain on file
 - [x] Fix ordered test (go range behaviour)
 - [ ] Generate reports
-- [ ] Add the minimum version to start the scan from
+- [x] Add the minimum version to start the scan from
 - [ ] Full build (shell)script
 
  ## Building from source
