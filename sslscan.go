@@ -135,6 +135,20 @@ func saveOrPrintCertToFile(prefix string, certInfos []CertInfo) {
 	}
 }
 
+func printCertSummary(cert *x509.Certificate, cipher string, version string) {
+	fmt.Printf("\n✅ \033[1m%s\033[0m: supported\n", version)
+	fmt.Printf("   Cipher suite: %s\n", cipher)
+	fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
+	fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
+	fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+
+	if *checkCertExpiry {
+		fmt.Printf("   Days to Expiration: %d\n", checkCertificateExpiry(cert))
+	}
+
+	fmt.Printf("   DNS: %v\n", cert.DNSNames)
+}
+
 func main() {
 
 	clearScreen()
@@ -177,26 +191,14 @@ func main() {
 			continue
 		}
 		if supported {
-			fmt.Printf("\n✅ "+"\033[1m%s\033[0m: supported\n", name)
-			fmt.Printf("   Cipher suite: %s\n", cipher)
 			if cert != nil {
-				fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
-				fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
-				fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
-
-				if *checkCertExpiry {
-					fmt.Printf("   Days to Expiration: %d\n", checkCertificateExpiry(cert))
-
-				}
-
-				fmt.Printf("   DNS: %s\n", cert.DNSNames)
+				printCertSummary(cert, cipher, name)
 
 				if *certChain {
 					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), certInfos)
+					certInfos = nil // Cleanup only if chain is printed/saved
 				}
-				certInfos = nil
 			}
-
 		} else {
 			fmt.Printf("\n🚫 "+"%s: unsupported\n", name)
 		}
