@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -44,10 +45,12 @@ var (
 
 func clearScreen() {
 	switch runtime.GOOS {
-
-	case "linux", "darwin": // darwin = macOS
+	case "linux", "darwin":
 		fmt.Print("\033[H\033[2J")
-
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
 	default:
 		fmt.Println("Screen cleaning not supported on this system.")
 	}
