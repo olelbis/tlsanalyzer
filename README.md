@@ -15,7 +15,7 @@ This is early development version.
 - [x] Certificate Expiration check
 - [x] Save certificate chain on file
 - [x] Fix ordered test (go range behaviour)
-- [ ] Generate reports
+- [x] Check supported cipher
 - [x] Add the minimum version to start the scan from
 - [ ] Full build (shell)script
 
@@ -48,6 +48,10 @@ TLS Analisys for: [example.com:443]
    Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
+   Supported cipher suites:
+     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+     • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+     • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
 
 ✅ TLS 1.3: supported
    Cipher suite: TLS_AES_256_GCM_SHA384
@@ -55,4 +59,14 @@ TLS Analisys for: [example.com:443]
    Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
+   Supported cipher suites:
+     • TLS_RSA_WITH_AES_128_CBC_SHA
+     • TLS_RSA_WITH_AES_256_CBC_SHA
+     • TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+     • TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+     • TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+     • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+     • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+     • TLS_AES_256_GCM_SHA384
    ```

@@ -25,6 +25,37 @@ var tlsVersions = map[uint16]string{
 	tls.VersionTLS13: "TLS 1.3",
 }
 
+var allCipherSuites = []struct {
+	id   uint16
+	name string
+}{
+	{tls.TLS_RSA_WITH_RC4_128_SHA, "TLS_RSA_WITH_RC4_128_SHA"},
+	{tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, "TLS_RSA_WITH_3DES_EDE_CBC_SHA"},
+	{tls.TLS_RSA_WITH_AES_128_CBC_SHA, "TLS_RSA_WITH_AES_128_CBC_SHA"},
+	{tls.TLS_RSA_WITH_AES_256_CBC_SHA, "TLS_RSA_WITH_AES_256_CBC_SHA"},
+	{tls.TLS_RSA_WITH_AES_128_CBC_SHA256, "TLS_RSA_WITH_AES_128_CBC_SHA256"},
+	{tls.TLS_RSA_WITH_AES_128_GCM_SHA256, "TLS_RSA_WITH_AES_128_GCM_SHA256"},
+	{tls.TLS_RSA_WITH_AES_256_GCM_SHA384, "TLS_RSA_WITH_AES_256_GCM_SHA384"},
+	{tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA"},
+	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA"},
+	{tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA"},
+	{tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA, "TLS_ECDHE_RSA_WITH_RC4_128_SHA"},
+	{tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA"},
+	{tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"},
+	{tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"},
+	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256"},
+	{tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"},
+	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
+	{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
+	{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+	{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+	{tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"},
+	{tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"},
+	{tls.TLS_AES_128_GCM_SHA256, "TLS_AES_128_GCM_SHA256"},
+	{tls.TLS_AES_256_GCM_SHA384, "TLS_AES_256_GCM_SHA384"},
+	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
+}
+
 type CertInfo struct {
 	CommonName string
 	PEM        string
@@ -105,6 +136,49 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	return true, nil, cipher, nil
 }
 
+func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
+	supported := []string{}
+
+	for _, cs := range allCipherSuites {
+		conf := &tls.Config{
+			MinVersion:         version,
+			MaxVersion:         version,
+			CipherSuites:       []uint16{cs.id},
+			InsecureSkipVerify: true,
+			ServerName:         host,
+		}
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
+		if err == nil {
+			supported = append(supported, cs.name)
+			conn.Close()
+		}
+	}
+
+	// Per TLS 1.3: mappa automatica
+	if version == tls.VersionTLS13 {
+		found := make(map[string]bool)
+		for i := 0; i < 10; i++ {
+			conf := &tls.Config{
+				MinVersion:         tls.VersionTLS13,
+				MaxVersion:         tls.VersionTLS13,
+				InsecureSkipVerify: true,
+				ServerName:         host,
+			}
+			conn, err := tls.Dial("tcp", net.JoinHostPort(host, port), conf)
+			if err == nil {
+				cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)
+				found[cs] = true
+				conn.Close()
+			}
+		}
+		for cs := range found {
+			supported = append(supported, cs)
+		}
+	}
+
+	return supported
+}
+
 // Certificate Informaion print function
 func printCertInfos(certInfos []CertInfo) {
 	for i, ci := range certInfos {
@@ -140,7 +214,7 @@ func saveOrPrintCertToFile(prefix string, certInfos []CertInfo) {
 
 func printCertSummary(cert *x509.Certificate, cipher string, version string) {
 	fmt.Printf("\n✅ \033[1m%s\033[0m: supported\n", version)
-	fmt.Printf("   Cipher suite: %s\n", cipher)
+	fmt.Printf("   Negotiated Cipher suite: %s\n", cipher)
 	fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
 	fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
 	fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
@@ -197,9 +271,18 @@ func main() {
 			if cert != nil {
 				printCertSummary(cert, cipher, name)
 
+				// Mostra cipher suite supportate per questa versione
+				ciphers := GetSupportedCiphersForVersion(*host, *port, *timeout, version)
+				if len(ciphers) > 0 {
+					fmt.Println("   Supported cipher suites:")
+					for _, cs := range ciphers {
+						fmt.Printf("     • %s\n", cs)
+					}
+				}
+
 				if *certChain {
 					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), certInfos)
-					certInfos = nil // Cleanup only if chain is printed/saved
+					certInfos = nil
 				}
 			}
 		} else {
