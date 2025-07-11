@@ -83,7 +83,7 @@ func clearScreen() {
 		cmd.Stdout = os.Stdout
 		cmd.Run()
 	default:
-		fmt.Println("Screen cleaning not supported on this system.")
+		fmt.Println("Screen cleaning not supported on this system!")
 	}
 }
 
