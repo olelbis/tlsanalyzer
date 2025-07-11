@@ -31,6 +31,11 @@ go build -v -ldflags="-X 'github.com/olelbis/sslscango/build.Version=$(cat VERSI
  
  ## How it works
 
+Usage:
+```bash
+Usage: sslscango [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]
+```
+
 Basic execution:
 
 ```bash
