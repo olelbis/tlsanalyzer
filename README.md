@@ -1,11 +1,11 @@
-# sslscango
+# tlsanalyzer
 
  [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
  [![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/ "Go to Linux homepage")
  [![OS - MacOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/ "Go to Apple homepage")
  
 
-`sslscango` It is a utility that takes inspiration from the original `sslscan`, with fewer features, but with the aim of being used in those work contexts where it is not permitted to install anything on your machines, or where you are not allowed access to the internet network.
+`tlsanalyzer` It is a utility that takes inspiration from the original `sslscan`, with fewer features, but with the aim of being used in those work contexts where it is not permitted to install anything on your machines, or where you are not allowed access to the internet network.
 
 This is early development version.
 ## Roadmap:
@@ -18,30 +18,31 @@ This is early development version.
 - [x] Check supported cipher
 - [x] Add the minimum version to start the scan from
 - [x] Improved performance (goroutines)
-- [ ] Export report in markdown
+- [x] Export report in markdown
+- [x] Project name change
 - [ ] Full build (shell)script
 
  ## Building from source
 
-If you want to build `sslscango` from source, please verify to have already installed **go1.23.4** or higher.
+If you want to build `tlsanalyzer` from source, please verify to have already installed **go1.23.4** or higher.
 
 Then run this command:
 
 ```bash
-go build -v -ldflags="-X 'github.com/olelbis/sslscango/build.Version=$(cat VERSION)' -X 'github.com/olelbis/sslscango/build.BuildUser=Team sslscango' -X 'github.com/olelbis/sslscango/build.BuildTime=$(date)'" -o sslscango
+go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date)'" -o tlsanalyzer
 ```
  
  ## How it works
 
 Usage:
 ```bash
-Usage: sslscango [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]
+Usage: tlsanalyzer [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]
 ```
 
 Basic execution:
 
 ```bash
-olelbis@mymachost sslscango % sslscango --host example.com                        
+olelbis@mymachost tlsanalyzer % tlsanalyzer --host example.com                        
 
 TLS Analisys for: [example.com:443]
 

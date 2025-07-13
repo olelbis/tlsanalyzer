@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	b "github.com/olelbis/sslscango/build"
+	b "github.com/olelbis/tlsanalyzer/build"
 )
 
 const defaultMaxConcurrency = 20
@@ -79,42 +79,58 @@ var (
 	outputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
 )
 
-func BuildMarkdownReport(host, port string, results map[string][]string, cert *x509.Certificate) string {
+type TLSScanResult struct {
+	Version      string
+	CipherSuites []string
+	Supported    bool
+	Certificate  *x509.Certificate
+}
+
+func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# SSL/TLS Scan Report for %s:%s\n\n", host, port))
+	sb.WriteString(fmt.Sprintf("# TLS Scan Report for %s:%s\n\n", host, port))
 
 	sb.WriteString("## TLS Versions Supported\n")
-	for version := tls.VersionTLS10; version <= tls.VersionTLS13; version++ {
-		vname := tlsVersions[uint16(version)]
-		if _, ok := results[vname]; ok {
-			sb.WriteString(fmt.Sprintf("- ✅ %s\n", vname))
+	for _, r := range results {
+		if r.Supported {
+			sb.WriteString(fmt.Sprintf("- ✅ %s\n", r.Version))
 		} else {
-			sb.WriteString(fmt.Sprintf("- ❌ %s\n", vname))
+			sb.WriteString(fmt.Sprintf("- ❌ %s\n", r.Version))
 		}
 	}
 	sb.WriteString("\n")
 
 	sb.WriteString("## Cipher Suites\n")
-	for version, ciphers := range results {
-		sb.WriteString(fmt.Sprintf("\n### %s\n", version))
-		for _, cs := range ciphers {
-			sb.WriteString(fmt.Sprintf("- %s\n", cs))
+	for _, r := range results {
+		if r.Supported && len(r.CipherSuites) > 0 {
+			sb.WriteString(fmt.Sprintf("\n### %s\n", r.Version))
+			for _, cs := range r.CipherSuites {
+				sb.WriteString(fmt.Sprintf("- %s\n", cs))
+			}
 		}
 	}
 
-	if cert != nil {
-		sb.WriteString("\n## Certificate Details\n")
-		sb.WriteString(fmt.Sprintf("- **Subject CN**: %s\n", cert.Subject.CommonName))
-		sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", cert.Issuer.CommonName))
-		sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", cert.NotBefore.Format("2006-01-02")))
-		sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", cert.NotAfter.Format("2006-01-02")))
-		sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", checkCertificateExpiry(cert)))
-		if len(cert.DNSNames) > 0 {
-			sb.WriteString(fmt.Sprintf("- **DNS Names**: %s\n", strings.Join(cert.DNSNames, ", ")))
+	for _, r := range results {
+		if r.Supported && r.Certificate != nil {
+			sb.WriteString("\n## Certificate Details\n")
+			sb.WriteString(fmt.Sprintf("- **Subject CN**: %s\n", r.Certificate.Subject.CommonName))
+			sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", r.Certificate.Issuer.CommonName))
+			sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", r.Certificate.NotBefore.Format("2006-01-02")))
+			sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", r.Certificate.NotAfter.Format("2006-01-02")))
+			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", checkCertificateExpiry(r.Certificate)))
+			if len(r.Certificate.DNSNames) > 0 {
+				sb.WriteString(fmt.Sprintf("- **DNS Names**: %s\n", strings.Join(r.Certificate.DNSNames, ", ")))
+			}
+			break // Only show the first valid cert
 		}
 	}
 
 	return sb.String()
+}
+
+func WriteMarkdownReportToFile(host, port string, results []TLSScanResult, outputPath string) error {
+	report := BuildMarkdownReportFromResults(host, port, results)
+	return os.WriteFile(outputPath+".md", []byte(report), 0640)
 }
 
 func clearScreen() {
@@ -308,7 +324,7 @@ func main() {
 	if *host == "" {
 		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
 		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]")
+		fmt.Println("Usage: " + exeName + " [[--cert] && [--output <file>]] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--min-version 1.0|1.1|1.2|1.3] [--markdown <file>]")
 
 		os.Exit(1)
 	}
@@ -326,20 +342,29 @@ func main() {
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
-	//for version, name := range tlsVersions {
+	var results []TLSScanResult
+
 	for _, version := range keys {
 		name := tlsVersions[version]
 		supported, cert, cipher, err := scanTLSVersion(*host, *port, version, *timeout)
 		if err != nil {
-			fmt.Printf("%s: errore %v\n", name, err)
+			fmt.Printf("%s: error: %v\n", name, err)
+			results = append(results, TLSScanResult{Version: name, Supported: false})
 			continue
 		}
+
 		if supported {
+			ciphers := GetSupportedCiphersForVersion(*host, *port, *timeout, version)
+
+			results = append(results, TLSScanResult{
+				Version:      name,
+				CipherSuites: ciphers,
+				Supported:    true,
+				Certificate:  cert,
+			})
+
 			if cert != nil {
 				printCertSummary(cert, cipher, name)
-
-				// Mostra cipher suite supportate per questa versione
-				ciphers := GetSupportedCiphersForVersion(*host, *port, *timeout, version)
 				if len(ciphers) > 0 {
 					fmt.Println("   Supported cipher suites:")
 					for _, cs := range ciphers {
@@ -352,8 +377,19 @@ func main() {
 					certInfos = nil
 				}
 			}
+
 		} else {
-			fmt.Printf("\n🚫 "+"%s: unsupported\n", name)
+			fmt.Printf("\n🚫 %s: unsupported\n", name)
+			results = append(results, TLSScanResult{Version: name, Supported: false})
+		}
+	}
+	// ➕ Scrive il report in Markdown se richiesto
+	if *outputMarkdown != "" {
+		err := WriteMarkdownReportToFile(*host, *port, results, *outputMarkdown)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Failed to write markdown report: %v\n", err)
+		} else {
+			fmt.Printf("✅ Markdown report saved to %s\n", *outputMarkdown)
 		}
 	}
 }
