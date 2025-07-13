@@ -213,7 +213,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 				MinVersion:         version,
 				MaxVersion:         version,
 				CipherSuites:       []uint16{cs.id},
-				InsecureSkipVerify: true, // NOTE: insecure in production
+				InsecureSkipVerify: false,
 				ServerName:         host,
 			}
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
