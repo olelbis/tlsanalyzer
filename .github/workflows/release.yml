@@ -8,6 +8,9 @@ on:
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
 
     strategy:
       matrix:
@@ -40,6 +43,9 @@ jobs:
   release:
     needs: build_and_release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
