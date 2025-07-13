@@ -1,2 +1,4 @@
 tlsanalyzer
 *.gz
+.DS_Store
+
