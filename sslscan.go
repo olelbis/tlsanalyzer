@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	b "github.com/olelbis/sslscango/build"
@@ -136,41 +137,68 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	return true, nil, cipher, nil
 }
 
+const defaultMaxConcurrency = 20
+const defaultTLS13Tries = 10
+
 func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
 	supported := []string{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, defaultMaxConcurrency) // configurable max goroutines
 
 	for _, cs := range allCipherSuites {
-		conf := &tls.Config{
-			MinVersion:         version,
-			MaxVersion:         version,
-			CipherSuites:       []uint16{cs.id},
-			InsecureSkipVerify: true,
-			ServerName:         host,
-		}
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
-		if err == nil {
-			supported = append(supported, cs.name)
-			conn.Close()
-		}
-	}
+		cs := cs // capture range variable
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
 
-	// Per TLS 1.3: mappa automatica
-	if version == tls.VersionTLS13 {
-		found := make(map[string]bool)
-		for i := 0; i < 10; i++ {
 			conf := &tls.Config{
-				MinVersion:         tls.VersionTLS13,
-				MaxVersion:         tls.VersionTLS13,
-				InsecureSkipVerify: true,
+				MinVersion:         version,
+				MaxVersion:         version,
+				CipherSuites:       []uint16{cs.id},
+				InsecureSkipVerify: true, // NOTE: insecure in production
 				ServerName:         host,
 			}
-			conn, err := tls.Dial("tcp", net.JoinHostPort(host, port), conf)
+			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
 			if err == nil {
-				cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)
-				found[cs] = true
 				conn.Close()
+				mu.Lock()
+				supported = append(supported, cs.name)
+				mu.Unlock()
 			}
+		}()
+	}
+
+	wg.Wait()
+
+	// TLS 1.3 parallel scan
+	if version == tls.VersionTLS13 {
+		found := make(map[string]bool)
+		var tls13Mutex sync.Mutex
+		var wg3 sync.WaitGroup
+		for i := 0; i < defaultTLS13Tries; i++ {
+			wg3.Add(1)
+			go func() {
+				defer wg3.Done()
+				conf := &tls.Config{
+					MinVersion:         tls.VersionTLS13,
+					MaxVersion:         tls.VersionTLS13,
+					InsecureSkipVerify: true,
+					ServerName:         host,
+				}
+				conn, err := tls.Dial("tcp", net.JoinHostPort(host, port), conf)
+				if err == nil {
+					cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)
+					tls13Mutex.Lock()
+					found[cs] = true
+					tls13Mutex.Unlock()
+					conn.Close()
+				}
+			}()
 		}
+		wg3.Wait()
 		for cs := range found {
 			supported = append(supported, cs)
 		}

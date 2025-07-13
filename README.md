@@ -17,6 +17,7 @@ This is early development version.
 - [x] Fix ordered test (go range behaviour)
 - [x] Check supported cipher
 - [x] Add the minimum version to start the scan from
+- [x] Improved performance (goroutines)
 - [ ] Full build (shell)script
 
  ## Building from source
