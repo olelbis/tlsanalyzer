@@ -51,7 +51,7 @@ jobs:
         with:
            artifacts: ./artifacts/**/*
            tag: ${{ github.ref_name }}
-           name: tlsanalyzer release ${{ github.ref_name }}  # release title
+           name: tlsanalyzer elease ${{ github.ref_name }}  # release title
            prerelease: false
            body: |
             ### What's new
