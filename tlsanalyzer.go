@@ -166,7 +166,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
 		ServerName:         host, // Enable SNI support
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: false,
 		MinVersion:         version,
 		MaxVersion:         version,
 	}
@@ -240,7 +240,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 				conf := &tls.Config{
 					MinVersion:         tls.VersionTLS13,
 					MaxVersion:         tls.VersionTLS13,
-					InsecureSkipVerify: true,
+					InsecureSkipVerify: false,
 					ServerName:         host,
 				}
 				conn, err := tls.Dial("tcp", net.JoinHostPort(host, port), conf)
