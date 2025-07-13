@@ -51,3 +51,12 @@ jobs:
         with:
            artifacts: ./artifacts/**/*
            tag: ${{ github.ref_name }}
+           name: Release ${{ github.ref_name }}  # titolo della release
+           prerelease: false
+           body: |
+            ### Novità
+            - Aggiunto supporto multi-arch
+            - Migliorata stabilità
+            - Bug fix vari
+            
+
