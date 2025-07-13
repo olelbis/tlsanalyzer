@@ -20,6 +20,7 @@ This is early development version.
 - [x] Improved performance (goroutines)
 - [x] Export report in markdown
 - [x] Project name change
+- [x] Github action for multiarch release
 - [ ] Full build (shell)script
 
  ## Building from source
