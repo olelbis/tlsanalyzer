@@ -18,6 +18,7 @@ This is early development version.
 - [x] Check supported cipher
 - [x] Add the minimum version to start the scan from
 - [x] Improved performance (goroutines)
+- [ ] Export report in markdown
 - [ ] Full build (shell)script
 
  ## Building from source

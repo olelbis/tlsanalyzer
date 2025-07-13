@@ -19,6 +19,9 @@ import (
 	b "github.com/olelbis/sslscango/build"
 )
 
+const defaultMaxConcurrency = 20
+const defaultTLS13Tries = 10
+
 var tlsVersions = map[uint16]string{
 	tls.VersionTLS10: "TLS 1.0",
 	tls.VersionTLS11: "TLS 1.1",
@@ -73,7 +76,46 @@ var (
 	timeout         = flag.Int("timeout", 5, "Connection Timeout")
 	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
 	minVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
+	outputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
 )
+
+func BuildMarkdownReport(host, port string, results map[string][]string, cert *x509.Certificate) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# SSL/TLS Scan Report for %s:%s\n\n", host, port))
+
+	sb.WriteString("## TLS Versions Supported\n")
+	for version := tls.VersionTLS10; version <= tls.VersionTLS13; version++ {
+		vname := tlsVersions[uint16(version)]
+		if _, ok := results[vname]; ok {
+			sb.WriteString(fmt.Sprintf("- ✅ %s\n", vname))
+		} else {
+			sb.WriteString(fmt.Sprintf("- ❌ %s\n", vname))
+		}
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("## Cipher Suites\n")
+	for version, ciphers := range results {
+		sb.WriteString(fmt.Sprintf("\n### %s\n", version))
+		for _, cs := range ciphers {
+			sb.WriteString(fmt.Sprintf("- %s\n", cs))
+		}
+	}
+
+	if cert != nil {
+		sb.WriteString("\n## Certificate Details\n")
+		sb.WriteString(fmt.Sprintf("- **Subject CN**: %s\n", cert.Subject.CommonName))
+		sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", cert.Issuer.CommonName))
+		sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", cert.NotBefore.Format("2006-01-02")))
+		sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", cert.NotAfter.Format("2006-01-02")))
+		sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", checkCertificateExpiry(cert)))
+		if len(cert.DNSNames) > 0 {
+			sb.WriteString(fmt.Sprintf("- **DNS Names**: %s\n", strings.Join(cert.DNSNames, ", ")))
+		}
+	}
+
+	return sb.String()
+}
 
 func clearScreen() {
 	switch runtime.GOOS {
@@ -136,9 +178,6 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	}
 	return true, nil, cipher, nil
 }
-
-const defaultMaxConcurrency = 20
-const defaultTLS13Tries = 10
 
 func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
 	supported := []string{}
