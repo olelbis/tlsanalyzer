@@ -51,12 +51,14 @@ jobs:
         with:
            artifacts: ./artifacts/**/*
            tag: ${{ github.ref_name }}
-           name: Release ${{ github.ref_name }}  # titolo della release
+           name: tlsanalyzer release ${{ github.ref_name }}  # release title
            prerelease: false
            body: |
-            ### Novità
-            - Aggiunto supporto multi-arch
-            - Migliorata stabilità
-            - Bug fix vari
-            
-
+            ### What's new
+            - v0.5.1 action test
+            - v0.5.0 project renamed
+            - v0.4.0 markdown report
+            - v0.3.0 added gorouines to improve scanning performance
+            - v0.2.0 added screen cleanup
+            - v0.1.0 very first release
+            - Tested on Apple M3 Pro - Sequoia 15.5
