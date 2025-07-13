@@ -9,7 +9,7 @@ jobs:
   build_and_release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: write
 
     strategy:
