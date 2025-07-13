@@ -1,4 +1,5 @@
 tlsanalyzer
 *.gz
 .DS_Store
-
+.github/*.bak
+.github/*.tmp
