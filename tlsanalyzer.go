@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"flag"
 	"fmt"
 	"net"
@@ -77,6 +76,7 @@ var (
 	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
 	minVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 	outputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
+	forceCiphers    = flag.Bool("force-ciphers", false, "Force all cipher suites during version scan")
 )
 
 type TLSScanResult struct {
@@ -162,39 +162,79 @@ func tlsVersionToUint16(ver string) uint16 {
 	}
 }
 
-func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
-	address := net.JoinHostPort(host, port)
-	config := &tls.Config{
-		ServerName:         host, // Enable SNI support
-		InsecureSkipVerify: true,
+/*
+*
+
+	func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
+		address := net.JoinHostPort(host, port)
+		config := &tls.Config{
+			ServerName:         host, // Enable SNI support
+			InsecureSkipVerify: true,
+			MinVersion:         version,
+			MaxVersion:         version,
+		}
+		fmt.Printf("👉 Trying TLS version %s (%d) to %s:%s\n", tlsVersions[version], version, host, port)
+
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
+		if err != nil {
+			fmt.Printf("❌ Handshake failed: %v\n", err)
+			return false, nil, "", nil
+		}
+		defer conn.Close()
+
+		state := conn.ConnectionState()
+		for _, cert := range state.PeerCertificates {
+			ci := CertInfo{
+				CommonName: cert.Subject.CommonName,
+				PEM: string(pem.EncodeToMemory(&pem.Block{
+					Type:  "CERTIFICATE",
+					Bytes: cert.Raw,
+				})),
+			}
+			certInfos = append(certInfos, ci)
+		}
+		cipher := tls.CipherSuiteName(state.CipherSuite)
+		if len(state.PeerCertificates) > 0 {
+			return true, state.PeerCertificates[0], cipher, nil
+		}
+		return true, nil, cipher, nil
+	}
+
+*
+*/
+func scanTLSVersion(host, port string, version uint16, timeout int) (bool, *x509.Certificate, string, error) {
+	conf := &tls.Config{
 		MinVersion:         version,
 		MaxVersion:         version,
+		InsecureSkipVerify: true,
+		ServerName:         host,
 	}
-	fmt.Printf("👉 Trying TLS version %s (%d) to %s:%s\n", tlsVersions[version], version, host, port)
 
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
+	if *forceCiphers && version <= tls.VersionTLS12 {
+		var suiteIDs []uint16
+		for _, cs := range allCipherSuites {
+			suiteIDs = append(suiteIDs, cs.id)
+		}
+		conf.CipherSuites = suiteIDs
+		fmt.Printf("🔧 Forcing cipher suites for %s (%d)\n", tlsVersions[version], version)
+	}
+
+	fmt.Printf("🔍 Testing %s on %s:%s\n", tlsVersions[version], host, port)
+
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
 	if err != nil {
-		fmt.Printf("❌ Handshake failed: %v\n", err)
-		return false, nil, "", nil
+		fmt.Printf("❌ TLS %s handshake failed: %v\n\n", tlsVersions[version], err)
+		return false, nil, "", err
 	}
 	defer conn.Close()
 
 	state := conn.ConnectionState()
-	for _, cert := range state.PeerCertificates {
-		ci := CertInfo{
-			CommonName: cert.Subject.CommonName,
-			PEM: string(pem.EncodeToMemory(&pem.Block{
-				Type:  "CERTIFICATE",
-				Bytes: cert.Raw,
-			})),
-		}
-		certInfos = append(certInfos, ci)
-	}
+	cert := state.PeerCertificates[0]
 	cipher := tls.CipherSuiteName(state.CipherSuite)
-	if len(state.PeerCertificates) > 0 {
-		return true, state.PeerCertificates[0], cipher, nil
-	}
-	return true, nil, cipher, nil
+
+	fmt.Printf("✅ TLS %s success: cipher %s\n", tlsVersions[version], cipher)
+
+	return true, cert, cipher, nil
 }
 
 func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
