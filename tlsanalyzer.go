@@ -166,13 +166,12 @@ func tlsVersionToUint16(ver string) uint16 {
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
-		ServerName:         host, // Enable SNI support
+		ServerName:         host,
 		InsecureSkipVerify: true,
 		MinVersion:         version,
 		MaxVersion:         version,
 	}
 
-	// ➕ Force cipher suite, only for TLS 1.0–1.2
 	if *forceCiphers && version <= tls.VersionTLS12 {
 		var suiteIDs []uint16
 		for _, cs := range allCipherSuites {
@@ -182,8 +181,47 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		fmt.Printf("🔧 Forcing cipher suites for %s\n", tlsVersions[version])
 	}
 
-	fmt.Printf("\n👉 Trying version %s \n", tlsVersions[version])
+	fmt.Printf("\n👉 Trying TLS version %s\n", tlsVersions[version])
 
+	// Se TLS 1.3 and forceCiphers active → try n times
+	if *forceCiphers && version == tls.VersionTLS13 {
+		var cipher string
+		var cert *x509.Certificate
+		var success bool
+
+		for i := 0; i < 5; i++ {
+			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
+			if err != nil {
+				fmt.Printf("❌ TLS 1.3 handshake attempt %d failed: %v\n", i+1, err)
+				continue
+			}
+			state := conn.ConnectionState()
+			cipher = tls.CipherSuiteName(state.CipherSuite)
+			if len(state.PeerCertificates) > 0 {
+				cert = state.PeerCertificates[0]
+			}
+			for _, cert := range state.PeerCertificates {
+				ci := CertInfo{
+					CommonName: cert.Subject.CommonName,
+					PEM: string(pem.EncodeToMemory(&pem.Block{
+						Type:  "CERTIFICATE",
+						Bytes: cert.Raw,
+					})),
+				}
+				certInfos = append(certInfos, ci)
+			}
+			conn.Close()
+			success = true
+
+		}
+
+		if success {
+			return true, cert, cipher, nil
+		}
+		return false, nil, "", fmt.Errorf("all TLS 1.3 handshakes failed")
+	}
+
+	// TLS 1.0–1.2 o normal case
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
 		fmt.Printf("❌ Handshake failed: %v\n", err)
@@ -203,13 +241,38 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		}
 		certInfos = append(certInfos, ci)
 	}
-
 	cipher := tls.CipherSuiteName(state.CipherSuite)
 
 	if len(state.PeerCertificates) > 0 {
 		return true, state.PeerCertificates[0], cipher, nil
 	}
 	return true, nil, cipher, nil
+}
+
+func isCipherSuiteCompatibleWith(version uint16, id uint16) bool {
+	// TLS 1.3 cipher suites
+	if version == tls.VersionTLS13 {
+		return id == tls.TLS_AES_128_GCM_SHA256 ||
+			id == tls.TLS_AES_256_GCM_SHA384 ||
+			id == tls.TLS_CHACHA20_POLY1305_SHA256
+	}
+
+	// TLS 1.0–1.2 cipher suites
+	return id != tls.TLS_AES_128_GCM_SHA256 &&
+		id != tls.TLS_AES_256_GCM_SHA384 &&
+		id != tls.TLS_CHACHA20_POLY1305_SHA256
+}
+
+func uniqueStrings(input []string) []string {
+	seen := make(map[string]struct{})
+	var result []string
+	for _, s := range input {
+		if _, exists := seen[s]; !exists {
+			seen[s] = struct{}{}
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
@@ -219,6 +282,9 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 	sem := make(chan struct{}, defaultMaxConcurrency) // configurable max goroutines
 
 	for _, cs := range allCipherSuites {
+		if !isCipherSuiteCompatibleWith(version, cs.id) {
+			continue
+		}
 		cs := cs // capture range variable
 		wg.Add(1)
 		go func() {
@@ -276,7 +342,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 		}
 	}
 
-	return supported
+	return uniqueStrings(supported)
 }
 
 // Certificate Informaion print function
@@ -347,7 +413,6 @@ func main() {
 	}
 
 	minVersion := tlsVersionToUint16(*minVersionStr)
-	//results := []Result{}
 
 	// Sort versions in ascending order
 	keys := make([]uint16, 0, len(tlsVersions))
@@ -400,7 +465,7 @@ func main() {
 			results = append(results, TLSScanResult{Version: name, Supported: false})
 		}
 	}
-	// ➕ Scrive il report in Markdown se richiesto
+	// ➕ Write Markdown reports
 	if *outputMarkdown != "" {
 		err := WriteMarkdownReportToFile(*host, *port, results, *outputMarkdown)
 		if err != nil {
