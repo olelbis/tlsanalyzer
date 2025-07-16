@@ -170,9 +170,11 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		MinVersion:         version,
 		MaxVersion:         version,
 	}
+	fmt.Printf("👉 Trying TLS version %s (%d) to %s:%s\n", tlsVersions[version], version, host, port)
 
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
+		fmt.Printf("❌ Handshake failed: %v\n", err)
 		return false, nil, "", nil
 	}
 	defer conn.Close()
