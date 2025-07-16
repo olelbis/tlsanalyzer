@@ -60,6 +60,34 @@ var allCipherSuites = []struct {
 	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
 }
 
+var cipherClassification = map[string]string{
+	"TLS_RSA_WITH_RC4_128_SHA":                "🔴 INSECURE",
+	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           "🔴 INSECURE",
+	"TLS_RSA_WITH_AES_128_CBC_SHA":            "🟡 WEAK",
+	"TLS_RSA_WITH_AES_256_CBC_SHA":            "🟡 WEAK",
+	"TLS_RSA_WITH_AES_128_CBC_SHA256":         "🟡 WEAK",
+	"TLS_RSA_WITH_AES_128_GCM_SHA256":         "🟢 SECURE",
+	"TLS_RSA_WITH_AES_256_GCM_SHA384":         "🟢 SECURE",
+	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":        "🔴 INSECURE",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    "🟡 ACCEPTABLE",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    "🟡 ACCEPTABLE",
+	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":          "🔴 INSECURE",
+	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":     "🔴 INSECURE",
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      "🟡 ACCEPTABLE",
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      "🟡 ACCEPTABLE",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256": "🟢 SECURE",
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256":   "🟢 SECURE",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": "🟢 SECURE",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384": "🟢 SECURE",
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   "🟢 SECURE",
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   "🟢 SECURE",
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  "🟢 MODERN",
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    "🟢 MODERN",
+	"TLS_AES_128_GCM_SHA256":                  "🟢 MODERN",
+	"TLS_AES_256_GCM_SHA384":                  "🟢 MODERN",
+	"TLS_CHACHA20_POLY1305_SHA256":            "🟢 MODERN",
+}
+
 type CertInfo struct {
 	CommonName string
 	PEM        string
@@ -89,7 +117,7 @@ type TLSScanResult struct {
 
 func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# TLS Scan Report for %s:%s\n\n", host, port))
+	sb.WriteString(fmt.Sprintf("# SSL/TLS Scan Report for %s:%s\n\n", host, port))
 
 	sb.WriteString("## TLS Versions Supported\n")
 	for _, r := range results {
@@ -106,7 +134,12 @@ func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) 
 		if r.Supported && len(r.CipherSuites) > 0 {
 			sb.WriteString(fmt.Sprintf("\n### %s\n", r.Version))
 			for _, cs := range r.CipherSuites {
-				sb.WriteString(fmt.Sprintf("- %s\n", cs))
+				label := cipherClassification[cs]
+				if label != "" {
+					sb.WriteString(fmt.Sprintf("\n- %s %s", cs, label))
+				} else {
+					sb.WriteString(fmt.Sprintf("\n- %s", cs))
+				}
 			}
 		}
 	}
@@ -118,7 +151,7 @@ func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) 
 			sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", r.Certificate.Issuer.CommonName))
 			sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", r.Certificate.NotBefore.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", r.Certificate.NotAfter.Format("2006-01-02")))
-			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", checkCertificateExpiry(r.Certificate)))
+			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", int(time.Until(r.Certificate.NotAfter).Hours()/24)))
 			if len(r.Certificate.DNSNames) > 0 {
 				sb.WriteString(fmt.Sprintf("- **DNS Names**: %s\n", strings.Join(r.Certificate.DNSNames, ", ")))
 			}
