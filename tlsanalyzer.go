@@ -163,46 +163,6 @@ func tlsVersionToUint16(ver string) uint16 {
 	}
 }
 
-/*
-*
-
-	func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
-		address := net.JoinHostPort(host, port)
-		config := &tls.Config{
-			ServerName:         host, // Enable SNI support
-			InsecureSkipVerify: true,
-			MinVersion:         version,
-			MaxVersion:         version,
-		}
-		fmt.Printf("👉 Trying TLS version %s (%d) to %s:%s\n", tlsVersions[version], version, host, port)
-
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
-		if err != nil {
-			fmt.Printf("❌ Handshake failed: %v\n", err)
-			return false, nil, "", nil
-		}
-		defer conn.Close()
-
-		state := conn.ConnectionState()
-		for _, cert := range state.PeerCertificates {
-			ci := CertInfo{
-				CommonName: cert.Subject.CommonName,
-				PEM: string(pem.EncodeToMemory(&pem.Block{
-					Type:  "CERTIFICATE",
-					Bytes: cert.Raw,
-				})),
-			}
-			certInfos = append(certInfos, ci)
-		}
-		cipher := tls.CipherSuiteName(state.CipherSuite)
-		if len(state.PeerCertificates) > 0 {
-			return true, state.PeerCertificates[0], cipher, nil
-		}
-		return true, nil, cipher, nil
-	}
-
-*
-*/
 func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
@@ -212,7 +172,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		MaxVersion:         version,
 	}
 
-	// ➕ Forza le cipher suite definite, solo per TLS 1.0–1.2
+	// ➕ Force cipher suite, only for TLS 1.0–1.2
 	if *forceCiphers && version <= tls.VersionTLS12 {
 		var suiteIDs []uint16
 		for _, cs := range allCipherSuites {
@@ -222,7 +182,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		fmt.Printf("🔧 Forcing cipher suites for %s\n", tlsVersions[version])
 	}
 
-	fmt.Printf("👉 Trying TLS version %s (%d) to %s:%s\n", tlsVersions[version], version, host, port)
+	fmt.Printf("\n👉 Trying version %s \n", tlsVersions[version])
 
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {

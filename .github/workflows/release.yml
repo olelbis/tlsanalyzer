@@ -55,10 +55,11 @@ jobs:
            prerelease: false
            body: |
             ### What's new
+            - v0.6.0 force cipher negotiate
             - v0.5.1 action test
             - v0.5.0 project renamed
             - v0.4.0 markdown report
-            - v0.3.0 added gorouines to improve scanning performance
+            - v0.3.0 added goroutines to improve scanning performance
             - v0.2.0 added screen cleanup
             - v0.1.0 very first release
-            - Tested on Apple M3 Pro - Sequoia 15.5
+            Tested on Sequoia 15.5, RHEL/OEL 8.9

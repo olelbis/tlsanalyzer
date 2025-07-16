@@ -21,6 +21,7 @@ This is early development version.
 - [x] Export report in markdown
 - [x] Project name change
 - [x] Github action for multiarch release
+- [x] force-cipher flag added to check all supported cipher
 - [ ] Full build (shell)script
 
  ## Building from source
@@ -47,35 +48,62 @@ olelbis@mymachost tlsanalyzer % tlsanalyzer --host example.com
 
 TLS Analisys for: [example.com:443]
 
+👉 Trying version TLS 1.0 
+❌ Handshake failed: remote error: tls: protocol version not supported
+
 🚫 TLS 1.0: unsupported
+
+👉 Trying version TLS 1.1 
+❌ Handshake failed: remote error: tls: protocol version not supported
 
 🚫 TLS 1.1: unsupported
 
+👉 Trying version TLS 1.2 
+
 ✅ TLS 1.2: supported
-   Cipher suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+   Negotiated Cipher suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
    CN: *.example.com
    Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
    Supported cipher suites:
-     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
      • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
      • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+
+👉 Trying version TLS 1.3 
 
 ✅ TLS 1.3: supported
-   Cipher suite: TLS_AES_256_GCM_SHA384
+   Negotiated Cipher suite: TLS_AES_256_GCM_SHA384
    CN: *.example.com
    Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
    Supported cipher suites:
-     • TLS_RSA_WITH_AES_128_CBC_SHA
+     • TLS_RSA_WITH_RC4_128_SHA
+     • TLS_RSA_WITH_AES_128_CBC_SHA256
      • TLS_RSA_WITH_AES_256_CBC_SHA
-     • TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-     • TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+     • TLS_AES_128_GCM_SHA256
+     • TLS_CHACHA20_POLY1305_SHA256
+     • TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+     • TLS_RSA_WITH_AES_256_GCM_SHA384
+     • TLS_AES_256_GCM_SHA384
      • TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
-     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+     • TLS_RSA_WITH_AES_128_GCM_SHA256
+     • TLS_RSA_WITH_3DES_EDE_CBC_SHA
+     • TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+     • TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+     • TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
+     • TLS_RSA_WITH_AES_128_CBC_SHA
+     • TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
      • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
      • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+     • TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+     • TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+     • TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+     • TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+     • TLS_ECDHE_RSA_WITH_RC4_128_SHA
+     • TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
      • TLS_AES_256_GCM_SHA384
    ```
