@@ -48,17 +48,17 @@ olelbis@mymachost tlsanalyzer % tlsanalyzer --host example.com
 
 TLS Analisys for: [example.com:443]
 
-👉 Trying version TLS 1.0 
+👉 Trying TLS version TLS 1.0
 ❌ Handshake failed: remote error: tls: protocol version not supported
 
 🚫 TLS 1.0: unsupported
 
-👉 Trying version TLS 1.1 
+👉 Trying TLS version TLS 1.1
 ❌ Handshake failed: remote error: tls: protocol version not supported
 
 🚫 TLS 1.1: unsupported
 
-👉 Trying version TLS 1.2 
+👉 Trying TLS version TLS 1.2
 
 ✅ TLS 1.2: supported
    Negotiated Cipher suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
@@ -67,11 +67,11 @@ TLS Analisys for: [example.com:443]
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
    Supported cipher suites:
+     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
      • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
      • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
-     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
 
-👉 Trying version TLS 1.3 
+👉 Trying TLS version TLS 1.3
 
 ✅ TLS 1.3: supported
    Negotiated Cipher suite: TLS_AES_256_GCM_SHA384
@@ -80,30 +80,7 @@ TLS Analisys for: [example.com:443]
    Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
    DNS: [*.example.com example.com]
    Supported cipher suites:
-     • TLS_RSA_WITH_RC4_128_SHA
-     • TLS_RSA_WITH_AES_128_CBC_SHA256
-     • TLS_RSA_WITH_AES_256_CBC_SHA
      • TLS_AES_128_GCM_SHA256
+     • TLS_AES_256_GCM_SHA384
      • TLS_CHACHA20_POLY1305_SHA256
-     • TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
-     • TLS_RSA_WITH_AES_256_GCM_SHA384
-     • TLS_AES_256_GCM_SHA384
-     • TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
-     • TLS_RSA_WITH_AES_128_GCM_SHA256
-     • TLS_RSA_WITH_3DES_EDE_CBC_SHA
-     • TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-     • TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-     • TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
-     • TLS_RSA_WITH_AES_128_CBC_SHA
-     • TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-     • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-     • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
-     • TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
-     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-     • TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-     • TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
-     • TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
-     • TLS_ECDHE_RSA_WITH_RC4_128_SHA
-     • TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
-     • TLS_AES_256_GCM_SHA384
    ```
