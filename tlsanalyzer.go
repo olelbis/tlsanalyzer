@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -211,21 +211,25 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 			suiteIDs = append(suiteIDs, cs.id)
 		}
 		config.CipherSuites = suiteIDs
-		fmt.Printf("🔧 Forcing cipher suites for %s\n", tlsVersions[version])
+		fmt.Printf("\n🔧 Forcing cipher suites for %s", tlsVersions[version])
 	}
 
 	fmt.Printf("\n👉 Trying TLS version %s\n", tlsVersions[version])
 
-	// Se TLS 1.3 and forceCiphers active → try n times
+	// if TLS 1.3 and forceCiphers active → try n times
 	if *forceCiphers && version == tls.VersionTLS13 {
 		var cipher string
 		var cert *x509.Certificate
 		var success bool
 
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 			if err != nil {
-				fmt.Printf("❌ TLS 1.3 handshake attempt %d failed: %v\n", i+1, err)
+				if strings.Contains(err.Error(), "protocol version not supported") {
+					fmt.Printf("❌ Handshake failed: %v", err)
+					return false, nil, "", err
+				}
+				fmt.Printf("❌ Handshake attempt %d failed: %v\n", i+1, err)
 				continue
 			}
 			state := conn.ConnectionState()
@@ -245,7 +249,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 			}
 			conn.Close()
 			success = true
-
+			break
 		}
 
 		if success {
@@ -257,7 +261,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	// TLS 1.0–1.2 o normal case
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
-		fmt.Printf("❌ Handshake failed: %v\n", err)
+		fmt.Printf("❌ Handshake failed: %v", err)
 		return false, nil, "", nil
 	}
 	defer conn.Close()
@@ -412,7 +416,7 @@ func saveOrPrintCertToFile(prefix string, certInfos []CertInfo) {
 }
 
 func printCertSummary(cert *x509.Certificate, cipher string, version string) {
-	fmt.Printf("\n✅ \033[1m%s\033[0m: supported\n", version)
+	fmt.Printf("✅ \033[1m%s\033[0m: supported\n", version)
 	fmt.Printf("   Negotiated Cipher suite: %s\n", cipher)
 	fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
 	fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
@@ -454,7 +458,7 @@ func main() {
 			keys = append(keys, v)
 		}
 	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	slices.Sort(keys)
 	fmt.Printf("\n\033[1mTLS Analisys for:\033[0m [%s:%s]\n", *host, *port)
 
 	var results []TLSScanResult
@@ -463,7 +467,8 @@ func main() {
 		name := tlsVersions[version]
 		supported, cert, cipher, err := scanTLSVersion(*host, *port, version, *timeout)
 		if err != nil {
-			fmt.Printf("%s: error: %v\n", name, err)
+			//fmt.Printf("%s: error: %v\n", name, err)
+			fmt.Printf("\n🚫 %s: unsupported\n", name)
 			results = append(results, TLSScanResult{Version: name, Supported: false})
 			continue
 		}
