@@ -17,8 +17,11 @@ import (
 	"time"
 )
 
-const defaultMaxConcurrency = 20
-const defaultTLS13Tries = 10
+const (
+	defaultMaxConcurrency = 20
+	defaultTLS13Tries     = 10
+	defaultTimeout        = 5
+)
 
 var tlsVersions = map[uint16]string{
 	tls.VersionTLS10: "TLS 1.0",
@@ -58,32 +61,59 @@ var allCipherSuites = []struct {
 	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
 }
 
-var cipherClassification = map[string]string{
-	"TLS_RSA_WITH_RC4_128_SHA":                "🔴 INSECURE",
-	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           "🔴 INSECURE",
-	"TLS_RSA_WITH_AES_128_CBC_SHA":            "🟡 WEAK",
-	"TLS_RSA_WITH_AES_256_CBC_SHA":            "🟡 WEAK",
-	"TLS_RSA_WITH_AES_128_CBC_SHA256":         "🟡 WEAK",
-	"TLS_RSA_WITH_AES_128_GCM_SHA256":         "🟢 SECURE",
-	"TLS_RSA_WITH_AES_256_GCM_SHA384":         "🟢 SECURE",
-	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":        "🔴 INSECURE",
-	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    "🟡 ACCEPTABLE",
-	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    "🟡 ACCEPTABLE",
-	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":          "🔴 INSECURE",
-	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":     "🔴 INSECURE",
-	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      "🟡 ACCEPTABLE",
-	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      "🟡 ACCEPTABLE",
-	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256": "🟢 SECURE",
-	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256":   "🟢 SECURE",
-	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": "🟢 SECURE",
-	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384": "🟢 SECURE",
-	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   "🟢 SECURE",
-	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   "🟢 SECURE",
-	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  "🟢 MODERN",
-	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    "🟢 MODERN",
-	"TLS_AES_128_GCM_SHA256":                  "🟢 MODERN",
-	"TLS_AES_256_GCM_SHA384":                  "🟢 MODERN",
-	"TLS_CHACHA20_POLY1305_SHA256":            "🟢 MODERN",
+type SecurityLevel int
+
+const (
+	SecurityInsecure SecurityLevel = iota
+	SecurityWeak
+	SecurityAcceptable
+	SecuritySecure
+	SecurityModern
+)
+
+func (s SecurityLevel) String() string {
+	switch s {
+	case SecurityInsecure:
+		return "🔴 INSECURE"
+	case SecurityWeak:
+		return "🟠 WEAK"
+	case SecurityAcceptable:
+		return "🟡 ACCEPTABLE"
+	case SecuritySecure:
+		return "🟢 SECURE"
+	case SecurityModern:
+		return "🟢 MODERN"
+	default:
+		return "❓ UNKNOWN"
+	}
+}
+
+var cipherClassification = map[string]SecurityLevel{
+	"TLS_RSA_WITH_RC4_128_SHA":                SecurityInsecure,
+	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           SecurityInsecure,
+	"TLS_RSA_WITH_AES_128_CBC_SHA":            SecurityWeak,
+	"TLS_RSA_WITH_AES_256_CBC_SHA":            SecurityWeak,
+	"TLS_RSA_WITH_AES_128_CBC_SHA256":         SecurityWeak,
+	"TLS_RSA_WITH_AES_128_GCM_SHA256":         SecuritySecure,
+	"TLS_RSA_WITH_AES_256_GCM_SHA384":         SecuritySecure,
+	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":        SecurityInsecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    SecurityAcceptable,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    SecurityAcceptable,
+	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":          SecurityInsecure,
+	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":     SecurityInsecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      SecurityAcceptable,
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      SecurityAcceptable,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256": SecuritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256":   SecuritySecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": SecuritySecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384": SecuritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   SecuritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   SecuritySecure,
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  SecurityModern,
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    SecurityModern,
+	"TLS_AES_128_GCM_SHA256":                  SecurityModern,
+	"TLS_AES_256_GCM_SHA384":                  SecurityModern,
+	"TLS_CHACHA20_POLY1305_SHA256":            SecurityModern,
 }
 
 type CertInfo struct {
@@ -99,7 +129,7 @@ var (
 	port            = flag.String("port", "443", "TLS server port")
 	certChain       = flag.Bool("cert", false, "Print cerificate chain")
 	checkCertExpiry = flag.Bool("checkcert", false, "Check if the certificate is about to expire")
-	timeout         = flag.Int("timeout", 5, "Connection Timeout")
+	timeout         = flag.Int("timeout", defaultTimeout, "Connection Timeout")
 	outputFile      = flag.String("output", "", "File to save the PEM output to (optional), only used with --cert")
 	minVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 	outputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
@@ -115,7 +145,7 @@ type TLSScanResult struct {
 
 func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("# SSL/TLS Scan Report for %s:%s\n\n", host, port))
+	sb.WriteString(fmt.Sprintf("# TLS Scan Report for host %s:%s\n\n", host, port))
 
 	sb.WriteString("## TLS Versions Supported\n")
 	for _, r := range results {
@@ -133,7 +163,7 @@ func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) 
 			sb.WriteString(fmt.Sprintf("\n### %s\n", r.Version))
 			for _, cs := range r.CipherSuites {
 				label := cipherClassification[cs]
-				if label != "" {
+				if label.String() != "" {
 					sb.WriteString(fmt.Sprintf("\n- %s %s", cs, label))
 				} else {
 					sb.WriteString(fmt.Sprintf("\n- %s", cs))
