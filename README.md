@@ -22,7 +22,8 @@ This is early development version.
 - [x] Project name change
 - [x] Github action for multiarch release
 - [x] force-cipher flag added to check all supported cipher
-- [ ] Full build (shell)script
+- [x] Full build (shell)script
+- [] code review/refactoring... wip
 
  ## Building from source
 

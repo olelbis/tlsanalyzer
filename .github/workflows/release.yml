@@ -55,6 +55,7 @@ jobs:
            prerelease: false
            body: |
             ### What's new
+            - v0.6.9 build bash script
             - v0.6.2 bugfix
             - v0.6.1 force also for 1.3
             - v0.6.0 force cipher negotiate
