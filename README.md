@@ -38,7 +38,28 @@ go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VER
 
 Usage:
 ```bash
-Usage: tlsanalyzer [--cert] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--output <file>] [--min-version 1.0|1.1|1.2|1.3]
+Mandatory flags:
+  --host string Hostname or server IP to scan
+
+Optional flags:
+  -cert
+        Print cerificate chain
+  -checkcert
+        Check if the certificate is about to expire
+  -force-ciphers
+        Force all cipher suites during version scan
+  -host string
+        Hostname or server IP (mandatory)
+  -markdown string
+        Write scan result to markdown file
+  -min-version string
+        Minimum TLS version to test (1.0, 1.1, 1.2, 1.3) (default "1.0")
+  -output string
+        File to save the PEM output to (optional), only used with --cert
+  -port string
+        TLS server port (default "443")
+  -timeout int
+        Connection Timeout (default 5)
 ```
 
 Basic execution:
