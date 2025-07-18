@@ -15,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	b "github.com/olelbis/tlsanalyzer/build"
 )
 
 const defaultMaxConcurrency = 20
@@ -222,7 +220,7 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 		var cert *x509.Certificate
 		var success bool
 
-		for i := range 5 {
+		for i := range defaultTLS13Tries {
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 			if err != nil {
 				if strings.Contains(err.Error(), "protocol version not supported") {
@@ -237,16 +235,8 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 			if len(state.PeerCertificates) > 0 {
 				cert = state.PeerCertificates[0]
 			}
-			for _, cert := range state.PeerCertificates {
-				ci := CertInfo{
-					CommonName: cert.Subject.CommonName,
-					PEM: string(pem.EncodeToMemory(&pem.Block{
-						Type:  "CERTIFICATE",
-						Bytes: cert.Raw,
-					})),
-				}
-				certInfos = append(certInfos, ci)
-			}
+
+			certInfos = append(certInfos, extractCertInfos(state.PeerCertificates)...)
 			conn.Close()
 			success = true
 			break
@@ -262,22 +252,13 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
 		fmt.Printf("❌ Handshake failed: %v", err)
-		return false, nil, "", nil
+		return false, nil, "", err
 	}
 	defer conn.Close()
 
 	state := conn.ConnectionState()
 
-	for _, cert := range state.PeerCertificates {
-		ci := CertInfo{
-			CommonName: cert.Subject.CommonName,
-			PEM: string(pem.EncodeToMemory(&pem.Block{
-				Type:  "CERTIFICATE",
-				Bytes: cert.Raw,
-			})),
-		}
-		certInfos = append(certInfos, ci)
-	}
+	certInfos = append(certInfos, extractCertInfos(state.PeerCertificates)...)
 	cipher := tls.CipherSuiteName(state.CipherSuite)
 
 	if len(state.PeerCertificates) > 0 {
@@ -391,6 +372,17 @@ func printCertInfos(certInfos []CertInfo) {
 	}
 }
 
+func extractCertInfos(certs []*x509.Certificate) []CertInfo {
+	var infos []CertInfo
+	for _, cert := range certs {
+		infos = append(infos, CertInfo{
+			CommonName: cert.Subject.CommonName,
+			PEM:        string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})),
+		})
+	}
+	return infos
+}
+
 // Calculate the days remaining until the certificate expires
 func checkCertificateExpiry(cert *x509.Certificate) int {
 	return int(time.Until(cert.NotAfter).Hours() / 24)
@@ -429,27 +421,47 @@ func printCertSummary(cert *x509.Certificate, cipher string, version string) {
 	fmt.Printf("   DNS: %v\n", cert.DNSNames)
 }
 
+func init() {
+	clearScreen()
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", filepath.Base(os.Args[0]))
+		fmt.Println("Scan TLS versions and cipher suites on a target host.")
+		fmt.Println()
+		fmt.Println("Mandatory flags:")
+		fmt.Println("  --host string\tHostname or server IP to scan")
+		fmt.Println()
+		fmt.Println("Optional flags:")
+		flag.PrintDefaults()
+		fmt.Println("\nExample:")
+		fmt.Println("  tlsanalyzer --host example.com --port 443 --cert --output cert.pem --checkcert --markdown report")
+	}
+}
+
 func main() {
 
 	clearScreen()
+
 	flag.Parse()
 
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Println("Error getting executable path:", err)
+	if *host == "" {
+		fmt.Println("Error: --host is required")
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	exeName := filepath.Base(exePath)
-	if *host == "" {
-		fmt.Printf("\n"+exeName+" Release: %s - Build Time: %s - Build User: %s\n", b.Version, b.BuildTime, b.BuildUser)
-		fmt.Println("Error: parameter --host is mandatory.")
-		fmt.Println("Usage: " + exeName + " [[--cert] && [--output <file>]] [--checkcert] --host <host> [--port <portnumber>] [--timeout <sec>] [--min-version 1.0|1.1|1.2|1.3] [--markdown <file>] [--force-cipher]")
-
+	h := strings.TrimSpace(*host)
+	if h == "" {
+		fmt.Println("Error: host cannot be empty")
 		os.Exit(1)
 	}
 
 	minVersion := tlsVersionToUint16(*minVersionStr)
+	if minVersion == 0 {
+		fmt.Printf("Error: invalid --min-version '%s'. Use 1.0, 1.1, 1.2 or 1.3\n", *minVersionStr)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, *port, *minVersionStr)
 
 	// Sort versions in ascending order
 	keys := make([]uint16, 0, len(tlsVersions))
@@ -511,4 +523,5 @@ func main() {
 			fmt.Printf("✅ Markdown report saved to %s\n", *outputMarkdown)
 		}
 	}
+
 }
