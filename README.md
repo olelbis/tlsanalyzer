@@ -42,23 +42,21 @@ Mandatory flags:
   --host string Hostname or server IP to scan
 
 Optional flags:
-  -cert
+  --cert
         Print cerificate chain
-  -checkcert
+  --checkcert
         Check if the certificate is about to expire
-  -force-ciphers
+  --force-ciphers
         Force all cipher suites during version scan
-  -host string
-        Hostname or server IP (mandatory)
-  -markdown string
+  --markdown string
         Write scan result to markdown file
-  -min-version string
+  --min-version string
         Minimum TLS version to test (1.0, 1.1, 1.2, 1.3) (default "1.0")
-  -output string
+  --output string
         File to save the PEM output to (optional), only used with --cert
-  -port string
+  --port string
         TLS server port (default "443")
-  -timeout int
+  --timeout int
         Connection Timeout (default 5)
 ```
 
