@@ -121,8 +121,6 @@ type CertInfo struct {
 	PEM        string
 }
 
-var certInfos []CertInfo
-
 // Command line flags definition
 var (
 	host            = flag.String("host", "", "Hostname or server IP (mandatory)")
@@ -162,12 +160,13 @@ func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) 
 		if r.Supported && len(r.CipherSuites) > 0 {
 			sb.WriteString(fmt.Sprintf("\n### %s\n", r.Version))
 			for _, cs := range r.CipherSuites {
-				label := cipherClassification[cs]
-				if label.String() != "" {
+				label, ok := cipherClassification[cs]
+				if ok {
 					sb.WriteString(fmt.Sprintf("\n- %s %s", cs, label))
 				} else {
-					sb.WriteString(fmt.Sprintf("\n- %s", cs))
+					sb.WriteString(fmt.Sprintf("\n- %s ❓ UNKNOWN", cs))
 				}
+
 			}
 		}
 	}
@@ -192,7 +191,10 @@ func BuildMarkdownReportFromResults(host, port string, results []TLSScanResult) 
 
 func WriteMarkdownReportToFile(host, port string, results []TLSScanResult, outputPath string) error {
 	report := BuildMarkdownReportFromResults(host, port, results)
-	return os.WriteFile(outputPath+".md", []byte(report), 0640)
+	if !strings.HasSuffix(outputPath, ".md") {
+		outputPath += ".md"
+	}
+	return os.WriteFile(outputPath, []byte(report), 0640)
 }
 
 func clearScreen() {
@@ -224,7 +226,8 @@ func tlsVersionToUint16(ver string) uint16 {
 	}
 }
 
-func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, error) {
+// ✅ Modificata: aggiunto []CertInfo al return
+func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, []CertInfo, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
 		ServerName:         host,
@@ -244,18 +247,19 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 
 	fmt.Printf("\n👉 Trying TLS version %s\n", tlsVersions[version])
 
-	// if TLS 1.3 and forceCiphers active → try n times
+	// ⚙️ TLS 1.3 with multiple attempts if --force-ciphers is used
 	if *forceCiphers && version == tls.VersionTLS13 {
 		var cipher string
 		var cert *x509.Certificate
+		var infos []CertInfo // ✅ NEW: local slice to store cert info
 		var success bool
 
-		for i := range defaultTLS13Tries {
+		for i := 0; i < defaultTLS13Tries; i++ {
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 			if err != nil {
 				if strings.Contains(err.Error(), "protocol version not supported") {
 					fmt.Printf("❌ Handshake failed: %v", err)
-					return false, nil, "", err
+					return false, nil, "", nil, err // ✅ added nil for []CertInfo
 				}
 				fmt.Printf("❌ Handshake attempt %d failed: %v\n", i+1, err)
 				continue
@@ -266,35 +270,35 @@ func scanTLSVersion(host string, port string, version uint16, timeoutSec int) (b
 				cert = state.PeerCertificates[0]
 			}
 
-			certInfos = append(certInfos, extractCertInfos(state.PeerCertificates)...)
+			infos = extractCertInfos(state.PeerCertificates) // ✅ extract certs locally
 			conn.Close()
 			success = true
 			break
 		}
 
 		if success {
-			return true, cert, cipher, nil
+			return true, cert, cipher, infos, nil // ✅ added infos
 		}
-		return false, nil, "", fmt.Errorf("all TLS 1.3 handshakes failed")
+		return false, nil, "", nil, fmt.Errorf("all TLS 1.3 handshakes failed") // ✅ added nil
 	}
 
-	// TLS 1.0–1.2 o normal case
+	// ⚙️ TLS 1.0–1.2 (normal case)
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
 		fmt.Printf("❌ Handshake failed: %v", err)
-		return false, nil, "", err
+		return false, nil, "", nil, err // ✅ added nil
 	}
 	defer conn.Close()
 
 	state := conn.ConnectionState()
 
-	certInfos = append(certInfos, extractCertInfos(state.PeerCertificates)...)
+	infos := extractCertInfos(state.PeerCertificates) // ✅ local extraction
 	cipher := tls.CipherSuiteName(state.CipherSuite)
 
 	if len(state.PeerCertificates) > 0 {
-		return true, state.PeerCertificates[0], cipher, nil
+		return true, state.PeerCertificates[0], cipher, infos, nil // ✅ return infos
 	}
-	return true, nil, cipher, nil
+	return true, nil, cipher, infos, nil // ✅ return infos even if no cert
 }
 
 func isCipherSuiteCompatibleWith(version uint16, id uint16) bool {
@@ -452,7 +456,7 @@ func printCertSummary(cert *x509.Certificate, cipher string, version string) {
 }
 
 func init() {
-	clearScreen()
+
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", filepath.Base(os.Args[0]))
 		fmt.Println("Scan TLS versions and cipher suites on a target host.")
@@ -507,7 +511,7 @@ func main() {
 
 	for _, version := range keys {
 		name := tlsVersions[version]
-		supported, cert, cipher, err := scanTLSVersion(*host, *port, version, *timeout)
+		supported, cert, cipher, infos, err := scanTLSVersion(*host, *port, version, *timeout)
 		if err != nil {
 			fmt.Printf("\n🚫 %s: unsupported\n", name)
 			results = append(results, TLSScanResult{Version: name, Supported: false})
@@ -534,8 +538,8 @@ func main() {
 				}
 
 				if *certChain {
-					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), certInfos)
-					certInfos = nil
+					saveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), infos)
+					infos = nil
 				}
 			}
 
