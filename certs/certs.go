@@ -5,7 +5,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"tlsanalyzer/utils"
+	"time"
+
+	"github.com/olelbis/tlsanalyzer/utils"
 )
 
 func SaveOrPrintCertToFile(prefix string, certInfos []utils.CertInfo, outputFile string) {
@@ -34,5 +36,9 @@ func PrintCertInfos(certInfos []utils.CertInfo) {
 }
 
 func CheckCertificateExpiry(cert *x509.Certificate) int {
-	return int(cert.NotAfter.Sub(cert.NotBefore).Hours() / 24)
+	return daysUntilCertificateExpiry(cert, time.Now())
+}
+
+func daysUntilCertificateExpiry(cert *x509.Certificate, now time.Time) int {
+	return int(cert.NotAfter.Sub(now).Hours() / 24)
 }

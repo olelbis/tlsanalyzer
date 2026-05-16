@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"tlsanalyzer/certs"
-	"tlsanalyzer/output"
-	"tlsanalyzer/scan"
-	"tlsanalyzer/utils"
+
+	"github.com/olelbis/tlsanalyzer/certs"
+	"github.com/olelbis/tlsanalyzer/output"
+	"github.com/olelbis/tlsanalyzer/scan"
+	"github.com/olelbis/tlsanalyzer/utils"
 )
 
 func main() {
@@ -36,12 +37,12 @@ func main() {
 	fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, *scan.Port, *scan.MinVersionStr)
 	keys := utils.FilterTLSVersions(minVersion)
 
-	fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", *scan.Host, *scan.Port)
+	fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", h, *scan.Port)
 	var results []scan.TLSScanResult
 
 	for _, version := range keys {
 		name := utils.TLSVersions[version]
-		supported, cert, cipher, infos, err := scan.ScanTLSVersion(*scan.Host, *scan.Port, version, *scan.Timeout)
+		supported, cert, cipher, infos, err := scan.ScanTLSVersion(h, *scan.Port, version, *scan.Timeout)
 		if err != nil {
 			fmt.Printf("\n🚫 %s: unsupported\n", name)
 			results = append(results, scan.TLSScanResult{Version: name, Supported: false})
@@ -49,7 +50,7 @@ func main() {
 		}
 
 		if supported {
-			ciphers := scan.GetSupportedCiphersForVersion(*scan.Host, *scan.Port, *scan.Timeout, version)
+			ciphers := scan.GetSupportedCiphersForVersion(h, *scan.Port, *scan.Timeout, version)
 
 			results = append(results, scan.TLSScanResult{
 				Version:      name,
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	if *scan.OutputMarkdown != "" {
-		err := output.WriteMarkdownReportToFile(*scan.Host, *scan.Port, results, *scan.OutputMarkdown)
+		err := output.WriteMarkdownReportToFile(h, *scan.Port, results, *scan.OutputMarkdown)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Failed to write markdown report: %v\n", err)
 		} else {

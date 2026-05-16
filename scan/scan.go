@@ -6,9 +6,11 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 	"time"
-	"tlsanalyzer/utils"
+
+	"github.com/olelbis/tlsanalyzer/utils"
 )
 
 type TLSScanResult struct {
@@ -77,35 +79,37 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, utils.DefaultMaxConcurrency)
 
-	for _, cs := range utils.AllCipherSuites {
-		if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
-			continue
+	if version != tls.VersionTLS13 {
+		for _, cs := range utils.AllCipherSuites {
+			if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
+				continue
+			}
+			cs := cs
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				conf := &tls.Config{
+					MinVersion:         version,
+					MaxVersion:         version,
+					CipherSuites:       []uint16{cs.ID},
+					InsecureSkipVerify: false,
+					ServerName:         host,
+				}
+				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
+				if err == nil {
+					conn.Close()
+					mu.Lock()
+					supported = append(supported, cs.Name)
+					mu.Unlock()
+				}
+			}()
 		}
-		cs := cs
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
 
-			conf := &tls.Config{
-				MinVersion:         version,
-				MaxVersion:         version,
-				CipherSuites:       []uint16{cs.ID},
-				InsecureSkipVerify: false,
-				ServerName:         host,
-			}
-			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
-			if err == nil {
-				conn.Close()
-				mu.Lock()
-				supported = append(supported, cs.Name)
-				mu.Unlock()
-			}
-		}()
+		wg.Wait()
 	}
-
-	wg.Wait()
 
 	if version == tls.VersionTLS13 {
 		found := make(map[string]bool)
@@ -121,7 +125,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 					InsecureSkipVerify: false,
 					ServerName:         host,
 				}
-				conn, err := tls.Dial("tcp", net.JoinHostPort(host, port), conf)
+				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
 				if err == nil {
 					cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)
 					tls13Mutex.Lock()
@@ -137,5 +141,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 		}
 	}
 
-	return utils.UniqueStrings(supported)
+	supported = utils.UniqueStrings(supported)
+	sort.Strings(supported)
+	return supported
 }

@@ -7,8 +7,9 @@ import (
 	"os"
 	"strings"
 	"time"
-	"tlsanalyzer/scan"
-	"tlsanalyzer/utils"
+
+	"github.com/olelbis/tlsanalyzer/scan"
+	"github.com/olelbis/tlsanalyzer/utils"
 )
 
 func WriteMarkdownReportToFile(host, port string, results []scan.TLSScanResult, outputPath string) error {
