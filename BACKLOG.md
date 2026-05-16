@@ -42,11 +42,13 @@ Acceptance criteria:
 - Markdown output uses the same wording.
 - README and changelog remain consistent with the behavior.
 
-## P2 - Architecture and Testability
+## P2 - Architecture and Testability - Done
 
 ### Introduce scan options and structured results
 
 Problem: scan code reads global flags and prints directly, which makes it harder to test and reuse.
+
+Status: done.
 
 Acceptance criteria:
 
@@ -58,6 +60,8 @@ Acceptance criteria:
 
 Problem: `certs.SaveOrPrintCertToFile` exits the process directly.
 
+Status: done.
+
 Acceptance criteria:
 
 - Certificate helpers return errors instead of calling `os.Exit`.
@@ -67,6 +71,8 @@ Acceptance criteria:
 ### Add local TLS integration tests
 
 Problem: unit tests cover pure helpers, but not real TLS handshake behavior.
+
+Status: done.
 
 Acceptance criteria:
 

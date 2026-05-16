@@ -36,7 +36,15 @@ func BuildMarkdownReportFromResults(host, port string, results []scan.TLSScanRes
 			}
 			sb.WriteString("\n")
 		} else {
-			sb.WriteString(fmt.Sprintf("- ❌ %s\n", r.Version))
+			sb.WriteString(fmt.Sprintf("- ❌ %s", r.Version))
+			if r.Status != "" {
+				sb.WriteString(fmt.Sprintf(" (%s", r.Status))
+				if r.ErrorMessage != "" {
+					sb.WriteString(fmt.Sprintf(" - %s", r.ErrorMessage))
+				}
+				sb.WriteString(")")
+			}
+			sb.WriteString("\n")
 		}
 	}
 	sb.WriteString("\n## Cipher Suites\n")

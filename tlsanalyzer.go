@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/olelbis/tlsanalyzer/certs"
@@ -49,42 +50,55 @@ func main() {
 
 	fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, *scan.MinVersionStr)
 	keys := utils.FilterTLSVersions(minVersion)
+	opts := scan.Options{
+		Host:         h,
+		Port:         port,
+		Timeout:      time.Duration(*scan.Timeout) * time.Second,
+		MinVersion:   minVersion,
+		ForceCiphers: *scan.ForceCiphers,
+		SkipVerify:   *scan.SkipVerify,
+	}
 
-	fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", h, port)
+	fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", opts.Host, opts.Port)
 	var results []scan.TLSScanResult
 
 	for _, version := range keys {
 		name := utils.TLSVersions[version]
-		supported, cert, cipher, infos, validation, err := scan.ScanTLSVersion(h, port, version, *scan.Timeout, *scan.SkipVerify)
-		if err != nil {
-			fmt.Printf("\n🚫 %s: unsupported\n", name)
-			results = append(results, scan.TLSScanResult{Version: name, Supported: false})
+		fmt.Printf("\n👉 Trying TLS version %s", name)
+		if opts.ForceCiphers && version <= tls.VersionTLS12 {
+			fmt.Printf("\n🔧 Forcing cipher suites for %s", name)
+		}
+
+		result := scan.ScanTLSVersion(opts, version)
+		if !result.Supported {
+			fmt.Printf("\n🚫 %s: %s\n", name, result.Status)
+			if result.ErrorMessage != "" {
+				fmt.Printf("   %s\n", result.ErrorMessage)
+			}
+			results = append(results, result)
 			continue
 		}
 
-		if supported {
-			ciphers := scan.GetSupportedCiphersForVersion(h, port, *scan.Timeout, version)
+		negotiatedCipher := ""
+		if len(result.CipherSuites) > 0 {
+			negotiatedCipher = result.CipherSuites[0]
+		}
+		result.CipherSuites = scan.GetSupportedCiphersForVersion(opts, version)
+		result.CipherSuitesObserved = version == tls.VersionTLS13
+		results = append(results, result)
 
-			results = append(results, scan.TLSScanResult{
-				Version:               name,
-				CipherSuites:          ciphers,
-				CipherSuitesObserved:  version == tls.VersionTLS13,
-				Supported:             true,
-				Certificate:           cert,
-				CertValidationStatus:  validation.Status,
-				CertValidationMessage: validation.Message,
+		if result.Certificate != nil {
+			output.PrintCertSummary(result.Certificate, negotiatedCipher, name, *scan.CheckCertExpiry, scan.CertValidation{
+				Status:  result.CertValidationStatus,
+				Message: result.CertValidationMessage,
 			})
-
-			if cert != nil {
-				output.PrintCertSummary(cert, cipher, name, *scan.CheckCertExpiry, validation)
-				output.PrintCipherSuites(ciphers, version == tls.VersionTLS13)
-				if *scan.CertChain {
-					certs.SaveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), infos, *scan.OutputFile)
+			output.PrintCipherSuites(result.CipherSuites, result.CipherSuitesObserved)
+			if *scan.CertChain {
+				if err := certs.SaveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), result.CertInfos, *scan.OutputFile); err != nil {
+					fmt.Fprintf(os.Stderr, "Error saving certificate chain: %v\n", err)
+					os.Exit(1)
 				}
 			}
-		} else {
-			fmt.Printf("\n🚫 %s: unsupported\n", name)
-			results = append(results, scan.TLSScanResult{Version: name, Supported: false})
 		}
 	}
 

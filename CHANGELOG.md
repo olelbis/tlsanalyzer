@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Changed
+
+- Introduced `scan.Options` and structured scan result statuses.
+- Moved user-facing scan progress messages out of the `scan` package.
+- Changed certificate output helpers to return errors instead of exiting the process.
+
+### Tests
+
+- Added local TLS integration tests for TLS 1.2, TLS 1.3, invalid certificates, unsupported protocols and timeouts.
+
 ## v0.8.2 - 2026-05-16
 
 ### Changed

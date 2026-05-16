@@ -1,6 +1,13 @@
 package scan
 
-import "testing"
+import (
+	"crypto/tls"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+)
 
 func TestValidatePeerCertificatesSkipVerify(t *testing.T) {
 	got := ValidatePeerCertificates("example.com", nil, true)
@@ -22,4 +29,143 @@ func TestValidatePeerCertificatesUnavailable(t *testing.T) {
 	if got.Message == "" {
 		t.Fatal("Message should explain why validation is unavailable")
 	}
+}
+
+func TestScanTLSVersionLocalTLS12(t *testing.T) {
+	server, host, port := newLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
+	defer server.Close()
+
+	result := ScanTLSVersion(Options{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		SkipVerify: true,
+	}, tls.VersionTLS12)
+
+	if !result.Supported {
+		t.Fatalf("Supported = false, status %q, error %q", result.Status, result.ErrorMessage)
+	}
+	if result.Status != ScanStatusSupported {
+		t.Fatalf("Status = %q, want %q", result.Status, ScanStatusSupported)
+	}
+	if result.CertValidationStatus != CertValidationSkipped {
+		t.Fatalf("CertValidationStatus = %q, want %q", result.CertValidationStatus, CertValidationSkipped)
+	}
+	if result.Certificate == nil {
+		t.Fatal("Certificate should be captured")
+	}
+}
+
+func TestScanTLSVersionLocalTLS13(t *testing.T) {
+	server, host, port := newLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
+	defer server.Close()
+
+	result := ScanTLSVersion(Options{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		SkipVerify: true,
+	}, tls.VersionTLS13)
+
+	if !result.Supported {
+		t.Fatalf("Supported = false, status %q, error %q", result.Status, result.ErrorMessage)
+	}
+	if len(result.CipherSuites) != 1 {
+		t.Fatalf("CipherSuites = %v, want negotiated cipher", result.CipherSuites)
+	}
+}
+
+func TestScanTLSVersionInvalidCertificateIsNotUnsupportedTLS(t *testing.T) {
+	server, host, port := newLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
+	defer server.Close()
+
+	result := ScanTLSVersion(Options{
+		Host:    host,
+		Port:    port,
+		Timeout: time.Second,
+	}, tls.VersionTLS12)
+
+	if !result.Supported {
+		t.Fatalf("Supported = false, status %q, error %q", result.Status, result.ErrorMessage)
+	}
+	if result.CertValidationStatus != CertValidationInvalid {
+		t.Fatalf("CertValidationStatus = %q, want %q", result.CertValidationStatus, CertValidationInvalid)
+	}
+}
+
+func TestScanTLSVersionUnsupportedProtocol(t *testing.T) {
+	server, host, port := newLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
+	defer server.Close()
+
+	result := ScanTLSVersion(Options{
+		Host:    host,
+		Port:    port,
+		Timeout: time.Second,
+	}, tls.VersionTLS13)
+
+	if result.Supported {
+		t.Fatal("Supported = true, want false")
+	}
+	if result.Status != ScanStatusUnsupported {
+		t.Fatalf("Status = %q, want %q; error %q", result.Status, ScanStatusUnsupported, result.ErrorMessage)
+	}
+}
+
+func TestScanTLSVersionTimeout(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	accepted := make(chan struct{})
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		close(accepted)
+		time.Sleep(500 * time.Millisecond)
+	}()
+
+	host, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatalf("split listener address: %v", err)
+	}
+
+	result := ScanTLSVersion(Options{
+		Host:    host,
+		Port:    port,
+		Timeout: 100 * time.Millisecond,
+	}, tls.VersionTLS12)
+
+	if result.Status != ScanStatusTimeout {
+		t.Fatalf("Status = %q, want %q; error %q", result.Status, ScanStatusTimeout, result.ErrorMessage)
+	}
+	select {
+	case <-accepted:
+	default:
+		t.Fatal("test listener did not accept a connection")
+	}
+}
+
+func newLocalTLSServer(t *testing.T, minVersion, maxVersion uint16) (*httptest.Server, string, string) {
+	t.Helper()
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{
+		MinVersion: minVersion,
+		MaxVersion: maxVersion,
+	}
+	server.StartTLS()
+
+	host, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		server.Close()
+		t.Fatalf("split server address: %v", err)
+	}
+	return server, host, port
 }

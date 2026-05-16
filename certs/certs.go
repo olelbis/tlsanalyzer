@@ -10,7 +10,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
-func SaveOrPrintCertToFile(prefix string, certInfos []utils.CertInfo, outputFile string) {
+func SaveOrPrintCertToFile(prefix string, certInfos []utils.CertInfo, outputFile string) error {
 	var output = ""
 	if outputFile != "" {
 		for _, ci := range certInfos {
@@ -18,13 +18,14 @@ func SaveOrPrintCertToFile(prefix string, certInfos []utils.CertInfo, outputFile
 		}
 		err := os.WriteFile(prefix+"_"+outputFile, []byte(output), 0644)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving to file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("saving certificate chain: %w", err)
 		}
 		fmt.Printf("Output saved to %s\n", prefix+"_"+outputFile)
+		return nil
 	} else {
 		PrintCertInfos(certInfos)
 	}
+	return nil
 }
 
 func PrintCertInfos(certInfos []utils.CertInfo) {
