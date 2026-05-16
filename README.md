@@ -115,3 +115,7 @@ git push origin v0.8.1
 The release workflow builds binaries for Linux, macOS and Windows on `amd64` and `arm64`, then attaches them to the GitHub release.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+## Roadmap
+
+See [BACKLOG.md](BACKLOG.md) for prioritized improvements and acceptance criteria.
