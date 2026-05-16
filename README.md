@@ -3,6 +3,7 @@
 [![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
 [![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](BACKLOG.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-standard%20library-only)](https://pkg.go.dev/std)
@@ -67,7 +68,7 @@ Or use the build script:
 
 ## Project Status
 
-`tlsanalyzer` is in early development, but the core workflow is already covered by unit tests, local TLS integration tests, CI and automated release builds.
+`tlsanalyzer` is experimental software. The core workflow is covered by unit tests, local TLS integration tests, CI and automated release builds, but scan accuracy and output semantics should still be validated before relying on it for compliance, audit or production security decisions.
 
 ## Release Process
 
