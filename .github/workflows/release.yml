@@ -59,6 +59,7 @@ jobs:
            prerelease: false
            body: |
             ### What's new
+            - v0.8.4 add JSON output, --no-clear and richer Markdown reports with timestamp, version and grouped certificates
             - v0.8.3 introduce scan options, structured scan statuses, error-returning certificate helpers and local TLS integration tests
             - v0.8.2 separate TLS support from certificate validation, add --skip-verify, validate CLI input and label TLS 1.3 ciphers as observed
             - v0.8.1 cleanup TLS scan flow, module path, timeouts and tests
