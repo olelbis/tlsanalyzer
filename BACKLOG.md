@@ -80,11 +80,13 @@ Acceptance criteria:
 - Cover at least TLS 1.2 support, TLS 1.3 support, invalid certificate behavior and timeout/error reporting.
 - Tests do not require internet access.
 
-## P3 - CLI and Reporting
+## P3 - CLI and Reporting - Done
 
 ### Add machine-readable output
 
 Problem: current output is optimized for humans, not automation.
+
+Status: done.
 
 Acceptance criteria:
 
@@ -96,6 +98,8 @@ Acceptance criteria:
 
 Problem: clearing the terminal is awkward in CI, logs and copy/paste workflows.
 
+Status: done.
+
 Acceptance criteria:
 
 - Add `--no-clear`.
@@ -105,6 +109,8 @@ Acceptance criteria:
 ### Improve Markdown reports
 
 Problem: the report only includes certificate details from the first supported TLS result.
+
+Status: done.
 
 Acceptance criteria:
 

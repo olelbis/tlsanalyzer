@@ -16,6 +16,8 @@ var (
 	OutputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
 	ForceCiphers    = flag.Bool("force-ciphers", false, "Force all cipher suites during version scan")
 	SkipVerify      = flag.Bool("skip-verify", false, "Skip certificate validation and report TLS handshake support only")
+	OutputJSON      = flag.Bool("json", false, "Write scan result as JSON to stdout")
+	NoClear         = flag.Bool("no-clear", false, "Do not clear the terminal before scanning")
 )
 
 func init() {

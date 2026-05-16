@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/certs"
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/scan"
@@ -17,8 +18,10 @@ import (
 )
 
 func main() {
-	utils.ClearScreen()
 	flag.Parse()
+	if !*scan.NoClear && !*scan.OutputJSON {
+		utils.ClearScreen()
+	}
 
 	if *scan.Host == "" {
 		fmt.Println("Error: --host is required")
@@ -48,7 +51,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, *scan.MinVersionStr)
+	if !*scan.OutputJSON {
+		fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, *scan.MinVersionStr)
+	}
 	keys := utils.FilterTLSVersions(minVersion)
 	opts := scan.Options{
 		Host:         h,
@@ -59,21 +64,27 @@ func main() {
 		SkipVerify:   *scan.SkipVerify,
 	}
 
-	fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", opts.Host, opts.Port)
+	if !*scan.OutputJSON {
+		fmt.Printf("\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", opts.Host, opts.Port)
+	}
 	var results []scan.TLSScanResult
 
 	for _, version := range keys {
 		name := utils.TLSVersions[version]
-		fmt.Printf("\n👉 Trying TLS version %s", name)
-		if opts.ForceCiphers && version <= tls.VersionTLS12 {
-			fmt.Printf("\n🔧 Forcing cipher suites for %s", name)
+		if !*scan.OutputJSON {
+			fmt.Printf("\n👉 Trying TLS version %s", name)
+			if opts.ForceCiphers && version <= tls.VersionTLS12 {
+				fmt.Printf("\n🔧 Forcing cipher suites for %s", name)
+			}
 		}
 
 		result := scan.ScanTLSVersion(opts, version)
 		if !result.Supported {
-			fmt.Printf("\n🚫 %s: %s\n", name, result.Status)
-			if result.ErrorMessage != "" {
-				fmt.Printf("   %s\n", result.ErrorMessage)
+			if !*scan.OutputJSON {
+				fmt.Printf("\n🚫 %s: %s\n", name, result.Status)
+				if result.ErrorMessage != "" {
+					fmt.Printf("   %s\n", result.ErrorMessage)
+				}
 			}
 			results = append(results, result)
 			continue
@@ -87,7 +98,7 @@ func main() {
 		result.CipherSuitesObserved = version == tls.VersionTLS13
 		results = append(results, result)
 
-		if result.Certificate != nil {
+		if result.Certificate != nil && !*scan.OutputJSON {
 			output.PrintCertSummary(result.Certificate, negotiatedCipher, name, *scan.CheckCertExpiry, scan.CertValidation{
 				Status:  result.CertValidationStatus,
 				Message: result.CertValidationMessage,
@@ -103,12 +114,23 @@ func main() {
 	}
 
 	if *scan.OutputMarkdown != "" {
-		err := output.WriteMarkdownReportToFile(h, port, results, *scan.OutputMarkdown)
+		err := output.WriteMarkdownReportToFile(h, port, build.Version, results, *scan.OutputMarkdown)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Failed to write markdown report: %v\n", err)
 		} else {
-			fmt.Printf("✅ Markdown report saved to %s\n", *scan.OutputMarkdown)
+			if !*scan.OutputJSON {
+				fmt.Printf("✅ Markdown report saved to %s\n", *scan.OutputMarkdown)
+			}
 		}
+	}
+
+	if *scan.OutputJSON {
+		jsonReport, err := output.BuildJSONReport(h, port, build.Version, time.Now(), results)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Failed to build JSON report: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(string(jsonReport))
 	}
 }
 

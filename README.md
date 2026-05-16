@@ -75,6 +75,10 @@ Flags:
         Force cipher suites during TLS 1.0, 1.1 and 1.2 scans
   --skip-verify
         Skip certificate validation and report TLS handshake support only
+  --json
+        Write scan result as JSON to stdout
+  --no-clear
+        Do not clear the terminal before scanning
   --markdown string
         Write scan result to a Markdown file
 ```
@@ -87,6 +91,8 @@ tlsanalyzer --host example.com --cert --output example.pem
 tlsanalyzer --host example.com --checkcert --markdown example.com.md
 tlsanalyzer --host example.com --force-ciphers
 tlsanalyzer --host expired.example.com --skip-verify
+tlsanalyzer --host example.com --json
+tlsanalyzer --host example.com --no-clear
 ```
 
 ## Output
@@ -98,7 +104,9 @@ Markdown reports include:
 - Supported and unsupported TLS versions
 - Cipher suites grouped by TLS version
 - Cipher classification labels
-- Certificate subject, issuer, validity and DNS names
+- Generation timestamp and scanner version
+- Unique certificate details grouped by TLS version
+- Certificate subject, issuer, validity, validation status and DNS names
 
 ## Notes
 

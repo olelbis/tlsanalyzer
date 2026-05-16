@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added `--json` for machine-readable scan output.
+- Added `--no-clear` for CI, logs and copy/paste workflows.
+
+### Changed
+
+- Markdown reports now include generation timestamp and scanner version.
+- Markdown reports now group unique certificates by TLS version instead of only reporting the first certificate.
+
 ## v0.8.3 - 2026-05-16
 
 ### Changed
