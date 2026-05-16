@@ -2,7 +2,7 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
-## Unreleased
+## v0.8.2 - 2026-05-16
 
 ### Changed
 
@@ -13,6 +13,10 @@ All notable changes to `tlsanalyzer` are documented here.
 ### Added
 
 - Added `--skip-verify` for intentionally skipping certificate validation.
+
+### Tests
+
+- Added tests for CLI input validation and certificate validation status reporting.
 
 ## v0.8.1 - 2026-05-16
 
