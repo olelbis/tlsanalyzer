@@ -15,6 +15,7 @@ var (
 	MinVersionStr   = flag.String("min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 	OutputMarkdown  = flag.String("markdown", "", "Write scan result to markdown file")
 	ForceCiphers    = flag.Bool("force-ciphers", false, "Force all cipher suites during version scan")
+	SkipVerify      = flag.Bool("skip-verify", false, "Skip certificate validation and report TLS handshake support only")
 )
 
 func init() {

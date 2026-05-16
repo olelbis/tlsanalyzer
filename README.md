@@ -73,6 +73,8 @@ Flags:
         Print days until certificate expiration
   --force-ciphers
         Force cipher suites during TLS 1.0, 1.1 and 1.2 scans
+  --skip-verify
+        Skip certificate validation and report TLS handshake support only
   --markdown string
         Write scan result to a Markdown file
 ```
@@ -84,6 +86,7 @@ tlsanalyzer --host example.com --min-version 1.2
 tlsanalyzer --host example.com --cert --output example.pem
 tlsanalyzer --host example.com --checkcert --markdown example.com.md
 tlsanalyzer --host example.com --force-ciphers
+tlsanalyzer --host expired.example.com --skip-verify
 ```
 
 ## Output
@@ -99,7 +102,7 @@ Markdown reports include:
 
 ## Notes
 
-- Certificate verification is enabled. If the remote certificate is invalid for the scanned host, the handshake can fail.
+- Certificate validation is enabled by default and reported separately from TLS protocol support. Use `--skip-verify` only when you intentionally want to inspect the TLS handshake without validating trust.
 - Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. For TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
 - Some legacy TLS versions and cipher suites may be disabled by the remote server or by the Go runtime.
 

@@ -2,11 +2,13 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## P1 - Correctness and Trust
+## P1 - Correctness and Trust - Done
 
 ### Separate TLS support from certificate validation
 
 Problem: a certificate validation failure currently looks like an unsupported TLS version.
+
+Status: done.
 
 Acceptance criteria:
 
@@ -19,6 +21,8 @@ Acceptance criteria:
 
 Problem: invalid runtime values can produce confusing network behavior.
 
+Status: done.
+
 Acceptance criteria:
 
 - Reject `--timeout` values lower than 1.
@@ -29,6 +33,8 @@ Acceptance criteria:
 ### Rename TLS 1.3 cipher output to observed ciphers
 
 Problem: Go cannot force individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`, so "supported cipher suites" can overstate certainty.
+
+Status: done.
 
 Acceptance criteria:
 

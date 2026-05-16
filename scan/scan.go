@@ -14,17 +14,34 @@ import (
 )
 
 type TLSScanResult struct {
-	Version      string
-	CipherSuites []string
-	Supported    bool
-	Certificate  *x509.Certificate
+	Version               string
+	CipherSuites          []string
+	CipherSuitesObserved  bool
+	Supported             bool
+	Certificate           *x509.Certificate
+	CertValidationStatus  string
+	CertValidationMessage string
 }
 
-func ScanTLSVersion(host, port string, version uint16, timeoutSec int) (bool, *x509.Certificate, string, []utils.CertInfo, error) {
+type CertValidation struct {
+	Status  string
+	Message string
+}
+
+const (
+	CertValidationValid       = "valid"
+	CertValidationInvalid     = "invalid"
+	CertValidationSkipped     = "skipped"
+	CertValidationUnavailable = "unavailable"
+)
+
+func ScanTLSVersion(host, port string, version uint16, timeoutSec int, skipVerify bool) (bool, *x509.Certificate, string, []utils.CertInfo, CertValidation, error) {
 	address := net.JoinHostPort(host, port)
 	config := &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: false,
+		ServerName: host,
+		// Certificate validation is performed after the handshake so TLS support
+		// is not confused with certificate trust failures.
+		InsecureSkipVerify: true,
 		MinVersion:         version,
 		MaxVersion:         version,
 	}
@@ -53,24 +70,50 @@ func ScanTLSVersion(host, port string, version uint16, timeoutSec int) (bool, *x
 				cert = state.PeerCertificates[0]
 			}
 			infos = utils.ExtractCertInfos(state.PeerCertificates)
+			validation := ValidatePeerCertificates(host, state.PeerCertificates, skipVerify)
 			conn.Close()
-			return true, cert, tls.CipherSuiteName(state.CipherSuite), infos, nil
+			return true, cert, tls.CipherSuiteName(state.CipherSuite), infos, validation, nil
 		}
-		return false, nil, "", nil, fmt.Errorf("all TLS 1.3 handshakes failed")
+		return false, nil, "", nil, CertValidation{}, fmt.Errorf("all TLS 1.3 handshakes failed")
 	}
 
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeoutSec) * time.Second}, "tcp", address, config)
 	if err != nil {
-		return false, nil, "", nil, err
+		return false, nil, "", nil, CertValidation{}, err
 	}
 	defer conn.Close()
 	state := conn.ConnectionState()
 	infos := utils.ExtractCertInfos(state.PeerCertificates)
+	validation := ValidatePeerCertificates(host, state.PeerCertificates, skipVerify)
 	cipher := tls.CipherSuiteName(state.CipherSuite)
 	if len(state.PeerCertificates) > 0 {
-		return true, state.PeerCertificates[0], cipher, infos, nil
+		return true, state.PeerCertificates[0], cipher, infos, validation, nil
 	}
-	return true, nil, cipher, infos, nil
+	return true, nil, cipher, infos, validation, nil
+}
+
+func ValidatePeerCertificates(host string, peerCertificates []*x509.Certificate, skipVerify bool) CertValidation {
+	if skipVerify {
+		return CertValidation{Status: CertValidationSkipped, Message: "certificate validation skipped"}
+	}
+	if len(peerCertificates) == 0 {
+		return CertValidation{Status: CertValidationUnavailable, Message: "no peer certificate presented"}
+	}
+
+	intermediates := x509.NewCertPool()
+	for _, cert := range peerCertificates[1:] {
+		intermediates.AddCert(cert)
+	}
+
+	opts := x509.VerifyOptions{
+		DNSName:       host,
+		Intermediates: intermediates,
+	}
+	if _, err := peerCertificates[0].Verify(opts); err != nil {
+		return CertValidation{Status: CertValidationInvalid, Message: err.Error()}
+	}
+
+	return CertValidation{Status: CertValidationValid, Message: "certificate validation passed"}
 }
 
 func GetSupportedCiphersForVersion(host, port string, timeout int, version uint16) []string {
@@ -95,7 +138,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 					MinVersion:         version,
 					MaxVersion:         version,
 					CipherSuites:       []uint16{cs.ID},
-					InsecureSkipVerify: false,
+					InsecureSkipVerify: true,
 					ServerName:         host,
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)
@@ -122,7 +165,7 @@ func GetSupportedCiphersForVersion(host, port string, timeout int, version uint1
 				conf := &tls.Config{
 					MinVersion:         tls.VersionTLS13,
 					MaxVersion:         tls.VersionTLS13,
-					InsecureSkipVerify: false,
+					InsecureSkipVerify: true,
 					ServerName:         host,
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(timeout) * time.Second}, "tcp", net.JoinHostPort(host, port), conf)

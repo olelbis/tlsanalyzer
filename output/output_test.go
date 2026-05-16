@@ -22,20 +22,32 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 	report := BuildMarkdownReportFromResults("example.com", "443", []scan.TLSScanResult{
 		{Version: "TLS 1.0", Supported: false},
 		{
-			Version:      "TLS 1.2",
-			Supported:    true,
-			CipherSuites: []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
-			Certificate:  cert,
+			Version:               "TLS 1.2",
+			Supported:             true,
+			CipherSuites:          []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+			Certificate:           cert,
+			CertValidationStatus:  "valid",
+			CertValidationMessage: "certificate validation passed",
+		},
+		{
+			Version:              "TLS 1.3",
+			Supported:            true,
+			CipherSuites:         []string{"TLS_AES_128_GCM_SHA256"},
+			CipherSuitesObserved: true,
 		},
 	})
 
 	expectedFragments := []string{
 		"# TLS Scan Report for host example.com:443",
 		"- ❌ TLS 1.0",
-		"- ✅ TLS 1.2",
+		"- ✅ TLS 1.2 (certificate: valid - certificate validation passed)",
+		"### TLS 1.2 Supported Cipher Suites",
+		"### TLS 1.3 Observed Cipher Suites",
 		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 🟢 SECURE",
 		"**Subject CN**: example.com",
 		"**Issuer**: Example CA",
+		"**Certificate Validation**: valid",
+		"**Certificate Validation Details**: certificate validation passed",
 		"**DNS Names**: example.com, www.example.com",
 	}
 

@@ -26,7 +26,15 @@ func BuildMarkdownReportFromResults(host, port string, results []scan.TLSScanRes
 	sb.WriteString("## TLS Versions Supported\n")
 	for _, r := range results {
 		if r.Supported {
-			sb.WriteString(fmt.Sprintf("- ✅ %s\n", r.Version))
+			sb.WriteString(fmt.Sprintf("- ✅ %s", r.Version))
+			if r.CertValidationStatus != "" {
+				sb.WriteString(fmt.Sprintf(" (certificate: %s", r.CertValidationStatus))
+				if r.CertValidationMessage != "" {
+					sb.WriteString(fmt.Sprintf(" - %s", r.CertValidationMessage))
+				}
+				sb.WriteString(")")
+			}
+			sb.WriteString("\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("- ❌ %s\n", r.Version))
 		}
@@ -34,7 +42,11 @@ func BuildMarkdownReportFromResults(host, port string, results []scan.TLSScanRes
 	sb.WriteString("\n## Cipher Suites\n")
 	for _, r := range results {
 		if r.Supported && len(r.CipherSuites) > 0 {
-			sb.WriteString(fmt.Sprintf("\n### %s\n", r.Version))
+			if r.CipherSuitesObserved {
+				sb.WriteString(fmt.Sprintf("\n### %s Observed Cipher Suites\n", r.Version))
+			} else {
+				sb.WriteString(fmt.Sprintf("\n### %s Supported Cipher Suites\n", r.Version))
+			}
 			for _, cs := range r.CipherSuites {
 				label, ok := utils.CipherClassification[cs]
 				if ok {
@@ -54,6 +66,10 @@ func BuildMarkdownReportFromResults(host, port string, results []scan.TLSScanRes
 			sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", r.Certificate.NotBefore.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", r.Certificate.NotAfter.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", int(time.Until(r.Certificate.NotAfter).Hours()/24)))
+			sb.WriteString(fmt.Sprintf("- **Certificate Validation**: %s\n", r.CertValidationStatus))
+			if r.CertValidationMessage != "" {
+				sb.WriteString(fmt.Sprintf("- **Certificate Validation Details**: %s\n", r.CertValidationMessage))
+			}
 			if len(r.Certificate.DNSNames) > 0 {
 				sb.WriteString(fmt.Sprintf("- **DNS Names**: %s\n", strings.Join(r.Certificate.DNSNames, ", ")))
 			}
@@ -64,12 +80,18 @@ func BuildMarkdownReportFromResults(host, port string, results []scan.TLSScanRes
 	return sb.String()
 }
 
-func PrintCertSummary(cert *x509.Certificate, cipher string, version string, checkExpiry bool) {
+func PrintCertSummary(cert *x509.Certificate, cipher string, version string, checkExpiry bool, validation scan.CertValidation) {
 	fmt.Printf("✅ \033[1m%s\033[0m: supported\n", version)
 	fmt.Printf("   Negotiated Cipher suite: %s\n", cipher)
 	fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
 	fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
 	fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+	if validation.Status != "" {
+		fmt.Printf("   Certificate validation: %s\n", validation.Status)
+	}
+	if validation.Message != "" {
+		fmt.Printf("   Certificate validation details: %s\n", validation.Message)
+	}
 
 	if checkExpiry {
 		fmt.Printf("   Days to Expiration: %d\n", int(time.Until(cert.NotAfter).Hours()/24))
@@ -77,9 +99,13 @@ func PrintCertSummary(cert *x509.Certificate, cipher string, version string, che
 	fmt.Printf("   DNS: %v\n", cert.DNSNames)
 }
 
-func PrintCipherSuites(ciphers []string) {
+func PrintCipherSuites(ciphers []string, observed bool) {
 	if len(ciphers) > 0 {
-		fmt.Println("   Supported cipher suites:")
+		if observed {
+			fmt.Println("   Observed cipher suites:")
+		} else {
+			fmt.Println("   Supported cipher suites:")
+		}
 		for _, cs := range ciphers {
 			fmt.Printf("     • %s\n", cs)
 		}

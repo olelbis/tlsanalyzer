@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Changed
+
+- Report certificate validation status separately from TLS protocol support.
+- Report TLS 1.3 cipher suites as observed cipher suites.
+- Validate host, port and timeout inputs before scanning.
+
+### Added
+
+- Added `--skip-verify` for intentionally skipping certificate validation.
+
 ## v0.8.1 - 2026-05-16
 
 ### Changed
