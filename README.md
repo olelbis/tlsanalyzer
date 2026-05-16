@@ -1,106 +1,117 @@
 # tlsanalyzer
 
- [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
- [![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/ "Go to Linux homepage")
- [![OS - MacOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/ "Go to Apple homepage")
- 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/)
+[![OS - macOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/)
 
-`tlsanalyzer` It is a utility that takes inspiration from the original `sslscan`, with fewer features, but with the aim of being used in those work contexts where it is not permitted to install anything on your machines, or where you are not allowed access to the internet network.
+`tlsanalyzer` is a small TLS inspection CLI inspired by `sslscan`. It is intentionally self-contained and uses only the Go standard library, making it useful in environments where installing extra tools or fetching dependencies is restricted.
 
-This is early development version.
-## Roadmap:
+The project is in early development.
 
-- [x] Timeout flag
-- [x] Print certificate chain
-- [x] Certificate Expiration check
-- [x] Save certificate chain on file
-- [x] Fix ordered test (go range behaviour)
-- [x] Check supported cipher
-- [x] Add the minimum version to start the scan from
-- [x] Improved performance (goroutines)
-- [x] Export report in markdown
-- [x] Project name change
-- [x] Github action for multiarch release
-- [x] force-cipher flag added to check all supported cipher
-- [x] Full build (shell)script
-- [] code review/refactoring... wip
+## Features
 
- ## Building from source
+- Test TLS protocol support from TLS 1.0 through TLS 1.3.
+- Choose the minimum TLS version to scan.
+- Show the negotiated cipher suite for each supported TLS version.
+- Probe supported cipher suites for TLS 1.0, 1.1 and 1.2.
+- Report observed TLS 1.3 cipher suites from repeated handshakes.
+- Print certificate summary and optional certificate chain.
+- Check days until certificate expiration.
+- Export scan results to Markdown.
+- Build multi-platform binaries through GitHub Actions.
 
-If you want to build `tlsanalyzer` from source, please verify to have already installed **go1.23.4** or higher.
+## Install
 
-Then run this command:
+Download a binary from the [GitHub releases page](https://github.com/olelbis/tlsanalyzer/releases), or build from source.
+
+## Build From Source
+
+Requirements:
+
+- Go 1.23.4 or newer
+
+Build for the current platform:
 
 ```bash
-CGO_ENABLED=0 go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date)'" -o tlsanalyzer
+CGO_ENABLED=0 go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)'" -o tlsanalyzer .
 ```
- 
- ## How it works
 
-Usage:
+Or use the build script:
+
 ```bash
-Mandatory flags:
-  --host string Hostname or server IP to scan
+./scripts/build.sh
+```
 
-Optional flags:
-  --cert
-        Print cerificate chain
-  --checkcert
-        Check if the certificate is about to expire
-  --force-ciphers
-        Force all cipher suites during version scan
-  --markdown string
-        Write scan result to markdown file
-  --min-version string
-        Minimum TLS version to test (1.0, 1.1, 1.2, 1.3) (default "1.0")
-  --output string
-        File to save the PEM output to (optional), only used with --cert
+Build all release targets:
+
+```bash
+./scripts/build.sh --all
+```
+
+## Usage
+
+```bash
+tlsanalyzer --host example.com
+```
+
+Flags:
+
+```text
+  --host string
+        Hostname or server IP to scan (required)
   --port string
         TLS server port (default "443")
   --timeout int
-        Connection Timeout (default 5)
+        Connection timeout in seconds (default 5)
+  --min-version string
+        Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3 (default "1.0")
+  --cert
+        Print certificate chain
+  --output string
+        File to save PEM output to; only used with --cert
+  --checkcert
+        Print days until certificate expiration
+  --force-ciphers
+        Force cipher suites during TLS 1.0, 1.1 and 1.2 scans
+  --markdown string
+        Write scan result to a Markdown file
 ```
 
-Basic execution:
+Examples:
 
 ```bash
-olelbis@mymachost tlsanalyzer % tlsanalyzer --host example.com                        
+tlsanalyzer --host example.com --min-version 1.2
+tlsanalyzer --host example.com --cert --output example.pem
+tlsanalyzer --host example.com --checkcert --markdown example.com.md
+tlsanalyzer --host example.com --force-ciphers
+```
 
-TLS Analisys for: [example.com:443]
+## Output
 
-👉 Trying TLS version TLS 1.0
-❌ Handshake failed: remote error: tls: protocol version not supported
+A basic run prints each tested TLS version, whether it is supported, the negotiated cipher suite, certificate details and supported cipher suites when they can be probed.
 
-🚫 TLS 1.0: unsupported
+Markdown reports include:
 
-👉 Trying TLS version TLS 1.1
-❌ Handshake failed: remote error: tls: protocol version not supported
+- Supported and unsupported TLS versions
+- Cipher suites grouped by TLS version
+- Cipher classification labels
+- Certificate subject, issuer, validity and DNS names
 
-🚫 TLS 1.1: unsupported
+## Notes
 
-👉 Trying TLS version TLS 1.2
+- Certificate verification is enabled. If the remote certificate is invalid for the scanned host, the handshake can fail.
+- Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. For TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
+- Some legacy TLS versions and cipher suites may be disabled by the remote server or by the Go runtime.
 
-✅ TLS 1.2: supported
-   Negotiated Cipher suite: TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-   CN: *.example.com
-   Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
-   Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
-   DNS: [*.example.com example.com]
-   Supported cipher suites:
-     • TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-     • TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-     • TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+## Release Process
 
-👉 Trying TLS version TLS 1.3
+Releases are created by pushing a semantic version tag:
 
-✅ TLS 1.3: supported
-   Negotiated Cipher suite: TLS_AES_256_GCM_SHA384
-   CN: *.example.com
-   Issuer: DigiCert Global G3 TLS ECC SHA384 2020 CA1
-   Valid: 2025-01-15T00:00:00Z - 2026-01-15T23:59:59Z
-   DNS: [*.example.com example.com]
-   Supported cipher suites:
-     • TLS_AES_128_GCM_SHA256
-     • TLS_AES_256_GCM_SHA384
-     • TLS_CHACHA20_POLY1305_SHA256
-   ```
+```bash
+git tag -a v0.8.1 -m "tlsanalyzer release v0.8.1"
+git push origin v0.8.1
+```
+
+The release workflow builds binaries for Linux, macOS and Windows on `amd64` and `arm64`, then attaches them to the GitHub release.
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.

@@ -19,12 +19,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: 1.23.4
+          cache: false
 
       - name: Build binary
         run: |
@@ -35,7 +36,7 @@ jobs:
           CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date)' -s -w" -o $output_name .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: tlsanalyzer-${{ matrix.goos }}-${{ matrix.goarch }}*
@@ -45,20 +46,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts
 
       - name: Create GitHub Release and Upload All Binaries
         uses: ncipollo/release-action@v1
         with:
-           artifacts: ./artifacts/**/*
+           artifacts: ./artifacts/**/tlsanalyzer-*
            tag: ${{ github.ref_name }}
            name: tlsanalyzer release ${{ github.ref_name }}  # release title
            prerelease: false
            body: |
             ### What's new
             - v0.8.1 cleanup TLS scan flow, module path, timeouts and tests
+            - For the full release history, see CHANGELOG.md.
+
+            ### Compatibility
+            Tested on Sequoia 15.5, RHEL/OEL 8.9
+
+            ### Previous releases
             - v0.8.0 code modularity
             - v0.7.0 code cleanup
             - v0.6.9 build bash script
@@ -71,4 +78,3 @@ jobs:
             - v0.3.0 added goroutines to improve scanning performance
             - v0.2.0 added screen cleanup
             - v0.1.0 very first release
-            Tested on Sequoia 15.5, RHEL/OEL 8.9
