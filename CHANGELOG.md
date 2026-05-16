@@ -7,6 +7,7 @@ All notable changes to `tlsanalyzer` are documented here.
 ### Changed
 
 - Refined the README as a concise project overview.
+- Added CI, release, version, dependency and platform badges to the README.
 - Moved detailed usage documentation into `docs/user-manual.md`.
 
 ## v0.8.5 - 2026-05-16

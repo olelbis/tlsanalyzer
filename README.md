@@ -1,8 +1,14 @@
 # tlsanalyzer
 
+[![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
+[![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
+[![Go Version](https://img.shields.io/badge/Go-1.23.4-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Dependencies](https://img.shields.io/badge/dependencies-standard%20library-only)](https://pkg.go.dev/std)
 [![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/)
 [![OS - macOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/)
+[![OS - Windows](https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 
 `tlsanalyzer` is a small, dependency-free TLS inspection CLI inspired by `sslscan`.
 
