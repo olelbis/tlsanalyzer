@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Changed
+
+- Refactored the CLI entrypoint into a testable `run(args, stdout, stderr) int` flow.
+- Replaced process-global CLI flags with isolated per-run flag parsing.
+- Routed human-readable CLI output through injected writers.
+
+### Tests
+
+- Added CLI tests for exit codes, usage output, flag combination validation and independent flag parsing.
+
 ## v0.8.6 - 2026-05-16
 
 ### Changed

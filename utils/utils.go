@@ -5,6 +5,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"runtime"
 )
@@ -15,13 +17,17 @@ type CertInfo struct {
 }
 
 func ClearScreen() {
+	ClearScreenTo(os.Stdout)
+}
+
+func ClearScreenTo(w io.Writer) {
 	switch runtime.GOOS {
 	case "linux", "darwin":
-		fmt.Print("\033[H\033[2J")
+		fmt.Fprint(w, "\033[H\033[2J")
 	case "windows":
 		exec.Command("cmd", "/c", "cls").Run()
 	default:
-		fmt.Println("Screen cleaning not supported on this system!")
+		fmt.Fprintln(w, "Screen cleaning not supported on this system!")
 	}
 }
 

@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
 
 func TestValidateHost(t *testing.T) {
 	tests := []struct {
@@ -71,5 +75,62 @@ func TestValidateFlagCombination(t *testing.T) {
 				t.Fatalf("validateFlagCombination() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestRunMissingHostReturnsErrorWithoutExit(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--no-clear"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Error: --host is required") {
+		t.Fatalf("stderr does not contain missing host error:\n%s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Usage of tlsanalyzer:") {
+		t.Fatalf("stderr does not contain usage:\n%s", stderr.String())
+	}
+}
+
+func TestRunRejectsJSONCertWithoutOutputBeforeScan(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--host", "example.com", "--json", "--cert"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "--json with --cert requires --output") {
+		t.Fatalf("stderr does not contain flag combination error:\n%s", stderr.String())
+	}
+}
+
+func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
+	var stderr bytes.Buffer
+
+	first, err := parseCLIArgs([]string{"--host", "example.com", "--port", "8443"}, &stderr)
+	if err != nil {
+		t.Fatalf("first parseCLIArgs() error = %v", err)
+	}
+	second, err := parseCLIArgs([]string{"--host", "example.org"}, &stderr)
+	if err != nil {
+		t.Fatalf("second parseCLIArgs() error = %v", err)
+	}
+
+	if first.port != "8443" {
+		t.Fatalf("first port = %q, want 8443", first.port)
+	}
+	if second.port != "443" {
+		t.Fatalf("second port = %q, want default 443", second.port)
 	}
 }

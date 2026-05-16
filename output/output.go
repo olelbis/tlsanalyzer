@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -198,34 +199,34 @@ func certificateFingerprint(cert *x509.Certificate) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func PrintCertSummary(cert *x509.Certificate, cipher string, version string, checkExpiry bool, validation scan.CertValidation) {
-	fmt.Printf("✅ \033[1m%s\033[0m: supported\n", version)
-	fmt.Printf("   Negotiated Cipher suite: %s\n", cipher)
-	fmt.Printf("   CN: %s\n", cert.Subject.CommonName)
-	fmt.Printf("   Issuer: %s\n", cert.Issuer.CommonName)
-	fmt.Printf("   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
+func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, version string, checkExpiry bool, validation scan.CertValidation) {
+	fmt.Fprintf(w, "✅ \033[1m%s\033[0m: supported\n", version)
+	fmt.Fprintf(w, "   Negotiated Cipher suite: %s\n", cipher)
+	fmt.Fprintf(w, "   CN: %s\n", cert.Subject.CommonName)
+	fmt.Fprintf(w, "   Issuer: %s\n", cert.Issuer.CommonName)
+	fmt.Fprintf(w, "   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
 	if validation.Status != "" {
-		fmt.Printf("   Certificate validation: %s\n", validation.Status)
+		fmt.Fprintf(w, "   Certificate validation: %s\n", validation.Status)
 	}
 	if validation.Message != "" {
-		fmt.Printf("   Certificate validation details: %s\n", validation.Message)
+		fmt.Fprintf(w, "   Certificate validation details: %s\n", validation.Message)
 	}
 
 	if checkExpiry {
-		fmt.Printf("   Days to Expiration: %d\n", int(time.Until(cert.NotAfter).Hours()/24))
+		fmt.Fprintf(w, "   Days to Expiration: %d\n", int(time.Until(cert.NotAfter).Hours()/24))
 	}
-	fmt.Printf("   DNS: %v\n", cert.DNSNames)
+	fmt.Fprintf(w, "   DNS: %v\n", cert.DNSNames)
 }
 
-func PrintCipherSuites(ciphers []string, observed bool) {
+func PrintCipherSuites(w io.Writer, ciphers []string, observed bool) {
 	if len(ciphers) > 0 {
 		if observed {
-			fmt.Println("   Observed cipher suites:")
+			fmt.Fprintln(w, "   Observed cipher suites:")
 		} else {
-			fmt.Println("   Supported cipher suites:")
+			fmt.Fprintln(w, "   Supported cipher suites:")
 		}
 		for _, cs := range ciphers {
-			fmt.Printf("     • %s\n", cs)
+			fmt.Fprintf(w, "     • %s\n", cs)
 		}
 	}
 }

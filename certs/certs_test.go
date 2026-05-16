@@ -2,6 +2,7 @@ package certs
 
 import (
 	"crypto/x509"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +27,7 @@ func TestSaveOrPrintCertToFileReturnsWriteErrors(t *testing.T) {
 	certInfos := []utils.CertInfo{{PEM: "pem"}}
 	outputFile := filepath.Join("missing-dir", "chain.pem")
 
-	err := SaveOrPrintCertToFile("TLS12", certInfos, outputFile)
+	err := SaveOrPrintCertToFile(io.Discard, "TLS12", certInfos, outputFile)
 	if err == nil {
 		t.Fatal("SaveOrPrintCertToFile() error = nil, want error")
 	}

@@ -155,3 +155,53 @@ Acceptance criteria:
 - Use the relevant changelog section as the GitHub release body.
 - Avoid hard-coded historical release notes in the workflow.
 - Document the release checklist in the README or a dedicated release document.
+
+## P5 - Reliability and Product Maturity
+
+### Version the JSON schema
+
+Problem: `--json` is useful for automation, but consumers need a stable contract.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add a `schema_version` field to JSON output.
+- Document the JSON fields and compatibility expectations.
+- Add tests that lock representative JSON output shape.
+
+### Improve scan semantics and metadata
+
+Problem: supported, observed and inferred scan data are not always explicit enough for audit-style usage.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Distinguish negotiated, probed and observed cipher data in structured output.
+- Include scan duration and handshake attempt metadata where useful.
+- Preserve clear warnings for TLS 1.3 cipher observations and Go runtime limitations.
+
+### Improve Markdown report readability
+
+Problem: Markdown reports are correct, but still read like raw scan output.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add a concise summary section with protocol, certificate and cipher findings.
+- Use tables for TLS versions and cipher suites.
+- Keep detailed certificate data available without duplicating identical certificates.
+
+### Add policy/fail mode for CI
+
+Problem: CI users need a simple way to fail builds on weak TLS posture.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add policy options such as `--policy modern` or targeted `--fail-on` controls.
+- Return a non-zero exit code when policy checks fail.
+- Report policy failures in human, Markdown and JSON output.
