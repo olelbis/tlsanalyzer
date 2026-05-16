@@ -125,6 +125,12 @@ tlsanalyzer --host example.com --cert --output example.pem
 
 The saved file is prefixed by TLS version, for example `TLS1.2_example.pem`.
 
+When using JSON output, `--cert` requires `--output` so PEM data does not mix with JSON on stdout:
+
+```bash
+tlsanalyzer --host example.com --json --cert --output example.pem
+```
+
 ### Certificate expiration
 
 ```bash
@@ -162,6 +168,7 @@ Each TLS version has a scan status:
 - `supported`: the TLS handshake succeeded.
 - `unsupported`: the remote endpoint rejected or does not support that protocol version.
 - `timeout`: the connection or handshake timed out.
+- `handshake_error`: the endpoint was reachable, but the TLS handshake failed for a reason other than a clear unsupported protocol version.
 - `network_error`: the endpoint could not be reached or another network error occurred.
 
 Certificate validation is reported separately:

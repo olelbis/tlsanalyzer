@@ -50,6 +50,10 @@ func main() {
 		fmt.Printf("Error: invalid --min-version '%s'. Use 1.0, 1.1, 1.2 or 1.3\n", *scan.MinVersionStr)
 		os.Exit(1)
 	}
+	if err := validateFlagCombination(*scan.OutputJSON, *scan.CertChain, strings.TrimSpace(*scan.OutputFile)); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	if !*scan.OutputJSON {
 		fmt.Printf("\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, *scan.MinVersionStr)
@@ -98,14 +102,22 @@ func main() {
 		result.CipherSuitesObserved = version == tls.VersionTLS13
 		results = append(results, result)
 
-		if result.Certificate != nil && !*scan.OutputJSON {
-			output.PrintCertSummary(result.Certificate, negotiatedCipher, name, *scan.CheckCertExpiry, scan.CertValidation{
-				Status:  result.CertValidationStatus,
-				Message: result.CertValidationMessage,
-			})
-			output.PrintCipherSuites(result.CipherSuites, result.CipherSuitesObserved)
+		if result.Certificate != nil {
+			if !*scan.OutputJSON {
+				output.PrintCertSummary(result.Certificate, negotiatedCipher, name, *scan.CheckCertExpiry, scan.CertValidation{
+					Status:  result.CertValidationStatus,
+					Message: result.CertValidationMessage,
+				})
+				output.PrintCipherSuites(result.CipherSuites, result.CipherSuitesObserved)
+			}
 			if *scan.CertChain {
-				if err := certs.SaveOrPrintCertToFile(strings.ReplaceAll(name, " ", ""), result.CertInfos, *scan.OutputFile); err != nil {
+				prefix := strings.ReplaceAll(name, " ", "")
+				if *scan.OutputJSON {
+					if _, err := certs.SaveCertChainToFile(prefix, result.CertInfos, *scan.OutputFile); err != nil {
+						fmt.Fprintf(os.Stderr, "Error saving certificate chain: %v\n", err)
+						os.Exit(1)
+					}
+				} else if err := certs.SaveOrPrintCertToFile(prefix, result.CertInfos, *scan.OutputFile); err != nil {
 					fmt.Fprintf(os.Stderr, "Error saving certificate chain: %v\n", err)
 					os.Exit(1)
 				}
@@ -117,6 +129,7 @@ func main() {
 		err := output.WriteMarkdownReportToFile(h, port, build.Version, results, *scan.OutputMarkdown)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ Failed to write markdown report: %v\n", err)
+			os.Exit(1)
 		} else {
 			if !*scan.OutputJSON {
 				fmt.Printf("✅ Markdown report saved to %s\n", *scan.OutputMarkdown)
@@ -132,6 +145,13 @@ func main() {
 		}
 		fmt.Println(string(jsonReport))
 	}
+}
+
+func validateFlagCombination(outputJSON bool, certChain bool, outputFile string) error {
+	if outputJSON && certChain && outputFile == "" {
+		return fmt.Errorf("--json with --cert requires --output to avoid mixing PEM data with JSON stdout")
+	}
+	return nil
 }
 
 func validateHost(host string) error {

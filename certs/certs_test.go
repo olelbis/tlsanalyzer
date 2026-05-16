@@ -2,6 +2,7 @@ package certs
 
 import (
 	"crypto/x509"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -28,5 +29,23 @@ func TestSaveOrPrintCertToFileReturnsWriteErrors(t *testing.T) {
 	err := SaveOrPrintCertToFile("TLS12", certInfos, outputFile)
 	if err == nil {
 		t.Fatal("SaveOrPrintCertToFile() error = nil, want error")
+	}
+}
+
+func TestSaveCertChainToFile(t *testing.T) {
+	certInfos := []utils.CertInfo{{PEM: "pem-one\n"}, {PEM: "pem-two\n"}}
+	outputFile := filepath.Join(t.TempDir(), "chain.pem")
+
+	outputPath, err := SaveCertChainToFile("TLS12", certInfos, outputFile)
+	if err != nil {
+		t.Fatalf("SaveCertChainToFile() error = %v", err)
+	}
+
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error = %v", outputPath, err)
+	}
+	if string(data) != "pem-one\npem-two\n" {
+		t.Fatalf("saved certificate chain = %q", string(data))
 	}
 }

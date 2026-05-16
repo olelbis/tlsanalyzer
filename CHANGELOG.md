@@ -8,6 +8,9 @@ All notable changes to `tlsanalyzer` are documented here.
 
 - Changed the project license from GPLv3 to MIT.
 - Documented the project as experimental in the README.
+- Made Markdown report write failures exit with a non-zero status.
+- Made `--json --cert` require `--output` and save PEM chains without corrupting JSON stdout.
+- Added a distinct `handshake_error` scan status for non-protocol TLS handshake failures.
 - Updated the Go toolchain target from 1.23.4 to 1.26.3.
 - Refined the README as a concise project overview.
 - Added CI, release, version, dependency and platform badges to the README.

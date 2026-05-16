@@ -48,3 +48,28 @@ func TestValidatePort(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateFlagCombination(t *testing.T) {
+	tests := []struct {
+		name       string
+		outputJSON bool
+		certChain  bool
+		outputFile string
+		wantErr    bool
+	}{
+		{name: "plain scan"},
+		{name: "json without cert", outputJSON: true},
+		{name: "cert without json", certChain: true},
+		{name: "json cert with output", outputJSON: true, certChain: true, outputFile: "chain.pem"},
+		{name: "json cert without output", outputJSON: true, certChain: true, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateFlagCombination(tt.outputJSON, tt.certChain, tt.outputFile)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateFlagCombination() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

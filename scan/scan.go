@@ -47,6 +47,7 @@ const (
 	ScanStatusUnsupported  = "unsupported"
 	ScanStatusNetworkError = "network_error"
 	ScanStatusTimeout      = "timeout"
+	ScanStatusHandshake    = "handshake_error"
 
 	CertValidationValid       = "valid"
 	CertValidationInvalid     = "invalid"
@@ -228,9 +229,16 @@ func classifyScanError(err error) (string, string) {
 
 	lowerMessage := strings.ToLower(message)
 	if strings.Contains(lowerMessage, "protocol version not supported") ||
-		strings.Contains(lowerMessage, "handshake failure") ||
-		strings.Contains(lowerMessage, "unsupported protocol") {
+		strings.Contains(lowerMessage, "unsupported protocol") ||
+		strings.Contains(lowerMessage, "unsupported versions") ||
+		strings.Contains(lowerMessage, "no supported versions satisfy") {
 		return ScanStatusUnsupported, message
+	}
+	if strings.Contains(lowerMessage, "handshake failure") ||
+		strings.Contains(lowerMessage, "bad certificate") ||
+		strings.Contains(lowerMessage, "certificate required") ||
+		strings.Contains(lowerMessage, "unknown certificate") {
+		return ScanStatusHandshake, message
 	}
 
 	return ScanStatusNetworkError, message

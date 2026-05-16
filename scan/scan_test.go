@@ -2,6 +2,7 @@ package scan
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -147,6 +148,47 @@ func TestScanTLSVersionTimeout(t *testing.T) {
 	case <-accepted:
 	default:
 		t.Fatal("test listener did not accept a connection")
+	}
+}
+
+func TestClassifyScanError(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus string
+	}{
+		{
+			name:       "unsupported protocol version",
+			err:        errors.New("remote error: tls: protocol version not supported"),
+			wantStatus: ScanStatusUnsupported,
+		},
+		{
+			name:       "no supported versions",
+			err:        errors.New("tls: no supported versions satisfy MinVersion and MaxVersion"),
+			wantStatus: ScanStatusUnsupported,
+		},
+		{
+			name:       "generic handshake failure",
+			err:        errors.New("remote error: tls: handshake failure"),
+			wantStatus: ScanStatusHandshake,
+		},
+		{
+			name:       "network error",
+			err:        errors.New("connect: connection refused"),
+			wantStatus: ScanStatusNetworkError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, message := classifyScanError(tt.err)
+			if status != tt.wantStatus {
+				t.Fatalf("status = %q, want %q", status, tt.wantStatus)
+			}
+			if message == "" {
+				t.Fatal("message should preserve the original error")
+			}
+		})
 	}
 }
 
