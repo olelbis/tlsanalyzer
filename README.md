@@ -3,8 +3,8 @@
 [![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
 [![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![Go Version](https://img.shields.io/badge/Go-1.23.4-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-standard%20library-only)](https://pkg.go.dev/std)
 [![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/)
 [![OS - macOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/)
@@ -52,7 +52,7 @@ tlsanalyzer --host example.com --cert --output example.pem
 
 Requirements:
 
-- Go 1.23.4 or newer
+- Go 1.26.3 or newer
 
 ```bash
 CGO_ENABLED=0 go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)'" -o tlsanalyzer .

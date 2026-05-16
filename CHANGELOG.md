@@ -6,6 +6,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ### Changed
 
+- Changed the project license from GPLv3 to MIT.
+- Updated the Go toolchain target from 1.23.4 to 1.26.3.
 - Refined the README as a concise project overview.
 - Added CI, release, version, dependency and platform badges to the README.
 - Moved detailed usage documentation into `docs/user-manual.md`.
