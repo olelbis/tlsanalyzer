@@ -118,11 +118,13 @@ Acceptance criteria:
 - Avoid duplicating identical certificates unnecessarily.
 - Add generation timestamp and scanner version.
 
-## P4 - Release and Documentation
+## P4 - Release and Documentation - Done
 
 ### Add CI for tests and vetting
 
 Problem: the current workflow only runs on release tags and focuses on builds.
+
+Status: done.
 
 Acceptance criteria:
 
@@ -134,6 +136,8 @@ Acceptance criteria:
 
 Problem: `example.com.md` looks like generated output at the repository root.
 
+Status: done.
+
 Acceptance criteria:
 
 - Move it to `docs/example-report.md`.
@@ -143,6 +147,8 @@ Acceptance criteria:
 ### Generate release notes from the changelog
 
 Problem: release notes are duplicated in the workflow body and `CHANGELOG.md`.
+
+Status: done.
 
 Acceptance criteria:
 

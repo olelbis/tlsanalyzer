@@ -108,6 +108,8 @@ Markdown reports include:
 - Unique certificate details grouped by TLS version
 - Certificate subject, issuer, validity, validation status and DNS names
 
+See [docs/example-report.md](docs/example-report.md) for a sample Markdown report.
+
 ## Notes
 
 - Certificate validation is enabled by default and reported separately from TLS protocol support. Use `--skip-verify` only when you intentionally want to inspect the TLS handshake without validating trust.
@@ -119,11 +121,20 @@ Markdown reports include:
 Releases are created by pushing a semantic version tag:
 
 ```bash
-git tag -a v0.8.1 -m "tlsanalyzer release v0.8.1"
-git push origin v0.8.1
+git tag -a vX.Y.Z -m "tlsanalyzer release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
 The release workflow builds binaries for Linux, macOS and Windows on `amd64` and `arm64`, then attaches them to the GitHub release.
+
+Release checklist:
+
+1. Update `VERSION`, `build/build.go` and `CHANGELOG.md`.
+2. Run `go test ./...`, `go test -race ./...` and `go vet ./...`.
+3. Commit the release preparation changes.
+4. Create and push an annotated tag, for example `vX.Y.Z`.
+
+GitHub Actions extracts the matching section from `CHANGELOG.md` and uses it as the release body.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

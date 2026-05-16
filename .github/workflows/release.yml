@@ -45,10 +45,25 @@ jobs:
     needs: build_and_release
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v8
         with:
           path: ./artifacts
+
+      - name: Extract release notes from changelog
+        run: |
+          awk -v version="${GITHUB_REF_NAME}" '
+            $0 ~ "^## " version "([[:space:]]|-|$)" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "No changelog notes found for ${GITHUB_REF_NAME}." > RELEASE_NOTES.md
+          fi
 
       - name: Create GitHub Release and Upload All Binaries
         uses: ncipollo/release-action@v1
@@ -57,27 +72,4 @@ jobs:
            tag: ${{ github.ref_name }}
            name: tlsanalyzer release ${{ github.ref_name }}  # release title
            prerelease: false
-           body: |
-            ### What's new
-            - v0.8.4 add JSON output, --no-clear and richer Markdown reports with timestamp, version and grouped certificates
-            - v0.8.3 introduce scan options, structured scan statuses, error-returning certificate helpers and local TLS integration tests
-            - v0.8.2 separate TLS support from certificate validation, add --skip-verify, validate CLI input and label TLS 1.3 ciphers as observed
-            - v0.8.1 cleanup TLS scan flow, module path, timeouts and tests
-            - For the full release history, see CHANGELOG.md.
-
-            ### Compatibility
-            Tested on Sequoia 15.5, RHEL/OEL 8.9
-
-            ### Previous releases
-            - v0.8.0 code modularity
-            - v0.7.0 code cleanup
-            - v0.6.9 build bash script
-            - v0.6.2 bugfix
-            - v0.6.1 force also for 1.3
-            - v0.6.0 force cipher negotiate
-            - v0.5.1 action test
-            - v0.5.0 project renamed
-            - v0.4.0 markdown report
-            - v0.3.0 added goroutines to improve scanning performance
-            - v0.2.0 added screen cleanup
-            - v0.1.0 very first release
+           bodyFile: RELEASE_NOTES.md

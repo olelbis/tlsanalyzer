@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added a CI workflow for tests, race tests and `go vet`.
+- Added a sample Markdown report under `docs/`.
+
+### Changed
+
+- Release notes are now extracted from `CHANGELOG.md` instead of being duplicated in the release workflow.
+- Documented the release checklist in the README.
+
 ## v0.8.4 - 2026-05-16
 
 ### Added
