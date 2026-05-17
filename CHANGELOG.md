@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.8.8 - 2026-05-17
+
+### Changed
+
+- Updated the sample Markdown report in `docs/example-report.md`.
+
 ## v0.8.7 - 2026-05-16
 
 ### Changed
