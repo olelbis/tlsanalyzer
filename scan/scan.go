@@ -20,6 +20,8 @@ type TLSScanResult struct {
 	VersionID                 uint16
 	DurationMillis            int64
 	HandshakeAttempts         int
+	KeyExchangeGroup          string
+	ALPNProtocol              string
 	CipherDiscovery           string
 	NegotiatedCipherSuite     string
 	CipherSuites              []string
@@ -86,6 +88,10 @@ type CipherProbeStatus struct {
 	Error       string
 }
 
+func DefaultALPNProtocols() []string {
+	return []string{"h2", "http/1.1"}
+}
+
 func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 	start := time.Now()
 	result = TLSScanResult{
@@ -108,6 +114,7 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		InsecureSkipVerify: true,
 		MinVersion:         version,
 		MaxVersion:         version,
+		NextProtos:         DefaultALPNProtocols(),
 	}
 
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
@@ -131,10 +138,19 @@ func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options, se
 	result.CertValidationMessage = validation.Message
 	result.NegotiatedCipherSuite = cipher
 	result.CipherSuites = []string{cipher}
+	result.KeyExchangeGroup = keyExchangeGroupName(state)
+	result.ALPNProtocol = state.NegotiatedProtocol
 	if len(state.PeerCertificates) > 0 {
 		result.Certificate = state.PeerCertificates[0]
 	}
 	return result
+}
+
+func keyExchangeGroupName(state tls.ConnectionState) string {
+	if state.CurveID == 0 {
+		return ""
+	}
+	return state.CurveID.String()
 }
 
 func (opts Options) tlsServerName() string {
@@ -201,6 +217,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 					CipherSuites:       []uint16{cs.ID},
 					InsecureSkipVerify: true,
 					ServerName:         opts.tlsServerName(),
+					NextProtos:         DefaultALPNProtocols(),
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
 				if err == nil {
@@ -240,6 +257,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 					MaxVersion:         tls.VersionTLS13,
 					InsecureSkipVerify: true,
 					ServerName:         opts.tlsServerName(),
+					NextProtos:         DefaultALPNProtocols(),
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
 				if err == nil {
@@ -270,6 +288,7 @@ func probeTLS13CipherSuites(opts Options) CipherProbeResult {
 		Address:    net.JoinHostPort(opts.Host, opts.Port),
 		ServerName: opts.tlsServerName(),
 		Timeout:    opts.Timeout,
+		ALPN:       DefaultALPNProtocols(),
 	}, cipherIDs)
 
 	result := CipherProbeResult{

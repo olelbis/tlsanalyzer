@@ -28,6 +28,8 @@ This document describes the `schema_version: "1.1"` JSON output contract.
 | `error_message` | string | no | Original scan error when the handshake did not succeed. |
 | `duration_millis` | number | yes | Scan duration for the TLS version. |
 | `handshake_attempts` | number | yes | Handshake attempts used for this result. |
+| `key_exchange_group` | string | no | Negotiated key exchange group, for example `X25519`; omitted when unavailable or when legacy RSA key exchange does not expose a group. |
+| `alpn_protocol` | string | no | Negotiated ALPN application protocol, for example `h2` or `http/1.1`. |
 | `cipher_discovery` | string | yes | `negotiated`, `probed`, `raw-probed` or `observed`. |
 | `negotiated_cipher_suite` | string | no | Cipher suite selected by the first successful handshake. |
 | `cipher_suites` | array | no | Cipher suites discovered by the selected discovery mode. |
@@ -58,6 +60,10 @@ This document describes the `schema_version: "1.1"` JSON output contract.
 | `valid_from` | string | yes | RFC3339 certificate start time. |
 | `valid_to` | string | yes | RFC3339 certificate expiration time. |
 | `days_until_expiry` | number | yes | Days from `generated_at` to `valid_to`. |
+| `public_key_algorithm` | string | no | Leaf certificate public key algorithm, for example `RSA`, `ECDSA` or `Ed25519`. |
+| `public_key_bits` | number | no | Leaf certificate public key size in bits when available. |
+| `public_key_curve` | string | no | Leaf certificate public key curve for elliptic-curve keys, for example `P-256`. |
+| `signature_algorithm` | string | no | Leaf certificate signature algorithm, for example `SHA256-RSA` or `ECDSA-SHA256`. |
 | `dns_names` | array | no | DNS SAN names from the certificate. |
 
 ## Policy Object

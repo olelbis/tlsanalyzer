@@ -25,6 +25,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
 - Reports negotiated and supported cipher suites.
 - Raw-probes TLS 1.3 cipher support when full cipher probing is enabled.
+- Reports negotiated key exchange group, ALPN protocol and certificate key/signature metadata.
 - Keeps TLS support separate from certificate validation status.
 - Supports explicit SNI/certificate name overrides for IP and load balancer scans.
 - Prints certificate summaries and optional PEM certificate chains.

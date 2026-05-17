@@ -90,6 +90,8 @@ Use `--no-clear` when running in terminals, logs or CI systems where clearing th
 
 The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
 
+`tlsanalyzer` offers `h2` and `http/1.1` through ALPN to observe the negotiated TLS application protocol. It does not send HTTP requests or evaluate non-TLS HTTP behavior.
+
 ### Markdown report
 
 ```bash
@@ -100,10 +102,11 @@ Markdown reports include:
 
 - Generation timestamp and scanner version
 - Supported and unsupported TLS versions
+- Negotiated key exchange group and ALPN protocol when available
 - Cipher suites grouped by TLS version
 - Cipher classification labels
 - Unique certificate details grouped by TLS version
-- Certificate validation status and DNS names
+- Certificate public key, signature algorithm, validation status and DNS names
 
 See [example-report.md](example-report.md) for a sample report.
 
@@ -121,12 +124,13 @@ JSON output is intended for scripts and automation. It includes:
 - Scanner version and generation timestamp
 - Per-version support status
 - Scan status and error messages
+- Negotiated key exchange group and ALPN protocol when available
 - Negotiated cipher suite
 - Cipher suite discovery mode: `negotiated`, `probed`, `raw-probed` or `observed`
 - Cipher suites found by probing or observation
 - Raw probe status details when available
 - Handshake attempts, scan duration and warnings
-- Certificate details
+- Certificate details, including public key and signature algorithm metadata when available
 - Certificate validation status
 - Policy result, when `--policy` or `--fail-on` is used
 

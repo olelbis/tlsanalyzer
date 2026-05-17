@@ -1,7 +1,7 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.11.0
+- **Scanner Version**: v0.12.0
 - **JSON Schema Version**: 1.1
 
 ## Summary
@@ -22,12 +22,12 @@
 
 ## TLS Versions
 
-| Version | Supported | Status | Certificate | Duration | Attempts |
-| --- | --- | --- | --- | ---: | ---: |
-| TLS 1.0 | yes | supported | valid | 82 ms | 21 |
-| TLS 1.1 | yes | supported | valid | 75 ms | 21 |
-| TLS 1.2 | yes | supported | valid | 95 ms | 21 |
-| TLS 1.3 | yes | supported | valid | 44 ms | 4 |
+| Version | Supported | Status | Certificate | Key Exchange | ALPN | Duration | Attempts |
+| --- | --- | --- | --- | --- | --- | ---: | ---: |
+| TLS 1.0 | yes | supported | valid | X25519 | - | 82 ms | 21 |
+| TLS 1.1 | yes | supported | valid | X25519 | - | 75 ms | 21 |
+| TLS 1.2 | yes | supported | valid | X25519 | h2 | 95 ms | 21 |
+| TLS 1.3 | yes | supported | valid | X25519 | h2 | 44 ms | 4 |
 
 ## Cipher Suites
 
@@ -82,6 +82,8 @@ Raw probe evidence is ClientHello-only and does not complete full TLS handshakes
 ### TLS 1.0, TLS 1.1
 - **Subject CN**: example.com
 - **Issuer**: Example RSA CA
+- **Public Key**: RSA 2048-bit
+- **Signature Algorithm**: SHA256-RSA
 - **Valid From**: 2026-04-02
 - **Valid To**: 2026-07-01
 - **Days Until Expiry**: 45
@@ -92,6 +94,8 @@ Raw probe evidence is ClientHello-only and does not complete full TLS handshakes
 ### TLS 1.2, TLS 1.3
 - **Subject CN**: example.com
 - **Issuer**: Example ECC CA
+- **Public Key**: ECDSA P-256 (256-bit)
+- **Signature Algorithm**: ECDSA-SHA256
 - **Valid From**: 2026-04-02
 - **Valid To**: 2026-07-01
 - **Days Until Expiry**: 45

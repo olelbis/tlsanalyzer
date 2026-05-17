@@ -2,6 +2,14 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.12.0 - 2026-05-17
+
+### Added
+
+- Added negotiated key exchange group evidence to console, Markdown and JSON output.
+- Added ALPN negotiation evidence to console, Markdown and JSON output.
+- Added certificate public key and signature algorithm metadata to console, Markdown and JSON output.
+
 ## v0.11.0 - 2026-05-17
 
 ### Added

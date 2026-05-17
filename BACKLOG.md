@@ -450,13 +450,13 @@ Acceptance criteria:
 - Document that raw probes do not complete full TLS handshakes.
 - Consider a JSON field that explicitly states whether the raw probe completed a full handshake.
 
-## P12 - Security Depth - Planned
+## P12 - Security Depth - Done
 
 ### Expand TLS posture evidence
 
 Problem: protocol and cipher evidence are useful, but deeper TLS posture depends on groups, signatures and application negotiation.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 

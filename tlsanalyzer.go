@@ -174,6 +174,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 					Status:  result.CertValidationStatus,
 					Message: result.CertValidationMessage,
 				})
+				output.PrintTLSPosture(stdout, result)
 				output.PrintCipherSuites(stdout, result.CipherSuites, result.CipherDiscovery)
 			}
 			if cfg.certChain {

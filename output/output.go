@@ -1,6 +1,10 @@
 package output
 
 import (
+	"crypto/dsa"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -39,6 +43,8 @@ type JSONScanResult struct {
 	ErrorMessage              string            `json:"error_message,omitempty"`
 	DurationMillis            int64             `json:"duration_millis"`
 	HandshakeAttempts         int               `json:"handshake_attempts"`
+	KeyExchangeGroup          string            `json:"key_exchange_group,omitempty"`
+	ALPNProtocol              string            `json:"alpn_protocol,omitempty"`
 	CipherDiscovery           string            `json:"cipher_discovery"`
 	NegotiatedCipherSuite     string            `json:"negotiated_cipher_suite,omitempty"`
 	CipherSuites              []string          `json:"cipher_suites,omitempty"`
@@ -60,12 +66,16 @@ type JSONProbeResult struct {
 }
 
 type JSONCertificate struct {
-	SubjectCommonName string   `json:"subject_common_name"`
-	IssuerCommonName  string   `json:"issuer_common_name"`
-	ValidFrom         string   `json:"valid_from"`
-	ValidTo           string   `json:"valid_to"`
-	DaysUntilExpiry   int      `json:"days_until_expiry"`
-	DNSNames          []string `json:"dns_names,omitempty"`
+	SubjectCommonName  string   `json:"subject_common_name"`
+	IssuerCommonName   string   `json:"issuer_common_name"`
+	ValidFrom          string   `json:"valid_from"`
+	ValidTo            string   `json:"valid_to"`
+	DaysUntilExpiry    int      `json:"days_until_expiry"`
+	PublicKeyAlgorithm string   `json:"public_key_algorithm,omitempty"`
+	PublicKeyBits      int      `json:"public_key_bits,omitempty"`
+	PublicKeyCurve     string   `json:"public_key_curve,omitempty"`
+	SignatureAlgorithm string   `json:"signature_algorithm,omitempty"`
+	DNSNames           []string `json:"dns_names,omitempty"`
 }
 
 func WriteMarkdownReportToFile(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, outputPath string, policyResults ...*policy.Result) error {
@@ -109,14 +119,14 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 	}
 
 	sb.WriteString("\n## TLS Versions\n\n")
-	sb.WriteString("| Version | Supported | Status | Certificate | Duration | Attempts |\n")
-	sb.WriteString("| --- | --- | --- | --- | ---: | ---: |\n")
+	sb.WriteString("| Version | Supported | Status | Certificate | Key Exchange | ALPN | Duration | Attempts |\n")
+	sb.WriteString("| --- | --- | --- | --- | --- | --- | ---: | ---: |\n")
 	for _, r := range results {
 		supported := "no"
 		if r.Supported {
 			supported = "yes"
 		}
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %d ms | %d |\n", r.Version, supported, emptyDash(r.Status), emptyDash(r.CertValidationStatus), r.DurationMillis, r.HandshakeAttempts))
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %d ms | %d |\n", r.Version, supported, emptyDash(r.Status), emptyDash(r.CertValidationStatus), emptyDash(r.KeyExchangeGroup), emptyDash(r.ALPNProtocol), r.DurationMillis, r.HandshakeAttempts))
 	}
 	sb.WriteString("\n## Cipher Suites\n")
 	for _, r := range results {
@@ -153,6 +163,12 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 			sb.WriteString(fmt.Sprintf("\n### %s\n", strings.Join(group.Versions, ", ")))
 			sb.WriteString(fmt.Sprintf("- **Subject CN**: %s\n", group.Certificate.Subject.CommonName))
 			sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", group.Certificate.Issuer.CommonName))
+			if publicKey := certificatePublicKeySummary(group.Certificate); publicKey != "" {
+				sb.WriteString(fmt.Sprintf("- **Public Key**: %s\n", publicKey))
+			}
+			if signature := certificateSignatureAlgorithm(group.Certificate); signature != "" {
+				sb.WriteString(fmt.Sprintf("- **Signature Algorithm**: %s\n", signature))
+			}
 			sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", group.Certificate.NotBefore.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", group.Certificate.NotAfter.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", daysUntilCertificateExpiry(group.Certificate, generatedAt)))
@@ -191,6 +207,8 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			ErrorMessage:              r.ErrorMessage,
 			DurationMillis:            r.DurationMillis,
 			HandshakeAttempts:         r.HandshakeAttempts,
+			KeyExchangeGroup:          r.KeyExchangeGroup,
+			ALPNProtocol:              r.ALPNProtocol,
 			CipherDiscovery:           r.CipherDiscovery,
 			NegotiatedCipherSuite:     r.NegotiatedCipherSuite,
 			CipherSuites:              r.CipherSuites,
@@ -203,14 +221,19 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			CertValidationMessage:     r.CertValidationMessage,
 		}
 		if r.Certificate != nil {
+			publicKeyAlgorithm, publicKeyBits, publicKeyCurve := certificatePublicKeyMetadata(r.Certificate)
 			daysUntilExpiry := daysUntilCertificateExpiry(r.Certificate, generatedAt)
 			jsonResult.Certificate = &JSONCertificate{
-				SubjectCommonName: r.Certificate.Subject.CommonName,
-				IssuerCommonName:  r.Certificate.Issuer.CommonName,
-				ValidFrom:         r.Certificate.NotBefore.Format(time.RFC3339),
-				ValidTo:           r.Certificate.NotAfter.Format(time.RFC3339),
-				DaysUntilExpiry:   daysUntilExpiry,
-				DNSNames:          r.Certificate.DNSNames,
+				SubjectCommonName:  r.Certificate.Subject.CommonName,
+				IssuerCommonName:   r.Certificate.Issuer.CommonName,
+				ValidFrom:          r.Certificate.NotBefore.Format(time.RFC3339),
+				ValidTo:            r.Certificate.NotAfter.Format(time.RFC3339),
+				DaysUntilExpiry:    daysUntilExpiry,
+				PublicKeyAlgorithm: publicKeyAlgorithm,
+				PublicKeyBits:      publicKeyBits,
+				PublicKeyCurve:     publicKeyCurve,
+				SignatureAlgorithm: certificateSignatureAlgorithm(r.Certificate),
+				DNSNames:           r.Certificate.DNSNames,
 			}
 		}
 		report.Results = append(report.Results, jsonResult)
@@ -464,6 +487,51 @@ func certificateFingerprint(cert *x509.Certificate) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func certificatePublicKeySummary(cert *x509.Certificate) string {
+	algorithm, bits, curve := certificatePublicKeyMetadata(cert)
+	if algorithm == "" {
+		return ""
+	}
+	if curve != "" && bits > 0 {
+		return fmt.Sprintf("%s %s (%d-bit)", algorithm, curve, bits)
+	}
+	if bits > 0 {
+		return fmt.Sprintf("%s %d-bit", algorithm, bits)
+	}
+	return algorithm
+}
+
+func certificatePublicKeyMetadata(cert *x509.Certificate) (algorithm string, bits int, curve string) {
+	if cert == nil {
+		return "", 0, ""
+	}
+	switch key := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		return "RSA", key.N.BitLen(), ""
+	case *ecdsa.PublicKey:
+		if key.Curve == nil || key.Curve.Params() == nil {
+			return "ECDSA", 0, ""
+		}
+		return "ECDSA", key.Curve.Params().BitSize, key.Curve.Params().Name
+	case ed25519.PublicKey:
+		return "Ed25519", len(key) * 8, ""
+	case *dsa.PublicKey:
+		return "DSA", key.P.BitLen(), ""
+	default:
+		if cert.PublicKeyAlgorithm != x509.UnknownPublicKeyAlgorithm {
+			return cert.PublicKeyAlgorithm.String(), 0, ""
+		}
+		return "", 0, ""
+	}
+}
+
+func certificateSignatureAlgorithm(cert *x509.Certificate) string {
+	if cert == nil || cert.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
+		return ""
+	}
+	return cert.SignatureAlgorithm.String()
+}
+
 func daysUntilCertificateExpiry(cert *x509.Certificate, reference time.Time) int {
 	return int(cert.NotAfter.Sub(reference).Hours() / 24)
 }
@@ -473,6 +541,12 @@ func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, versio
 	fmt.Fprintf(w, "   Negotiated Cipher suite: %s\n", cipher)
 	fmt.Fprintf(w, "   CN: %s\n", cert.Subject.CommonName)
 	fmt.Fprintf(w, "   Issuer: %s\n", cert.Issuer.CommonName)
+	if publicKey := certificatePublicKeySummary(cert); publicKey != "" {
+		fmt.Fprintf(w, "   Public Key: %s\n", publicKey)
+	}
+	if signature := certificateSignatureAlgorithm(cert); signature != "" {
+		fmt.Fprintf(w, "   Signature Algorithm: %s\n", signature)
+	}
 	fmt.Fprintf(w, "   Valid: %s - %s\n", cert.NotBefore.Format(time.RFC3339), cert.NotAfter.Format(time.RFC3339))
 	if validation.Status != "" {
 		fmt.Fprintf(w, "   Certificate validation: %s\n", validation.Status)
@@ -485,6 +559,15 @@ func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, versio
 		fmt.Fprintf(w, "   Days to Expiration: %d\n", int(time.Until(cert.NotAfter).Hours()/24))
 	}
 	fmt.Fprintf(w, "   DNS: %v\n", cert.DNSNames)
+}
+
+func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
+	if result.KeyExchangeGroup != "" {
+		fmt.Fprintf(w, "   Key Exchange Group: %s\n", result.KeyExchangeGroup)
+	}
+	if result.ALPNProtocol != "" {
+		fmt.Fprintf(w, "   ALPN: %s\n", result.ALPNProtocol)
+	}
 }
 
 func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {

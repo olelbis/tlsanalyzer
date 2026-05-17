@@ -2,9 +2,11 @@ package output
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -16,11 +18,14 @@ import (
 func TestBuildMarkdownReportFromResults(t *testing.T) {
 	generatedAt := time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC)
 	cert := &x509.Certificate{
-		Subject:   pkixName("example.com"),
-		Issuer:    pkixName("Example CA"),
-		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  generatedAt.Add(48 * time.Hour),
-		DNSNames:  []string{"example.com", "www.example.com"},
+		Subject:            pkixName("example.com"),
+		Issuer:             pkixName("Example CA"),
+		NotBefore:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:           generatedAt.Add(48 * time.Hour),
+		DNSNames:           []string{"example.com", "www.example.com"},
+		PublicKeyAlgorithm: x509.RSA,
+		PublicKey:          testRSAPublicKey(),
+		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 
 	report := BuildMarkdownReportFromResults("example.com", "443", "service.example.com", "vtest", generatedAt, []scan.TLSScanResult{
@@ -32,6 +37,8 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 			Status:                scan.ScanStatusSupported,
 			DurationMillis:        12,
 			HandshakeAttempts:     20,
+			KeyExchangeGroup:      "X25519",
+			ALPNProtocol:          "h2",
 			CipherDiscovery:       scan.CipherDiscoveryProbed,
 			NegotiatedCipherSuite: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 			CipherSuites:          []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
@@ -45,6 +52,8 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 			Supported:                 true,
 			Status:                    scan.ScanStatusSupported,
 			HandshakeAttempts:         11,
+			KeyExchangeGroup:          "X25519",
+			ALPNProtocol:              "h2",
 			CipherDiscovery:           scan.CipherDiscoveryRawProbed,
 			CipherSuites:              []string{"TLS_AES_128_GCM_SHA256"},
 			CipherProbeDurationMillis: 9,
@@ -65,7 +74,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"## Summary",
 		"**Supported TLS Versions**: 2 of 3 tested",
 		"| TLS 1.0 | no |",
-		"| TLS 1.2 | yes | supported | valid | 12 ms | 20 |",
+		"| TLS 1.2 | yes | supported | valid | X25519 | h2 | 12 ms | 20 |",
 		"**Negotiated**: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 		"**Discovery**: raw-probed",
 		"#### Cipher Probe Results",
@@ -74,6 +83,8 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"| TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |",
 		"**Subject CN**: example.com",
 		"**Issuer**: Example CA",
+		"**Public Key**: RSA 2048-bit",
+		"**Signature Algorithm**: SHA256-RSA",
 		"**Certificate Validation**: valid",
 		"**Certificate Validation Details**: certificate validation passed",
 		"**DNS Names**: example.com, www.example.com",
@@ -89,11 +100,14 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 func TestBuildMarkdownReportGroupsDuplicateCertificates(t *testing.T) {
 	generatedAt := time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC)
 	cert := &x509.Certificate{
-		Raw:       []byte("same-cert"),
-		Subject:   pkixName("example.com"),
-		Issuer:    pkixName("Example CA"),
-		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  generatedAt.Add(48 * time.Hour),
+		Raw:                []byte("same-cert"),
+		Subject:            pkixName("example.com"),
+		Issuer:             pkixName("Example CA"),
+		NotBefore:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:           generatedAt.Add(48 * time.Hour),
+		PublicKeyAlgorithm: x509.RSA,
+		PublicKey:          testRSAPublicKey(),
+		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 
 	report := BuildMarkdownReportFromResults("example.com", "443", "", "vtest", generatedAt, []scan.TLSScanResult{
@@ -112,11 +126,14 @@ func TestBuildMarkdownReportGroupsDuplicateCertificates(t *testing.T) {
 func TestBuildJSONReport(t *testing.T) {
 	generatedAt := time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC)
 	cert := &x509.Certificate{
-		Subject:   pkixName("example.com"),
-		Issuer:    pkixName("Example CA"),
-		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  generatedAt.Add(48 * time.Hour),
-		DNSNames:  []string{"example.com"},
+		Subject:            pkixName("example.com"),
+		Issuer:             pkixName("Example CA"),
+		NotBefore:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:           generatedAt.Add(48 * time.Hour),
+		DNSNames:           []string{"example.com"},
+		PublicKeyAlgorithm: x509.RSA,
+		PublicKey:          testRSAPublicKey(),
+		SignatureAlgorithm: x509.SHA256WithRSA,
 	}
 
 	data, err := BuildJSONReport("example.com", "443", "service.example.com", "vtest", generatedAt, []scan.TLSScanResult{
@@ -127,6 +144,8 @@ func TestBuildJSONReport(t *testing.T) {
 			Status:                    scan.ScanStatusSupported,
 			DurationMillis:            12,
 			HandshakeAttempts:         20,
+			KeyExchangeGroup:          "X25519",
+			ALPNProtocol:              "h2",
 			CipherDiscovery:           scan.CipherDiscoveryRawProbed,
 			NegotiatedCipherSuite:     "TLS_AES_128_GCM_SHA256",
 			CipherSuites:              []string{"TLS_AES_128_GCM_SHA256"},
@@ -174,6 +193,18 @@ func TestBuildJSONReport(t *testing.T) {
 	}
 	if report.Results[0].Certificate.DaysUntilExpiry != 2 {
 		t.Fatalf("DaysUntilExpiry = %d, want 2", report.Results[0].Certificate.DaysUntilExpiry)
+	}
+	if report.Results[0].KeyExchangeGroup != "X25519" {
+		t.Fatalf("KeyExchangeGroup = %q, want X25519", report.Results[0].KeyExchangeGroup)
+	}
+	if report.Results[0].ALPNProtocol != "h2" {
+		t.Fatalf("ALPNProtocol = %q, want h2", report.Results[0].ALPNProtocol)
+	}
+	if report.Results[0].Certificate.PublicKeyAlgorithm != "RSA" || report.Results[0].Certificate.PublicKeyBits != 2048 {
+		t.Fatalf("unexpected public key metadata: %+v", report.Results[0].Certificate)
+	}
+	if report.Results[0].Certificate.SignatureAlgorithm != "SHA256-RSA" {
+		t.Fatalf("SignatureAlgorithm = %q, want SHA256-RSA", report.Results[0].Certificate.SignatureAlgorithm)
 	}
 	if report.Results[0].CipherDiscovery != scan.CipherDiscoveryRawProbed {
 		t.Fatalf("CipherDiscovery = %q, want %q", report.Results[0].CipherDiscovery, scan.CipherDiscoveryRawProbed)
@@ -232,6 +263,8 @@ func TestBuildJSONReportGolden(t *testing.T) {
 			Status:                    scan.ScanStatusSupported,
 			DurationMillis:            12,
 			HandshakeAttempts:         21,
+			KeyExchangeGroup:          "X25519",
+			ALPNProtocol:              "h2",
 			CipherDiscovery:           scan.CipherDiscoveryProbed,
 			NegotiatedCipherSuite:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 			CipherSuites:              []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
@@ -289,6 +322,8 @@ func TestBuildJSONReportGolden(t *testing.T) {
       "status": "supported",
       "duration_millis": 12,
       "handshake_attempts": 21,
+      "key_exchange_group": "X25519",
+      "alpn_protocol": "h2",
       "cipher_discovery": "probed",
       "negotiated_cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
       "cipher_suites": [
@@ -403,4 +438,11 @@ func TestPrintScanSummaryReportsUnknownCipherEvidence(t *testing.T) {
 
 func pkixName(commonName string) pkix.Name {
 	return pkix.Name{CommonName: commonName}
+}
+
+func testRSAPublicKey() *rsa.PublicKey {
+	return &rsa.PublicKey{
+		N: new(big.Int).Lsh(big.NewInt(1), 2047),
+		E: 65537,
+	}
 }

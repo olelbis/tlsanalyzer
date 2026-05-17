@@ -90,6 +90,32 @@ func TestScanTLSVersionLocalTLS13(t *testing.T) {
 	}
 }
 
+func TestScanTLSVersionCapturesPostureMetadata(t *testing.T) {
+	server, host, port := newLocalTLSServerWithConfig(t, &tls.Config{
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
+		NextProtos: []string{"h2"},
+	})
+	defer server.Close()
+
+	result := ScanTLSVersion(Options{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		SkipVerify: true,
+	}, tls.VersionTLS13)
+
+	if !result.Supported {
+		t.Fatalf("Supported = false, status %q, error %q", result.Status, result.ErrorMessage)
+	}
+	if result.KeyExchangeGroup == "" {
+		t.Fatal("KeyExchangeGroup should be captured for TLS 1.3")
+	}
+	if result.ALPNProtocol != "h2" {
+		t.Fatalf("ALPNProtocol = %q, want h2", result.ALPNProtocol)
+	}
+}
+
 func TestOptionsTLSServerNameUsesOverride(t *testing.T) {
 	opts := Options{Host: "127.0.0.1", ServerName: "example.com"}
 	if got := opts.tlsServerName(); got != "example.com" {
@@ -291,13 +317,19 @@ func TestProbeCipherSuitesTLS13UsesRawProbe(t *testing.T) {
 func newLocalTLSServer(t *testing.T, minVersion, maxVersion uint16) (*httptest.Server, string, string) {
 	t.Helper()
 
+	return newLocalTLSServerWithConfig(t, &tls.Config{
+		MinVersion: minVersion,
+		MaxVersion: maxVersion,
+	})
+}
+
+func newLocalTLSServerWithConfig(t *testing.T, config *tls.Config) (*httptest.Server, string, string) {
+	t.Helper()
+
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
-	server.TLS = &tls.Config{
-		MinVersion: minVersion,
-		MaxVersion: maxVersion,
-	}
+	server.TLS = config
 	server.Config.ErrorLog = log.New(io.Discard, "", 0)
 	server.StartTLS()
 
