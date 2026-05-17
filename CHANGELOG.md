@@ -2,7 +2,7 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
-## Unreleased
+## v0.8.10 - 2026-05-17
 
 ### Changed
 
