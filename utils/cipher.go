@@ -1,4 +1,3 @@
-// File: utils/cipher.go
 package utils
 
 import "crypto/tls"
@@ -75,6 +74,8 @@ var CipherClassification = map[string]string{
 	"TLS_CHACHA20_POLY1305_SHA256":            "🟢 MODERN",
 }
 
+// CipherSeverityByName drives policy decisions; CipherClassification is only
+// the human-facing display label used in reports.
 var CipherSeverityByName = map[string]CipherSeverity{
 	"TLS_RSA_WITH_RC4_128_SHA":                CipherSeverityInsecure,
 	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           CipherSeverityInsecure,

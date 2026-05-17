@@ -1,4 +1,3 @@
-// File: output/output.go
 package output
 
 import (

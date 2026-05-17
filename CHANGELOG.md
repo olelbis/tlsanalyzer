@@ -2,6 +2,15 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Changed
+
+- Updated project status from experimental to preview.
+- Documented stability guarantees for JSON output, TLS 1.3 cipher evidence, policy behavior and runtime dependencies.
+- Cleaned up low-value source and workflow comments.
+- Added focused source comments for TLS 1.3 cipher observation and cipher severity policy semantics.
+
 ## v0.8.13 - 2026-05-17
 
 ### Added

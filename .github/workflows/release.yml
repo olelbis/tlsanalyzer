@@ -70,6 +70,6 @@ jobs:
         with:
            artifacts: ./artifacts/**/tlsanalyzer-*
            tag: ${{ github.ref_name }}
-           name: tlsanalyzer release ${{ github.ref_name }}  # release title
+           name: tlsanalyzer release ${{ github.ref_name }}
            prerelease: false
            bodyFile: RELEASE_NOTES.md

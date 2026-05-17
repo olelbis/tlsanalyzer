@@ -1,4 +1,3 @@
-// File: scan/scan.go
 package scan
 
 import (
@@ -205,6 +204,8 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	}
 
 	if version == tls.VersionTLS13 {
+		// Go does not let callers force individual TLS 1.3 cipher suites, so
+		// this branch samples normal handshakes and reports observed evidence.
 		result.Discovery = CipherDiscoveryObserved
 		result.ObservedOnly = true
 		result.Attempts = utils.DefaultTLS13Tries

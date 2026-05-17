@@ -4,7 +4,7 @@
 [![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
 [![Release Alignment](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml)
 [![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](BACKLOG.md)
+[![Status: Preview](https://img.shields.io/badge/status-preview-yellowgreen.svg)](BACKLOG.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/dependencies-standard%20library-only)](https://pkg.go.dev/std)
@@ -77,7 +77,17 @@ Or use the build script:
 
 ## Project Status
 
-`tlsanalyzer` is experimental software. The core workflow is covered by unit tests, local TLS integration tests, CI and automated release builds, but scan accuracy and output semantics should still be validated before relying on it for compliance, audit or production security decisions.
+`tlsanalyzer` is preview software. The core workflow is covered by unit tests, local TLS integration tests, CI and automated release builds, and the JSON v1 output contract is documented for automation consumers.
+
+The scanner is suitable for controlled operational checks and CI policy gates, but findings should still be validated before using them as the sole basis for compliance, audit or production security decisions.
+
+## Stability & Guarantees
+
+- JSON output uses `schema_version: "1.0"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
+- Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
+- TLS 1.3 cipher suites are observed from handshakes, not forced individually, due to Go TLS API limitations.
+- `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
+- The project remains dependency-free at runtime and uses only the Go standard library.
 
 ## Release Process
 

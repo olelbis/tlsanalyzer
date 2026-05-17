@@ -314,3 +314,29 @@ Acceptance criteria:
 
 - Add a dedicated JSON schema v1 document.
 - Link it from the README and user manual.
+
+## P8 - Preview Readiness - Done
+
+### Clean up source comments
+
+Problem: low-value file header comments add noise while a few subtle semantics need focused comments.
+
+Status: done.
+
+Acceptance criteria:
+
+- Remove redundant `// File:` comments.
+- Keep comments in English.
+- Add focused comments for TLS 1.3 cipher observation and cipher severity policy semantics.
+
+### Publish preview stability guarantees
+
+Problem: users need to know what is stable before treating the project as a preview release.
+
+Status: done.
+
+Acceptance criteria:
+
+- Update README status from experimental to preview.
+- Document JSON compatibility expectations.
+- Document TLS 1.3 cipher observation and conservative policy behavior.

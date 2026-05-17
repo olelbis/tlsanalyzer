@@ -1,4 +1,3 @@
-// File: utils/tls.go
 package utils
 
 import (

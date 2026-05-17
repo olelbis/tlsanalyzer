@@ -1,4 +1,3 @@
-// File: certs/certs.go
 package certs
 
 import (
