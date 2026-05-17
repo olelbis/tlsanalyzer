@@ -4,18 +4,12 @@
 
 <h1 align="center">tlsanalyzer</h1>
 
-[![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
-[![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
-[![Release Alignment](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml)
-[![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![Status: Preview](https://img.shields.io/badge/status-preview-yellowgreen.svg)](BACKLOG.md)
-[![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Runtime Deps](https://img.shields.io/badge/runtime%20deps-standard%20library-only)](https://pkg.go.dev/std)
-[![Packages](https://img.shields.io/badge/packages-deb%20%7C%20rpm-2ea44f?logo=linux&logoColor=white)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![SBOM](https://img.shields.io/badge/SBOM-SPDX-6f42c1)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![Checksums](https://img.shields.io/badge/checksums-SHA256-555555)](https://github.com/olelbis/tlsanalyzer/releases/latest)
-[![Provenance](https://img.shields.io/badge/provenance-attested-0f6ab4)](https://github.com/olelbis/tlsanalyzer/attestations)
+<p align="center">
+  <a href="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml"><img src="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/olelbis/tlsanalyzer/releases/latest"><img src="https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver" alt="Latest release"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white" alt="Go 1.26.3"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT license"></a>
+</p>
 
 `tlsanalyzer` is a small, dependency-free TLS inspection CLI inspired by `sslscan`.
 
@@ -32,7 +26,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Prints certificate summaries and optional PEM certificate chains.
 - Exports human-readable Markdown reports.
 - Emits JSON for scripts and automation.
-- Evaluates simple TLS policy checks for CI workflows.
+- Evaluates configurable TLS policy checks for CI workflows.
 - Prints a concise summary for supported TLS versions, certificate validation and cipher findings.
 - Builds multi-platform release binaries, Linux packages and verifiable release metadata with GitHub Actions.
 
@@ -51,6 +45,7 @@ tlsanalyzer --host example.com --min-version 1.2
 tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
 tlsanalyzer --host example.com --policy modern
+tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
 tlsanalyzer --host example.com --compact
 tlsanalyzer --host example.com --cert --output example.pem
 tlsanalyzer --host 203.0.113.10 --sni example.com
@@ -96,6 +91,7 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
 - TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
+- Custom policy gates can require or forbid TLS versions and ALPN protocols, enforce minimum certificate key size and require a minimum certificate validity window.
 - The project remains dependency-free at runtime and uses only the Go standard library.
 
 ## Release Process

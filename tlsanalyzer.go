@@ -41,6 +41,12 @@ type cliConfig struct {
 	showVersion     bool
 	policy          string
 	failOn          string
+	requireTLS      string
+	forbidTLS       string
+	requireALPN     string
+	forbidALPN      string
+	minCertKeyBits  int
+	minCertDays     int
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -99,9 +105,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	policyConfig := policy.Config{
-		Name:   cfg.policy,
-		FailOn: policy.ParseFailOn(cfg.failOn),
+	policyConfig, err := buildPolicyConfig(cfg)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
 	}
 	if err := policy.ValidateConfig(policyConfig); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -287,11 +294,38 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.BoolVar(&cfg.showVersion, "version", false, "Print version information and exit")
 	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern")
 	fs.StringVar(&cfg.failOn, "fail-on", "", "Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert")
+	fs.StringVar(&cfg.requireTLS, "require-tls", "", "Comma-separated TLS versions that must be supported, such as 1.3")
+	fs.StringVar(&cfg.forbidTLS, "forbid-tls", "", "Comma-separated TLS versions that must not be supported, such as 1.0,1.1")
+	fs.StringVar(&cfg.requireALPN, "require-alpn", "", "Comma-separated ALPN protocols that supported handshakes must negotiate")
+	fs.StringVar(&cfg.forbidALPN, "forbid-alpn", "", "Comma-separated ALPN protocols that must not be negotiated")
+	fs.IntVar(&cfg.minCertKeyBits, "min-cert-key-bits", 0, "Minimum certificate public key size in bits")
+	fs.IntVar(&cfg.minCertDays, "min-cert-days", 0, "Minimum number of days before certificate expiry")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage of tlsanalyzer:")
 		fs.PrintDefaults()
 	}
 	return fs
+}
+
+func buildPolicyConfig(cfg cliConfig) (policy.Config, error) {
+	requiredTLS, err := policy.ParseTLSVersions(cfg.requireTLS)
+	if err != nil {
+		return policy.Config{}, err
+	}
+	forbiddenTLS, err := policy.ParseTLSVersions(cfg.forbidTLS)
+	if err != nil {
+		return policy.Config{}, err
+	}
+	return policy.Config{
+		Name:                       cfg.policy,
+		FailOn:                     policy.ParseFailOn(cfg.failOn),
+		RequiredTLSVersions:        requiredTLS,
+		ForbiddenTLSVersions:       forbiddenTLS,
+		RequiredALPNProtocols:      policy.ParseALPNProtocols(cfg.requireALPN),
+		ForbiddenALPNProtocols:     policy.ParseALPNProtocols(cfg.forbidALPN),
+		MinCertificateKeyBits:      cfg.minCertKeyBits,
+		MinCertificateValidityDays: cfg.minCertDays,
+	}, nil
 }
 
 func formatVersion() string {

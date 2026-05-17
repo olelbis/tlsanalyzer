@@ -102,6 +102,18 @@ tlsanalyzer --host example.com --min-version 1.2
         Policy to evaluate: modern
   --fail-on string
         Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert
+  --require-tls string
+        Comma-separated TLS versions that must be supported, such as 1.3
+  --forbid-tls string
+        Comma-separated TLS versions that must not be supported, such as 1.0,1.1
+  --require-alpn string
+        Comma-separated ALPN protocols that supported handshakes must negotiate
+  --forbid-alpn string
+        Comma-separated ALPN protocols that must not be negotiated
+  --min-cert-key-bits int
+        Minimum certificate public key size in bits
+  --min-cert-days int
+        Minimum number of days before certificate expiry
   --markdown string
         Write scan result to a Markdown file
 ```
@@ -269,6 +281,21 @@ Available checks are:
 - `weak-cipher`
 - `invalid-cert`
 - `expired-cert`
+
+Use configurable policy gates for stricter environments:
+
+```bash
+tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --require-alpn h2 --min-cert-key-bits 2048 --min-cert-days 30
+```
+
+Configurable policy flags are evaluated together with `--policy` and `--fail-on` when they are present:
+
+- `--require-tls`: fails when any listed TLS version is not supported.
+- `--forbid-tls`: fails when any listed TLS version is supported.
+- `--require-alpn`: fails when a supported handshake does not negotiate one of the listed ALPN protocols.
+- `--forbid-alpn`: fails when a supported handshake negotiates a listed ALPN protocol.
+- `--min-cert-key-bits`: fails when the certificate public key is unavailable or smaller than the configured size.
+- `--min-cert-days`: fails when certificate expiry is unavailable or closer than the configured threshold.
 
 ## Interpreting Scan Status
 

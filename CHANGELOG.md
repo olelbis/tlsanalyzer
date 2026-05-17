@@ -2,6 +2,13 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added configurable policy gates for required and forbidden TLS versions, required and forbidden ALPN protocols, minimum certificate public key size and minimum certificate validity days.
+- Documented the expanded policy controls in the README, user manual and man page.
+
 ## v0.14.1 - 2026-05-18
 
 ### Changed

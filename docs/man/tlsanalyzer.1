@@ -71,6 +71,24 @@ Comma-separated checks that fail the run. Supported checks:
 .BR invalid-cert ,
 and
 .BR expired-cert .
+.TP
+.BR --require-tls " " \fIversions\fR
+Comma-separated TLS versions that must be supported.
+.TP
+.BR --forbid-tls " " \fIversions\fR
+Comma-separated TLS versions that must not be supported.
+.TP
+.BR --require-alpn " " \fIprotocols\fR
+Comma-separated ALPN protocols that supported handshakes must negotiate.
+.TP
+.BR --forbid-alpn " " \fIprotocols\fR
+Comma-separated ALPN protocols that must not be negotiated.
+.TP
+.BR --min-cert-key-bits " " \fIbits\fR
+Minimum certificate public key size in bits.
+.TP
+.BR --min-cert-days " " \fIdays\fR
+Minimum number of days before certificate expiry.
 .SH EXIT STATUS
 .TP
 .B 0
@@ -95,6 +113,9 @@ Analyze a host with SNI and JSON output:
 .TP
 Run a modern TLS policy gate:
 .B tlsanalyzer --host example.com --policy modern --no-clear
+.TP
+Run a custom TLS 1.3 policy gate:
+.B tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
 .TP
 Print version information:
 .B tlsanalyzer --version

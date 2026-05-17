@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"strings"
 	"testing"
 
@@ -192,7 +193,18 @@ func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	var stderr bytes.Buffer
 
-	cfg, err := parseCLIArgs([]string{"--host", "example.com", "--sni", "service.example.com", "--policy", "modern", "--fail-on", "legacy-tls,weak-cipher"}, &stderr)
+	cfg, err := parseCLIArgs([]string{
+		"--host", "example.com",
+		"--sni", "service.example.com",
+		"--policy", "modern",
+		"--fail-on", "legacy-tls,weak-cipher",
+		"--require-tls", "1.3",
+		"--forbid-tls", "1.0,1.1",
+		"--require-alpn", "h2",
+		"--forbid-alpn", "http/1.1",
+		"--min-cert-key-bits", "2048",
+		"--min-cert-days", "30",
+	}, &stderr)
 	if err != nil {
 		t.Fatalf("parseCLIArgs() error = %v", err)
 	}
@@ -204,6 +216,32 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 	if cfg.sni != "service.example.com" {
 		t.Fatalf("sni = %q, want service.example.com", cfg.sni)
+	}
+	if cfg.requireTLS != "1.3" || cfg.forbidTLS != "1.0,1.1" {
+		t.Fatalf("TLS policy flags = require %q forbid %q", cfg.requireTLS, cfg.forbidTLS)
+	}
+	if cfg.requireALPN != "h2" || cfg.forbidALPN != "http/1.1" {
+		t.Fatalf("ALPN policy flags = require %q forbid %q", cfg.requireALPN, cfg.forbidALPN)
+	}
+	if cfg.minCertKeyBits != 2048 || cfg.minCertDays != 30 {
+		t.Fatalf("certificate policy flags = key %d days %d", cfg.minCertKeyBits, cfg.minCertDays)
+	}
+	policyConfig, err := buildPolicyConfig(cfg)
+	if err != nil {
+		t.Fatalf("buildPolicyConfig() error = %v", err)
+	}
+	if len(policyConfig.RequiredTLSVersions) != 1 || policyConfig.RequiredTLSVersions[0] != tls.VersionTLS13 {
+		t.Fatalf("RequiredTLSVersions = %+v, want TLS 1.3", policyConfig.RequiredTLSVersions)
+	}
+	if len(policyConfig.ForbiddenTLSVersions) != 2 {
+		t.Fatalf("ForbiddenTLSVersions = %+v, want TLS 1.0 and TLS 1.1", policyConfig.ForbiddenTLSVersions)
+	}
+}
+
+func TestBuildPolicyConfigRejectsInvalidTLSVersion(t *testing.T) {
+	_, err := buildPolicyConfig(cliConfig{requireTLS: "1.4"})
+	if err == nil {
+		t.Fatal("buildPolicyConfig() error = nil, want invalid TLS version error")
 	}
 }
 

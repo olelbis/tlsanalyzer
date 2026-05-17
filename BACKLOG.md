@@ -497,13 +497,13 @@ Acceptance criteria:
 - Document exit codes more prominently.
 - Consider output format controls for table or compact console output.
 
-## P15 - Policy Depth - Planned
+## P15 - Policy Depth - Done
 
 ### Add richer configurable policy checks
 
 Problem: the current policy mode is useful for basic CI gates, but mature environments often need more granular posture requirements.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
