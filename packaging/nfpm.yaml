@@ -1,0 +1,18 @@
+name: tlsanalyzer
+arch: ${PACKAGE_ARCH}
+platform: linux
+version: ${PACKAGE_VERSION}
+release: "1"
+section: utils
+priority: optional
+maintainer: Team tlsanalyzer <noreply@github.com>
+description: |
+  Dependency-free TLS scanner for protocol, cipher, certificate and policy evidence.
+vendor: tlsanalyzer
+homepage: https://github.com/olelbis/tlsanalyzer
+license: MIT
+contents:
+  - src: ./packaging/root/usr/bin/tlsanalyzer
+    dst: /usr/bin/tlsanalyzer
+  - src: ./docs/man/tlsanalyzer.1
+    dst: /usr/share/man/man1/tlsanalyzer.1

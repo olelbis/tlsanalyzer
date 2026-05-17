@@ -2,6 +2,16 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.13.0 - 2026-05-18
+
+### Added
+
+- Added SHA256 checksums for release assets.
+- Added Linux `.deb` and `.rpm` packages for `amd64` and `arm64`.
+- Added a `tlsanalyzer(1)` man page to Linux packages.
+- Added an SPDX SBOM release asset.
+- Added GitHub artifact attestations for release assets.
+
 ## v0.12.0 - 2026-05-17
 
 ### Added

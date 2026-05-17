@@ -6,6 +6,14 @@ This manual covers day-to-day usage of `tlsanalyzer`.
 
 The easiest path is to download a binary from the [GitHub releases page](https://github.com/olelbis/tlsanalyzer/releases).
 
+Linux users can also install the `.deb` or `.rpm` packages from the same release page. These packages install the binary and the `tlsanalyzer(1)` man page:
+
+```bash
+sudo dpkg -i tlsanalyzer_*.deb
+sudo rpm -i tlsanalyzer-*.rpm
+man tlsanalyzer
+```
+
 You can also build from source:
 
 ```bash
@@ -17,6 +25,22 @@ Or use the build script:
 ```bash
 ./scripts/build.sh
 ./scripts/build.sh --all
+```
+
+## Release Verification
+
+Each release includes `checksums.txt`, an SPDX SBOM and GitHub artifact attestations.
+
+Verify downloaded files with SHA256:
+
+```bash
+sha256sum --ignore-missing -c checksums.txt
+```
+
+Verify provenance attestations with the GitHub CLI:
+
+```bash
+gh attestation verify tlsanalyzer-linux-amd64 --repo olelbis/tlsanalyzer
 ```
 
 ## Basic Usage

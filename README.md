@@ -33,7 +33,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Emits JSON for scripts and automation.
 - Evaluates simple TLS policy checks for CI workflows.
 - Prints a concise summary for supported TLS versions, certificate validation and cipher findings.
-- Builds multi-platform release binaries with GitHub Actions.
+- Builds multi-platform release binaries, Linux packages and verifiable release metadata with GitHub Actions.
 
 ## Quick Start
 
@@ -112,4 +112,26 @@ Release checklist:
 4. Create and push an annotated tag.
 5. Run `scripts/check-release-alignment.sh` to confirm `main` points at the latest release tag.
 
-GitHub Actions builds Linux, macOS and Windows binaries for `amd64` and `arm64`, then uses the matching `CHANGELOG.md` section as the GitHub release body.
+GitHub Actions builds Linux, macOS and Windows binaries for `amd64` and `arm64`, Linux `.deb` and `.rpm` packages, an SPDX SBOM, SHA256 checksums and GitHub artifact attestations. The matching `CHANGELOG.md` section is used as the GitHub release body.
+
+## Verifying Releases
+
+Download the release assets you need together with `checksums.txt`, then verify the files:
+
+```bash
+sha256sum --ignore-missing -c checksums.txt
+```
+
+GitHub artifact attestations can be verified with the GitHub CLI:
+
+```bash
+gh attestation verify tlsanalyzer-linux-amd64 --repo olelbis/tlsanalyzer
+```
+
+Linux packages include the `tlsanalyzer(1)` man page:
+
+```bash
+sudo dpkg -i tlsanalyzer_*.deb
+sudo rpm -i tlsanalyzer-*.rpm
+man tlsanalyzer
+```

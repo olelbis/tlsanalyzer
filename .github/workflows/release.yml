@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build_and_release:
@@ -35,11 +37,27 @@ jobs:
           fi
           CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date)' -s -w" -o $output_name .
 
+      - name: Install nFPM
+        if: matrix.goos == 'linux'
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.46.3
+
+      - name: Build Linux packages
+        if: matrix.goos == 'linux'
+        run: |
+          mkdir -p packaging/root/usr/bin packages
+          cp tlsanalyzer-linux-${{ matrix.goarch }} packaging/root/usr/bin/tlsanalyzer
+          export PACKAGE_VERSION="${GITHUB_REF_NAME#v}"
+          export PACKAGE_ARCH="${{ matrix.goarch }}"
+          "$(go env GOPATH)/bin/nfpm" pkg --config packaging/nfpm.yaml --packager deb --target packages/
+          "$(go env GOPATH)/bin/nfpm" pkg --config packaging/nfpm.yaml --packager rpm --target packages/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
-          path: tlsanalyzer-${{ matrix.goos }}-${{ matrix.goarch }}*
+          path: |
+            tlsanalyzer-${{ matrix.goos }}-${{ matrix.goarch }}*
+            packages/*
 
   release:
     needs: build_and_release
@@ -52,6 +70,24 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: ./artifacts
+
+      - name: Flatten release artifacts
+        run: |
+          mkdir -p dist
+          find ./artifacts -type f -exec cp {} dist/ \;
+
+      - name: Generate SBOM
+        run: scripts/generate-sbom.sh "${GITHUB_REF_NAME}" > "dist/tlsanalyzer-${GITHUB_REF_NAME}-sbom.spdx.json"
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
 
       - name: Extract release notes from changelog
         run: |
@@ -68,7 +104,7 @@ jobs:
       - name: Create GitHub Release and Upload All Binaries
         uses: ncipollo/release-action@v1
         with:
-           artifacts: ./artifacts/**/tlsanalyzer-*
+           artifacts: ./dist/*
            tag: ${{ github.ref_name }}
            name: tlsanalyzer release ${{ github.ref_name }}
            prerelease: false

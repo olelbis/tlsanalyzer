@@ -1,0 +1,100 @@
+.TH TLSANALYZER 1 "2026-05-18" "tlsanalyzer" "User Commands"
+.SH NAME
+tlsanalyzer \- analyze TLS protocol, cipher, certificate and policy posture
+.SH SYNOPSIS
+.B tlsanalyzer
+.B --host
+.I host
+[
+.I options
+]
+.SH DESCRIPTION
+.B tlsanalyzer
+is a dependency-free TLS scanner that tests protocol support from TLS 1.0
+through TLS 1.3, reports negotiated and probed cipher evidence, validates
+certificates separately from protocol support, and can emit Markdown or JSON
+reports for operational checks and CI workflows.
+.SH OPTIONS
+.TP
+.BR --host " " \fIhost\fR
+Hostname or server IP to scan. This option is required.
+.TP
+.BR --port " " \fIport\fR
+TCP port to scan. Defaults to 443.
+.TP
+.BR --sni " " \fIname\fR
+TLS Server Name Indication and certificate validation name.
+.TP
+.BR --min-version " " \fIversion\fR
+Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3. Defaults to 1.0.
+.TP
+.BR --force-ciphers
+Probe individual cipher suites where possible. TLS 1.3 cipher suites are
+raw-probed with minimal ClientHello handshakes.
+.TP
+.BR --skip-verify
+Skip certificate validation while still reporting TLS handshake support.
+.TP
+.BR --cert
+Print or save the certificate chain.
+.TP
+.BR --output " " \fIfile\fR
+Output file for PEM certificate data when used with
+.BR --cert .
+.TP
+.BR --checkcert
+Print days until certificate expiration in human-readable output.
+.TP
+.BR --markdown " " \fIfile\fR
+Write a Markdown scan report.
+.TP
+.BR --json
+Write the scan result as JSON to standard output.
+.TP
+.BR --no-clear
+Do not clear the terminal before scanning.
+.TP
+.BR --policy " " \fIname\fR
+Evaluate a built-in policy. Currently supported:
+.BR modern .
+.TP
+.BR --fail-on " " \fIchecks\fR
+Comma-separated checks that fail the run. Supported checks:
+.BR legacy-tls ,
+.BR weak-cipher ,
+.BR invalid-cert ,
+and
+.BR expired-cert .
+.SH EXIT STATUS
+.TP
+.B 0
+Scan completed and enabled policy checks passed.
+.TP
+.B 1
+Invalid input, scan setup failure, report write failure or certificate output
+failure.
+.TP
+.B 3
+Scan completed but enabled policy checks failed.
+.SH EXAMPLES
+.TP
+Analyze a host:
+.B tlsanalyzer --host example.com
+.TP
+Analyze a host with SNI and JSON output:
+.B tlsanalyzer --host 203.0.113.10 --sni example.com --json
+.TP
+Run a modern TLS policy gate:
+.B tlsanalyzer --host example.com --policy modern --no-clear
+.SH FILES
+.TP
+.I /usr/bin/tlsanalyzer
+Installed executable in Linux packages.
+.TP
+.I /usr/share/man/man1/tlsanalyzer.1
+Installed manual page in Linux packages.
+.SH SEE ALSO
+Project documentation:
+.UR https://github.com/olelbis/tlsanalyzer
+https://github.com/olelbis/tlsanalyzer
+.UE

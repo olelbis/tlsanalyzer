@@ -465,19 +465,21 @@ Acceptance criteria:
 - Capture ALPN negotiation evidence.
 - Keep non-TLS HTTP checks out of scope unless explicitly promoted later.
 
-## P13 - Supply Chain and Release Trust - Planned
+## P13 - Supply Chain and Release Trust - Done
 
 ### Strengthen release artifacts
 
-Problem: release binaries are built automatically, but consumers need stronger artifact integrity signals.
+Problem: release binaries are built automatically, but consumers need stronger artifact integrity signals and Linux users should be able to install packaged builds cleanly.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
 - Publish checksum files with releases.
-- Evaluate SBOM generation.
-- Evaluate GitHub artifact attestations or signing.
+- Publish Linux `.deb` and `.rpm` packages for `amd64` and `arm64`.
+- Include a man page in Linux packages.
+- Publish an SPDX SBOM with releases.
+- Publish GitHub artifact attestations for release assets.
 - Document release verification steps.
 
 ## P14 - Product Polish - Planned
