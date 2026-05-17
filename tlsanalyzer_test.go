@@ -115,6 +115,23 @@ func TestRunRejectsJSONCertWithoutOutputBeforeScan(t *testing.T) {
 	}
 }
 
+func TestRunRejectsUnknownPolicyBeforeScan(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--host", "example.com", "--json", "--policy", "strict"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), `unknown policy "strict"`) {
+		t.Fatalf("stderr does not contain unknown policy error:\n%s", stderr.String())
+	}
+}
+
 func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -132,5 +149,20 @@ func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 	}
 	if second.port != "443" {
 		t.Fatalf("second port = %q, want default 443", second.port)
+	}
+}
+
+func TestParseCLIArgsPolicyFlags(t *testing.T) {
+	var stderr bytes.Buffer
+
+	cfg, err := parseCLIArgs([]string{"--host", "example.com", "--policy", "modern", "--fail-on", "legacy-tls,weak-cipher"}, &stderr)
+	if err != nil {
+		t.Fatalf("parseCLIArgs() error = %v", err)
+	}
+	if cfg.policy != "modern" {
+		t.Fatalf("policy = %q, want modern", cfg.policy)
+	}
+	if cfg.failOn != "legacy-tls,weak-cipher" {
+		t.Fatalf("failOn = %q, want legacy-tls,weak-cipher", cfg.failOn)
 	}
 }

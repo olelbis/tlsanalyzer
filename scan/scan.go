@@ -15,17 +15,23 @@ import (
 )
 
 type TLSScanResult struct {
-	Version               string
-	VersionID             uint16
-	CipherSuites          []string
-	CipherSuitesObserved  bool
-	Supported             bool
-	Status                string
-	ErrorMessage          string
-	Certificate           *x509.Certificate
-	CertInfos             []utils.CertInfo
-	CertValidationStatus  string
-	CertValidationMessage string
+	Version                   string
+	VersionID                 uint16
+	DurationMillis            int64
+	HandshakeAttempts         int
+	CipherDiscovery           string
+	NegotiatedCipherSuite     string
+	CipherSuites              []string
+	CipherSuitesObserved      bool
+	CipherProbeDurationMillis int64
+	Warnings                  []string
+	Supported                 bool
+	Status                    string
+	ErrorMessage              string
+	Certificate               *x509.Certificate
+	CertInfos                 []utils.CertInfo
+	CertValidationStatus      string
+	CertValidationMessage     string
 }
 
 type Options struct {
@@ -49,18 +55,37 @@ const (
 	ScanStatusTimeout      = "timeout"
 	ScanStatusHandshake    = "handshake_error"
 
+	CipherDiscoveryNegotiated = "negotiated"
+	CipherDiscoveryProbed     = "probed"
+	CipherDiscoveryObserved   = "observed"
+
 	CertValidationValid       = "valid"
 	CertValidationInvalid     = "invalid"
 	CertValidationSkipped     = "skipped"
 	CertValidationUnavailable = "unavailable"
 )
 
-func ScanTLSVersion(opts Options, version uint16) TLSScanResult {
-	result := TLSScanResult{
-		Version:   utils.TLSVersions[version],
-		VersionID: version,
-		Status:    ScanStatusUnsupported,
+type CipherProbeResult struct {
+	CipherSuites   []string
+	Discovery      string
+	Attempts       int
+	Warnings       []string
+	ObservedOnly   bool
+	DurationMillis int64
+}
+
+func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
+	start := time.Now()
+	result = TLSScanResult{
+		Version:           utils.TLSVersions[version],
+		VersionID:         version,
+		HandshakeAttempts: 1,
+		CipherDiscovery:   CipherDiscoveryNegotiated,
+		Status:            ScanStatusUnsupported,
 	}
+	defer func() {
+		result.DurationMillis = time.Since(start).Milliseconds()
+	}()
 
 	address := net.JoinHostPort(opts.Host, opts.Port)
 	config := &tls.Config{
@@ -81,6 +106,7 @@ func ScanTLSVersion(opts Options, version uint16) TLSScanResult {
 	}
 
 	if opts.ForceCiphers && version == tls.VersionTLS13 {
+		result.HandshakeAttempts = utils.DefaultTLS13Tries
 		for i := 0; i < utils.DefaultTLS13Tries; i++ {
 			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
 			if err != nil {
@@ -116,6 +142,7 @@ func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options) TL
 	result.CertInfos = infos
 	result.CertValidationStatus = validation.Status
 	result.CertValidationMessage = validation.Message
+	result.NegotiatedCipherSuite = cipher
 	result.CipherSuites = []string{cipher}
 	if len(state.PeerCertificates) > 0 {
 		result.Certificate = state.PeerCertificates[0]
@@ -148,16 +175,25 @@ func ValidatePeerCertificates(host string, peerCertificates []*x509.Certificate,
 }
 
 func GetSupportedCiphersForVersion(opts Options, version uint16) []string {
+	return ProbeCipherSuitesForVersion(opts, version).CipherSuites
+}
+
+func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult {
+	start := time.Now()
 	supported := []string{}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, utils.DefaultMaxConcurrency)
+	result := CipherProbeResult{
+		Discovery: CipherDiscoveryProbed,
+	}
 
 	if version != tls.VersionTLS13 {
 		for _, cs := range utils.AllCipherSuites {
 			if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
 				continue
 			}
+			result.Attempts++
 			cs := cs
 			wg.Add(1)
 			go func() {
@@ -186,6 +222,10 @@ func GetSupportedCiphersForVersion(opts Options, version uint16) []string {
 	}
 
 	if version == tls.VersionTLS13 {
+		result.Discovery = CipherDiscoveryObserved
+		result.ObservedOnly = true
+		result.Attempts = utils.DefaultTLS13Tries
+		result.Warnings = append(result.Warnings, "TLS 1.3 cipher suites are observed from repeated handshakes; Go does not allow forcing individual TLS 1.3 cipher suites.")
 		found := make(map[string]bool)
 		var tls13Mutex sync.Mutex
 		var wg3 sync.WaitGroup
@@ -217,7 +257,9 @@ func GetSupportedCiphersForVersion(opts Options, version uint16) []string {
 
 	supported = utils.UniqueStrings(supported)
 	sort.Strings(supported)
-	return supported
+	result.CipherSuites = supported
+	result.DurationMillis = time.Since(start).Milliseconds()
+	return result
 }
 
 func classifyScanError(err error) (string, string) {

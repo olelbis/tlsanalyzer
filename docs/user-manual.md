@@ -62,6 +62,10 @@ tlsanalyzer --host example.com --min-version 1.2
         Write scan result as JSON to stdout
   --no-clear
         Do not clear the terminal before scanning
+  --policy string
+        Policy to evaluate: modern
+  --fail-on string
+        Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert
   --markdown string
         Write scan result to a Markdown file
 ```
@@ -101,13 +105,20 @@ tlsanalyzer --host example.com --json
 
 JSON output is intended for scripts and automation. It includes:
 
+- Schema version
 - Host and port
 - Scanner version and generation timestamp
 - Per-version support status
 - Scan status and error messages
-- Cipher suites
+- Negotiated cipher suite
+- Cipher suite discovery mode: `negotiated`, `probed` or `observed`
+- Cipher suites found by probing or observation
+- Handshake attempts, scan duration and warnings
 - Certificate details
 - Certificate validation status
+- Policy result, when `--policy` or `--fail-on` is used
+
+The current JSON schema version is `1.0`. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
 
 ### Certificate chain
 
@@ -161,6 +172,40 @@ For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to pr
 
 Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. For TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
 
+JSON and Markdown output distinguish:
+
+- `negotiated`: the cipher selected by the first successful handshake.
+- `probed`: cipher suites accepted when forcing individual TLS 1.0, 1.1 or 1.2 suites.
+- `observed`: TLS 1.3 cipher suites seen across repeated handshakes.
+
+### Policy mode
+
+Evaluate a built-in policy:
+
+```bash
+tlsanalyzer --host example.com --policy modern
+```
+
+The `modern` policy fails the run when it detects:
+
+- TLS 1.0 or TLS 1.1 support
+- Weak or insecure cipher suites
+- Invalid certificates
+- Expired certificates
+
+Use targeted checks without a named policy:
+
+```bash
+tlsanalyzer --host example.com --fail-on legacy-tls,weak-cipher
+```
+
+Available checks are:
+
+- `legacy-tls`
+- `weak-cipher`
+- `invalid-cert`
+- `expired-cert`
+
 ## Interpreting Scan Status
 
 Each TLS version has a scan status:
@@ -181,6 +226,8 @@ Certificate validation is reported separately:
 ## Exit Behavior
 
 Invalid CLI input, report write failures and certificate output failures exit with a non-zero status.
+
+Policy failures exit with status `3`.
 
 Unsupported TLS versions are scan results, not CLI failures.
 

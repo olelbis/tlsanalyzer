@@ -23,6 +23,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Prints certificate summaries and optional PEM certificate chains.
 - Exports human-readable Markdown reports.
 - Emits JSON for scripts and automation.
+- Evaluates simple TLS policy checks for CI workflows.
 - Builds multi-platform release binaries with GitHub Actions.
 
 ## Quick Start
@@ -39,6 +40,7 @@ Common examples:
 tlsanalyzer --host example.com --min-version 1.2
 tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
+tlsanalyzer --host example.com --policy modern
 tlsanalyzer --host example.com --cert --output example.pem
 ```
 

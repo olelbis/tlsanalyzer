@@ -1,69 +1,87 @@
 # TLS Scan Report for host example.com:443
 
-- **Generated At**: 2026-05-16T21:12:22Z
-- **Scanner Version**: v0.8.7
+- **Generated At**: 2026-05-17T15:20:00Z
+- **Scanner Version**: v0.8.8
+- **JSON Schema Version**: 1.0
 
-## TLS Versions Supported
-- ✅ TLS 1.0 (certificate: valid - certificate validation passed)
-- ✅ TLS 1.1 (certificate: valid - certificate validation passed)
-- ✅ TLS 1.2 (certificate: valid - certificate validation passed)
-- ✅ TLS 1.3 (certificate: valid - certificate validation passed)
+## Summary
+
+- **Supported TLS Versions**: 4
+- **Certificate Validation**: valid
+- **Cipher Findings**: weak cipher suites detected
+- **Policy**: modern (failed)
+
+## Policy Failures
+
+| Check | TLS Version | Message |
+| --- | --- | --- |
+| legacy-tls | TLS 1.0 | TLS 1.0 is supported; modern policy requires TLS 1.2 or newer |
+| legacy-tls | TLS 1.1 | TLS 1.1 is supported; modern policy requires TLS 1.2 or newer |
+| weak-cipher | TLS 1.0 | TLS 1.0 allows weak cipher TLS_RSA_WITH_AES_128_CBC_SHA |
+
+## TLS Versions
+
+| Version | Supported | Status | Certificate | Duration | Attempts |
+| --- | --- | --- | --- | ---: | ---: |
+| TLS 1.0 | yes | supported | valid | 82 ms | 21 |
+| TLS 1.1 | yes | supported | valid | 75 ms | 21 |
+| TLS 1.2 | yes | supported | valid | 95 ms | 21 |
+| TLS 1.3 | yes | supported | valid | 44 ms | 11 |
 
 ## Cipher Suites
 
-### TLS 1.0 Supported Cipher Suites
-- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA 🟡 ACCEPTABLE
-- TLS_RSA_WITH_3DES_EDE_CBC_SHA 🔴 INSECURE
-- TLS_RSA_WITH_AES_128_CBC_SHA 🟠 WEAK
-- TLS_RSA_WITH_AES_256_CBC_SHA 🟠 WEAK
+### TLS 1.0
 
-### TLS 1.1 Supported Cipher Suites
-- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA 🟡 ACCEPTABLE
-- TLS_RSA_WITH_AES_128_CBC_SHA 🟠 WEAK
-- TLS_RSA_WITH_AES_256_CBC_SHA 🟠 WEAK
+- **Negotiated**: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+- **Discovery**: probed
+- **Cipher Probe Duration**: 412 ms
 
-### TLS 1.2 Supported Cipher Suites
-- TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 🟢 SECURE
-- TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 🟢 SECURE
-- TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 🟢 SECURE
-- TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305 🟢 MODERN
-- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 🟢 SECURE
-- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 🟢 SECURE
-- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA 🟡 ACCEPTABLE
-- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 🟢 SECURE
-- TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 🟢 MODERN
-- TLS_RSA_WITH_AES_128_CBC_SHA 🟠 WEAK
-- TLS_RSA_WITH_AES_128_CBC_SHA256 🟠 WEAK
-- TLS_RSA_WITH_AES_128_GCM_SHA256 🟢 SECURE
-- TLS_RSA_WITH_AES_256_CBC_SHA 🟠 WEAK
-- TLS_RSA_WITH_AES_256_GCM_SHA384 🟢 SECURE
+| Cipher Suite | Classification |
+| --- | --- |
+| TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA | 🟡 ACCEPTABLE |
+| TLS_RSA_WITH_AES_128_CBC_SHA | 🟠 WEAK |
 
-### TLS 1.3 Observed Cipher Suites
-- TLS_AES_128_GCM_SHA256 🟢 MODERN
+### TLS 1.2
+
+- **Negotiated**: TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+- **Discovery**: probed
+- **Cipher Probe Duration**: 521 ms
+
+| Cipher Suite | Classification |
+| --- | --- |
+| TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |
+| TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |
+| TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 | 🟢 MODERN |
+
+### TLS 1.3
+
+- **Negotiated**: TLS_AES_128_GCM_SHA256
+- **Discovery**: observed
+- **Cipher Probe Duration**: 168 ms
+- **Warning**: TLS 1.3 cipher suites are observed from repeated handshakes; Go does not allow forcing individual TLS 1.3 cipher suites.
+
+| Cipher Suite | Classification |
+| --- | --- |
+| TLS_AES_128_GCM_SHA256 | 🟢 MODERN |
 
 ## Certificate Details
 
 ### TLS 1.0, TLS 1.1
 - **Subject CN**: example.com
-- **Issuer**: Cloudflare TLS Issuing RSA CA 1
+- **Issuer**: Example RSA CA
 - **Valid From**: 2026-04-02
 - **Valid To**: 2026-07-01
-- **Days Until Expiry**: 46
+- **Days Until Expiry**: 45
 - **Certificate Validation**: valid
 - **Certificate Validation Details**: certificate validation passed
 - **DNS Names**: example.com, *.example.com
 
 ### TLS 1.2, TLS 1.3
 - **Subject CN**: example.com
-- **Issuer**: Cloudflare TLS Issuing ECC CA 1
+- **Issuer**: Example ECC CA
 - **Valid From**: 2026-04-02
 - **Valid To**: 2026-07-01
-- **Days Until Expiry**: 46
+- **Days Until Expiry**: 45
 - **Certificate Validation**: valid
 - **Certificate Validation Details**: certificate validation passed
 - **DNS Names**: example.com, *.example.com

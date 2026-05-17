@@ -2,6 +2,23 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added JSON schema version `1.0` to machine-readable output.
+- Added scan metadata for duration, handshake attempts, cipher discovery mode, negotiated cipher and warnings.
+- Added `--policy modern` and `--fail-on` policy failure controls for CI workflows.
+
+### Changed
+
+- Improved Markdown reports with a summary, TLS version table, cipher tables and policy failure details.
+- Documented JSON schema expectations, cipher discovery semantics and policy mode.
+
+### Tests
+
+- Added policy tests and expanded JSON, Markdown and scan metadata coverage.
+
 ## v0.8.8 - 2026-05-17
 
 ### Changed

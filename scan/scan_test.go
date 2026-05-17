@@ -55,6 +55,12 @@ func TestScanTLSVersionLocalTLS12(t *testing.T) {
 	if result.Certificate == nil {
 		t.Fatal("Certificate should be captured")
 	}
+	if result.NegotiatedCipherSuite == "" {
+		t.Fatal("NegotiatedCipherSuite should be captured")
+	}
+	if result.DurationMillis < 0 {
+		t.Fatalf("DurationMillis = %d, want non-negative", result.DurationMillis)
+	}
 }
 
 func TestScanTLSVersionLocalTLS13(t *testing.T) {
@@ -189,6 +195,31 @@ func TestClassifyScanError(t *testing.T) {
 				t.Fatal("message should preserve the original error")
 			}
 		})
+	}
+}
+
+func TestProbeCipherSuitesTLS13MarksObservedOnly(t *testing.T) {
+	server, host, port := newLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
+	defer server.Close()
+
+	result := ProbeCipherSuitesForVersion(Options{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		SkipVerify: true,
+	}, tls.VersionTLS13)
+
+	if result.Discovery != CipherDiscoveryObserved {
+		t.Fatalf("Discovery = %q, want %q", result.Discovery, CipherDiscoveryObserved)
+	}
+	if !result.ObservedOnly {
+		t.Fatal("ObservedOnly = false, want true")
+	}
+	if result.Attempts != 10 {
+		t.Fatalf("Attempts = %d, want 10", result.Attempts)
+	}
+	if len(result.Warnings) == 0 {
+		t.Fatal("Warnings should explain TLS 1.3 observation semantics")
 	}
 }
 

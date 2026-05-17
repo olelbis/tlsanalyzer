@@ -12,28 +12,40 @@ import (
 	"strings"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
+const JSONSchemaVersion = "1.0"
+
 type JSONReport struct {
 	Host           string           `json:"host"`
 	Port           string           `json:"port"`
+	SchemaVersion  string           `json:"schema_version"`
 	ScannerVersion string           `json:"scanner_version"`
 	GeneratedAt    string           `json:"generated_at"`
+	Policy         *policy.Result   `json:"policy,omitempty"`
 	Results        []JSONScanResult `json:"results"`
 }
 
 type JSONScanResult struct {
-	Version               string           `json:"version"`
-	Supported             bool             `json:"supported"`
-	Status                string           `json:"status"`
-	ErrorMessage          string           `json:"error_message,omitempty"`
-	CipherSuites          []string         `json:"cipher_suites,omitempty"`
-	CipherSuitesObserved  bool             `json:"cipher_suites_observed"`
-	Certificate           *JSONCertificate `json:"certificate,omitempty"`
-	CertValidationStatus  string           `json:"certificate_validation_status,omitempty"`
-	CertValidationMessage string           `json:"certificate_validation_message,omitempty"`
+	Version                   string           `json:"version"`
+	VersionID                 uint16           `json:"version_id"`
+	Supported                 bool             `json:"supported"`
+	Status                    string           `json:"status"`
+	ErrorMessage              string           `json:"error_message,omitempty"`
+	DurationMillis            int64            `json:"duration_millis"`
+	HandshakeAttempts         int              `json:"handshake_attempts"`
+	CipherDiscovery           string           `json:"cipher_discovery"`
+	NegotiatedCipherSuite     string           `json:"negotiated_cipher_suite,omitempty"`
+	CipherSuites              []string         `json:"cipher_suites,omitempty"`
+	CipherSuitesObserved      bool             `json:"cipher_suites_observed"`
+	CipherProbeDurationMillis int64            `json:"cipher_probe_duration_millis,omitempty"`
+	Warnings                  []string         `json:"warnings,omitempty"`
+	Certificate               *JSONCertificate `json:"certificate,omitempty"`
+	CertValidationStatus      string           `json:"certificate_validation_status,omitempty"`
+	CertValidationMessage     string           `json:"certificate_validation_message,omitempty"`
 }
 
 type JSONCertificate struct {
@@ -45,57 +57,72 @@ type JSONCertificate struct {
 	DNSNames          []string `json:"dns_names,omitempty"`
 }
 
-func WriteMarkdownReportToFile(host, port, scannerVersion string, results []scan.TLSScanResult, outputPath string) error {
-	report := BuildMarkdownReportFromResults(host, port, scannerVersion, time.Now(), results)
+func WriteMarkdownReportToFile(host, port, scannerVersion string, results []scan.TLSScanResult, outputPath string, policyResults ...*policy.Result) error {
+	report := BuildMarkdownReportFromResults(host, port, scannerVersion, time.Now(), results, policyResults...)
 	if !strings.HasSuffix(outputPath, ".md") {
 		outputPath += ".md"
 	}
 	return os.WriteFile(outputPath, []byte(report), 0640)
 }
 
-func BuildMarkdownReportFromResults(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult) string {
+func BuildMarkdownReportFromResults(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) string {
+	policyResult := firstPolicyResult(policyResults)
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("# TLS Scan Report for host %s:%s\n\n", host, port))
 	sb.WriteString(fmt.Sprintf("- **Generated At**: %s\n", generatedAt.UTC().Format(time.RFC3339)))
-	sb.WriteString(fmt.Sprintf("- **Scanner Version**: %s\n\n", scannerVersion))
-	sb.WriteString("## TLS Versions Supported\n")
-	for _, r := range results {
-		if r.Supported {
-			sb.WriteString(fmt.Sprintf("- ✅ %s", r.Version))
-			if r.CertValidationStatus != "" {
-				sb.WriteString(fmt.Sprintf(" (certificate: %s", r.CertValidationStatus))
-				if r.CertValidationMessage != "" {
-					sb.WriteString(fmt.Sprintf(" - %s", r.CertValidationMessage))
-				}
-				sb.WriteString(")")
-			}
-			sb.WriteString("\n")
-		} else {
-			sb.WriteString(fmt.Sprintf("- ❌ %s", r.Version))
-			if r.Status != "" {
-				sb.WriteString(fmt.Sprintf(" (%s", r.Status))
-				if r.ErrorMessage != "" {
-					sb.WriteString(fmt.Sprintf(" - %s", r.ErrorMessage))
-				}
-				sb.WriteString(")")
-			}
-			sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("- **Scanner Version**: %s\n", scannerVersion))
+	sb.WriteString(fmt.Sprintf("- **JSON Schema Version**: %s\n\n", JSONSchemaVersion))
+	sb.WriteString("## Summary\n\n")
+	sb.WriteString(fmt.Sprintf("- **Supported TLS Versions**: %d\n", countSupported(results)))
+	sb.WriteString(fmt.Sprintf("- **Certificate Validation**: %s\n", summarizeCertificateValidation(results)))
+	sb.WriteString(fmt.Sprintf("- **Cipher Findings**: %s\n", summarizeCipherFindings(results)))
+	if policyResult != nil && policyResult.Enabled {
+		status := "passed"
+		if !policyResult.Passed {
+			status = "failed"
 		}
+		sb.WriteString(fmt.Sprintf("- **Policy**: %s (%s)\n", displayPolicyName(policyResult), status))
+	}
+
+	if policyResult != nil && policyResult.Enabled && len(policyResult.Failures) > 0 {
+		sb.WriteString("\n## Policy Failures\n\n")
+		sb.WriteString("| Check | TLS Version | Message |\n")
+		sb.WriteString("| --- | --- | --- |\n")
+		for _, failure := range policyResult.Failures {
+			sb.WriteString(fmt.Sprintf("| %s | %s | %s |\n", failure.Check, emptyDash(failure.Version), escapeTable(failure.Message)))
+		}
+	}
+
+	sb.WriteString("\n## TLS Versions\n\n")
+	sb.WriteString("| Version | Supported | Status | Certificate | Duration | Attempts |\n")
+	sb.WriteString("| --- | --- | --- | --- | ---: | ---: |\n")
+	for _, r := range results {
+		supported := "no"
+		if r.Supported {
+			supported = "yes"
+		}
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %d ms | %d |\n", r.Version, supported, emptyDash(r.Status), emptyDash(r.CertValidationStatus), r.DurationMillis, r.HandshakeAttempts))
 	}
 	sb.WriteString("\n## Cipher Suites\n")
 	for _, r := range results {
 		if r.Supported && len(r.CipherSuites) > 0 {
-			if r.CipherSuitesObserved {
-				sb.WriteString(fmt.Sprintf("\n### %s Observed Cipher Suites\n", r.Version))
-			} else {
-				sb.WriteString(fmt.Sprintf("\n### %s Supported Cipher Suites\n", r.Version))
+			sb.WriteString(fmt.Sprintf("\n### %s\n\n", r.Version))
+			sb.WriteString(fmt.Sprintf("- **Negotiated**: %s\n", emptyDash(r.NegotiatedCipherSuite)))
+			sb.WriteString(fmt.Sprintf("- **Discovery**: %s\n", emptyDash(r.CipherDiscovery)))
+			if r.CipherProbeDurationMillis > 0 {
+				sb.WriteString(fmt.Sprintf("- **Cipher Probe Duration**: %d ms\n", r.CipherProbeDurationMillis))
 			}
+			for _, warning := range r.Warnings {
+				sb.WriteString(fmt.Sprintf("- **Warning**: %s\n", warning))
+			}
+			sb.WriteString("\n| Cipher Suite | Classification |\n")
+			sb.WriteString("| --- | --- |\n")
 			for _, cs := range r.CipherSuites {
 				label, ok := utils.CipherClassification[cs]
 				if ok {
-					sb.WriteString(fmt.Sprintf("- %s %s\n", cs, label))
+					sb.WriteString(fmt.Sprintf("| %s | %s |\n", cs, label))
 				} else {
-					sb.WriteString(fmt.Sprintf("- %s ❓ UNKNOWN\n", cs))
+					sb.WriteString(fmt.Sprintf("| %s | ❓ UNKNOWN |\n", cs))
 				}
 			}
 		}
@@ -124,25 +151,35 @@ func BuildMarkdownReportFromResults(host, port, scannerVersion string, generated
 	return sb.String()
 }
 
-func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult) ([]byte, error) {
+func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) ([]byte, error) {
+	policyResult := firstPolicyResult(policyResults)
 	report := JSONReport{
 		Host:           host,
 		Port:           port,
+		SchemaVersion:  JSONSchemaVersion,
 		ScannerVersion: scannerVersion,
 		GeneratedAt:    generatedAt.UTC().Format(time.RFC3339),
+		Policy:         policyResult,
 		Results:        make([]JSONScanResult, 0, len(results)),
 	}
 
 	for _, r := range results {
 		jsonResult := JSONScanResult{
-			Version:               r.Version,
-			Supported:             r.Supported,
-			Status:                r.Status,
-			ErrorMessage:          r.ErrorMessage,
-			CipherSuites:          r.CipherSuites,
-			CipherSuitesObserved:  r.CipherSuitesObserved,
-			CertValidationStatus:  r.CertValidationStatus,
-			CertValidationMessage: r.CertValidationMessage,
+			Version:                   r.Version,
+			VersionID:                 r.VersionID,
+			Supported:                 r.Supported,
+			Status:                    r.Status,
+			ErrorMessage:              r.ErrorMessage,
+			DurationMillis:            r.DurationMillis,
+			HandshakeAttempts:         r.HandshakeAttempts,
+			CipherDiscovery:           r.CipherDiscovery,
+			NegotiatedCipherSuite:     r.NegotiatedCipherSuite,
+			CipherSuites:              r.CipherSuites,
+			CipherSuitesObserved:      r.CipherSuitesObserved,
+			CipherProbeDurationMillis: r.CipherProbeDurationMillis,
+			Warnings:                  r.Warnings,
+			CertValidationStatus:      r.CertValidationStatus,
+			CertValidationMessage:     r.CertValidationMessage,
 		}
 		if r.Certificate != nil {
 			jsonResult.Certificate = &JSONCertificate{
@@ -158,6 +195,81 @@ func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, r
 	}
 
 	return json.MarshalIndent(report, "", "  ")
+}
+
+func firstPolicyResult(policyResults []*policy.Result) *policy.Result {
+	if len(policyResults) == 0 {
+		return nil
+	}
+	return policyResults[0]
+}
+
+func countSupported(results []scan.TLSScanResult) int {
+	count := 0
+	for _, r := range results {
+		if r.Supported {
+			count++
+		}
+	}
+	return count
+}
+
+func summarizeCertificateValidation(results []scan.TLSScanResult) string {
+	statuses := make(map[string]bool)
+	for _, r := range results {
+		if r.Supported && r.CertValidationStatus != "" {
+			statuses[r.CertValidationStatus] = true
+		}
+	}
+	if len(statuses) == 0 {
+		return "unavailable"
+	}
+	if statuses[scan.CertValidationInvalid] {
+		return "invalid"
+	}
+	if statuses[scan.CertValidationSkipped] {
+		return "skipped"
+	}
+	if statuses[scan.CertValidationUnavailable] {
+		return "unavailable"
+	}
+	if statuses[scan.CertValidationValid] {
+		return "valid"
+	}
+	return "mixed"
+}
+
+func summarizeCipherFindings(results []scan.TLSScanResult) string {
+	for _, r := range results {
+		for _, cipher := range r.CipherSuites {
+			classification := utils.CipherClassification[cipher]
+			if strings.Contains(classification, "INSECURE") {
+				return "insecure cipher suites detected"
+			}
+			if strings.Contains(classification, "WEAK") {
+				return "weak cipher suites detected"
+			}
+		}
+	}
+	return "no weak cipher suites detected"
+}
+
+func displayPolicyName(result *policy.Result) string {
+	if result.Name == "" {
+		return "custom"
+	}
+	return result.Name
+}
+
+func emptyDash(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return escapeTable(value)
+}
+
+func escapeTable(value string) string {
+	return strings.ReplaceAll(value, "|", "\\|")
 }
 
 type certificateGroup struct {

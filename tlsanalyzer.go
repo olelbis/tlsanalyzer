@@ -14,6 +14,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/certs"
 	"github.com/olelbis/tlsanalyzer/output"
+	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
@@ -35,6 +36,8 @@ type cliConfig struct {
 	skipVerify      bool
 	outputJSON      bool
 	noClear         bool
+	policy          string
+	failOn          string
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -78,6 +81,14 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	if err := validateFlagCombination(cfg.outputJSON, cfg.certChain, strings.TrimSpace(cfg.outputFile)); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	policyConfig := policy.Config{
+		Name:   cfg.policy,
+		FailOn: policy.ParseFailOn(cfg.failOn),
+	}
+	if err := policy.ValidateConfig(policyConfig); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -129,8 +140,13 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		if len(result.CipherSuites) > 0 {
 			negotiatedCipher = result.CipherSuites[0]
 		}
-		result.CipherSuites = scan.GetSupportedCiphersForVersion(opts, version)
-		result.CipherSuitesObserved = version == tls.VersionTLS13
+		probe := scan.ProbeCipherSuitesForVersion(opts, version)
+		result.CipherSuites = probe.CipherSuites
+		result.CipherDiscovery = probe.Discovery
+		result.CipherSuitesObserved = probe.ObservedOnly
+		result.CipherProbeDurationMillis = probe.DurationMillis
+		result.HandshakeAttempts += probe.Attempts
+		result.Warnings = append(result.Warnings, probe.Warnings...)
 		results = append(results, result)
 
 		if result.Certificate != nil {
@@ -156,8 +172,17 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 	}
 
+	policyResult := policy.Evaluate(results, policyConfig, time.Now())
+	var reportPolicy *policy.Result
+	if policyResult.Enabled {
+		reportPolicy = &policyResult
+		if !cfg.outputJSON {
+			printPolicyResult(stdout, policyResult)
+		}
+	}
+
 	if cfg.outputMarkdown != "" {
-		err := output.WriteMarkdownReportToFile(h, port, build.Version, results, cfg.outputMarkdown)
+		err := output.WriteMarkdownReportToFile(h, port, build.Version, results, cfg.outputMarkdown, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write markdown report: %v\n", err)
 			return 1
@@ -169,14 +194,32 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if cfg.outputJSON {
-		jsonReport, err := output.BuildJSONReport(h, port, build.Version, time.Now(), results)
+		jsonReport, err := output.BuildJSONReport(h, port, build.Version, time.Now(), results, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to build JSON report: %v\n", err)
 			return 1
 		}
 		fmt.Fprintln(stdout, string(jsonReport))
 	}
+	if policyResult.Enabled && !policyResult.Passed {
+		return 3
+	}
 	return 0
+}
+
+func printPolicyResult(stdout io.Writer, result policy.Result) {
+	status := "passed"
+	if !result.Passed {
+		status = "failed"
+	}
+	name := result.Name
+	if name == "" {
+		name = "custom"
+	}
+	fmt.Fprintf(stdout, "\nPolicy %s: %s\n", name, status)
+	for _, failure := range result.Failures {
+		fmt.Fprintf(stdout, "  - [%s] %s\n", failure.Check, failure.Message)
+	}
 }
 
 func parseCLIArgs(args []string, stderr io.Writer) (cliConfig, error) {
@@ -203,6 +246,8 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.BoolVar(&cfg.skipVerify, "skip-verify", false, "Skip certificate validation and report TLS handshake support only")
 	fs.BoolVar(&cfg.outputJSON, "json", false, "Write scan result as JSON to stdout")
 	fs.BoolVar(&cfg.noClear, "no-clear", false, "Do not clear the terminal before scanning")
+	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern")
+	fs.StringVar(&cfg.failOn, "fail-on", "", "Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage of tlsanalyzer:")
 		fs.PrintDefaults()

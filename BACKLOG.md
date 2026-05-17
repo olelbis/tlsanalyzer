@@ -156,13 +156,13 @@ Acceptance criteria:
 - Avoid hard-coded historical release notes in the workflow.
 - Document the release checklist in the README or a dedicated release document.
 
-## P5 - Reliability and Product Maturity
+## P5 - Reliability and Product Maturity - Done
 
 ### Version the JSON schema
 
 Problem: `--json` is useful for automation, but consumers need a stable contract.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
@@ -174,7 +174,7 @@ Acceptance criteria:
 
 Problem: supported, observed and inferred scan data are not always explicit enough for audit-style usage.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
@@ -186,7 +186,7 @@ Acceptance criteria:
 
 Problem: Markdown reports are correct, but still read like raw scan output.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
@@ -198,7 +198,7 @@ Acceptance criteria:
 
 Problem: CI users need a simple way to fail builds on weak TLS posture.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
