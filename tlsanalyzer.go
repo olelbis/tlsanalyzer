@@ -26,6 +26,7 @@ func main() {
 type cliConfig struct {
 	host            string
 	port            string
+	sni             string
 	certChain       bool
 	checkCertExpiry bool
 	timeout         int
@@ -64,6 +65,13 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: invalid --host '%s': %v\n", cfg.host, err)
 		return 1
 	}
+	serverName := strings.TrimSpace(cfg.sni)
+	if serverName != "" {
+		if err := validateHost(serverName); err != nil {
+			fmt.Fprintf(stderr, "Error: invalid --sni '%s': %v\n", cfg.sni, err)
+			return 1
+		}
+	}
 
 	port := strings.TrimSpace(cfg.port)
 	if err := validatePort(port); err != nil {
@@ -100,11 +108,15 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	if !cfg.outputJSON {
 		fmt.Fprintf(stdout, "\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, cfg.minVersionStr)
+		if serverName != "" {
+			fmt.Fprintf(stdout, "Using SNI/certificate name %s\n", serverName)
+		}
 	}
 	keys := utils.FilterTLSVersions(minVersion)
 	opts := scan.Options{
 		Host:         h,
 		Port:         port,
+		ServerName:   serverName,
 		Timeout:      time.Duration(cfg.timeout) * time.Second,
 		MinVersion:   minVersion,
 		ForceCiphers: cfg.forceCiphers,
@@ -246,6 +258,7 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.SetOutput(stderr)
 	fs.StringVar(&cfg.host, "host", "", "Hostname or server IP (mandatory)")
 	fs.StringVar(&cfg.port, "port", "443", "TLS server port")
+	fs.StringVar(&cfg.sni, "sni", "", "TLS Server Name Indication and certificate validation name")
 	fs.BoolVar(&cfg.certChain, "cert", false, "Print certificate chain")
 	fs.BoolVar(&cfg.checkCertExpiry, "checkcert", false, "Check if the certificate is about to expire")
 	fs.IntVar(&cfg.timeout, "timeout", 5, "Connection timeout in seconds")

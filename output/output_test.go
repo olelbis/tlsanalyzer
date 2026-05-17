@@ -19,7 +19,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		Subject:   pkixName("example.com"),
 		Issuer:    pkixName("Example CA"),
 		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  time.Now().Add(48 * time.Hour),
+		NotAfter:  generatedAt.Add(48 * time.Hour),
 		DNSNames:  []string{"example.com", "www.example.com"},
 	}
 
@@ -84,7 +84,7 @@ func TestBuildMarkdownReportGroupsDuplicateCertificates(t *testing.T) {
 		Subject:   pkixName("example.com"),
 		Issuer:    pkixName("Example CA"),
 		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  time.Now().Add(48 * time.Hour),
+		NotAfter:  generatedAt.Add(48 * time.Hour),
 	}
 
 	report := BuildMarkdownReportFromResults("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
@@ -106,7 +106,7 @@ func TestBuildJSONReport(t *testing.T) {
 		Subject:   pkixName("example.com"),
 		Issuer:    pkixName("Example CA"),
 		NotBefore: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		NotAfter:  time.Now().Add(48 * time.Hour),
+		NotAfter:  generatedAt.Add(48 * time.Hour),
 		DNSNames:  []string{"example.com"},
 	}
 
@@ -155,6 +155,9 @@ func TestBuildJSONReport(t *testing.T) {
 	}
 	if report.Results[0].Certificate == nil {
 		t.Fatal("expected certificate in first JSON result")
+	}
+	if report.Results[0].Certificate.DaysUntilExpiry != 2 {
+		t.Fatalf("DaysUntilExpiry = %d, want 2", report.Results[0].Certificate.DaysUntilExpiry)
 	}
 	if report.Results[0].CipherDiscovery != scan.CipherDiscoveryProbed {
 		t.Fatalf("CipherDiscovery = %q, want %q", report.Results[0].CipherDiscovery, scan.CipherDiscoveryProbed)
@@ -298,6 +301,7 @@ func TestPrintScanSummary(t *testing.T) {
 		{
 			Version:              "TLS 1.2",
 			Supported:            true,
+			CipherDiscovery:      scan.CipherDiscoveryNegotiated,
 			CipherSuites:         []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
 			CertValidationStatus: scan.CertValidationValid,
 		},
@@ -311,7 +315,7 @@ func TestPrintScanSummary(t *testing.T) {
 		"Summary:",
 		"Supported TLS versions: 1",
 		"Certificate validation: valid",
-		"Cipher findings: no weak cipher suites detected",
+		"Cipher findings: no weak cipher suites detected in negotiated evidence",
 	}
 	for _, fragment := range expectedFragments {
 		if !strings.Contains(buf.String(), fragment) {

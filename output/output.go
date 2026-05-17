@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -137,7 +138,7 @@ func BuildMarkdownReportFromResults(host, port, scannerVersion string, generated
 			sb.WriteString(fmt.Sprintf("- **Issuer**: %s\n", group.Certificate.Issuer.CommonName))
 			sb.WriteString(fmt.Sprintf("- **Valid From**: %s\n", group.Certificate.NotBefore.Format("2006-01-02")))
 			sb.WriteString(fmt.Sprintf("- **Valid To**: %s\n", group.Certificate.NotAfter.Format("2006-01-02")))
-			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", int(time.Until(group.Certificate.NotAfter).Hours()/24)))
+			sb.WriteString(fmt.Sprintf("- **Days Until Expiry**: %d\n", daysUntilCertificateExpiry(group.Certificate, generatedAt)))
 			sb.WriteString(fmt.Sprintf("- **Certificate Validation**: %s\n", group.ValidationStatus))
 			if group.ValidationMessage != "" {
 				sb.WriteString(fmt.Sprintf("- **Certificate Validation Details**: %s\n", group.ValidationMessage))
@@ -182,12 +183,13 @@ func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, r
 			CertValidationMessage:     r.CertValidationMessage,
 		}
 		if r.Certificate != nil {
+			daysUntilExpiry := daysUntilCertificateExpiry(r.Certificate, generatedAt)
 			jsonResult.Certificate = &JSONCertificate{
 				SubjectCommonName: r.Certificate.Subject.CommonName,
 				IssuerCommonName:  r.Certificate.Issuer.CommonName,
 				ValidFrom:         r.Certificate.NotBefore.Format(time.RFC3339),
 				ValidTo:           r.Certificate.NotAfter.Format(time.RFC3339),
-				DaysUntilExpiry:   int(time.Until(r.Certificate.NotAfter).Hours() / 24),
+				DaysUntilExpiry:   daysUntilExpiry,
 				DNSNames:          r.Certificate.DNSNames,
 			}
 		}
@@ -247,18 +249,40 @@ func summarizeCertificateValidation(results []scan.TLSScanResult) string {
 }
 
 func summarizeCipherFindings(results []scan.TLSScanResult) string {
+	evidence := make(map[string]bool)
 	for _, r := range results {
 		for _, cipher := range r.CipherSuites {
-			classification := utils.CipherClassification[cipher]
-			if strings.Contains(classification, "INSECURE") {
-				return "insecure cipher suites detected"
+			if r.CipherDiscovery != "" {
+				evidence[r.CipherDiscovery] = true
 			}
-			if strings.Contains(classification, "WEAK") {
-				return "weak cipher suites detected"
+			severity := utils.CipherSuiteSeverity(cipher)
+			if severity == utils.CipherSeverityInsecure {
+				return fmt.Sprintf("insecure cipher suites detected in %s evidence", describeCipherEvidence(evidence))
+			}
+			if severity == utils.CipherSeverityWeak {
+				return fmt.Sprintf("weak cipher suites detected in %s evidence", describeCipherEvidence(evidence))
 			}
 		}
 	}
-	return "no weak cipher suites detected"
+	if len(evidence) == 0 {
+		return "cipher evidence unavailable"
+	}
+	return fmt.Sprintf("no weak cipher suites detected in %s evidence", describeCipherEvidence(evidence))
+}
+
+func describeCipherEvidence(evidence map[string]bool) string {
+	if len(evidence) == 0 {
+		return "unknown"
+	}
+	modes := make([]string, 0, len(evidence))
+	for mode := range evidence {
+		modes = append(modes, mode)
+	}
+	sort.Strings(modes)
+	if len(modes) == 1 {
+		return modes[0]
+	}
+	return "mixed (" + strings.Join(modes, ", ") + ")"
 }
 
 func displayPolicyName(result *policy.Result) string {
@@ -316,6 +340,10 @@ func groupCertificateResults(results []scan.TLSScanResult) []certificateGroup {
 func certificateFingerprint(cert *x509.Certificate) string {
 	sum := sha256.Sum256(cert.Raw)
 	return hex.EncodeToString(sum[:])
+}
+
+func daysUntilCertificateExpiry(cert *x509.Certificate, reference time.Time) int {
+	return int(cert.NotAfter.Sub(reference).Hours() / 24)
 }
 
 func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, version string, checkExpiry bool, validation scan.CertValidation) {

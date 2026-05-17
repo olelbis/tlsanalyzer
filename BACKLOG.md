@@ -205,3 +205,64 @@ Acceptance criteria:
 - Add policy options such as `--policy modern` or targeted `--fail-on` controls.
 - Return a non-zero exit code when policy checks fail.
 - Report policy failures in human, Markdown and JSON output.
+
+## P6 - Evidence and Policy Hardening - Done
+
+### Harden certificate policy checks
+
+Problem: policy checks should not pass when certificate validation is skipped or unavailable.
+
+Status: done.
+
+Acceptance criteria:
+
+- `invalid-cert` fails on invalid, skipped and unavailable certificate validation.
+- `--policy modern` cannot silently pass certificate posture when `--skip-verify` is used.
+- Tests cover skipped and unavailable validation in policy mode.
+
+### Make cipher summaries evidence-aware
+
+Problem: "no weak cipher suites detected" can overstate certainty when only negotiated cipher evidence exists.
+
+Status: done.
+
+Acceptance criteria:
+
+- Human and Markdown summaries include the cipher evidence mode.
+- Negotiated, probed, observed and mixed evidence are distinguished.
+- Tests cover the summary wording.
+
+### Make report certificate expiry deterministic
+
+Problem: generated reports calculate days until expiry with wall-clock time during rendering.
+
+Status: done.
+
+Acceptance criteria:
+
+- Markdown and JSON reports calculate days until expiry relative to the report generation timestamp.
+- Tests cover deterministic JSON certificate expiry.
+
+### Split cipher severity from display labels
+
+Problem: policy decisions should not depend on emoji or human-readable classification strings.
+
+Status: done.
+
+Acceptance criteria:
+
+- Cipher suites have typed severities.
+- Policy checks use typed severities.
+- Output can still use friendly display labels.
+
+### Add explicit SNI support
+
+Problem: scanning IPs, load balancers and internal endpoints often requires a TLS server name different from the TCP address.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add `--sni` for TLS Server Name Indication and certificate validation name.
+- Validate `--sni` before scanning.
+- Document the flag and add tests.

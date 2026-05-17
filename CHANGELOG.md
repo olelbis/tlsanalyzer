@@ -2,6 +2,19 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added `--sni` to scan an address while using a separate TLS Server Name Indication and certificate validation name.
+- Added typed cipher severity metadata for policy decisions.
+
+### Changed
+
+- Made policy certificate checks fail when certificate validation is skipped or unavailable.
+- Made cipher summaries state the evidence mode used for the finding.
+- Made Markdown and JSON certificate expiry days relative to the report generation timestamp.
+
 ## v0.8.11 - 2026-05-17
 
 ### Added

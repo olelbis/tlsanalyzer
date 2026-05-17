@@ -21,6 +21,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
 - Reports negotiated and supported cipher suites.
 - Keeps TLS support separate from certificate validation status.
+- Supports explicit SNI/certificate name overrides for IP and load balancer scans.
 - Prints certificate summaries and optional PEM certificate chains.
 - Exports human-readable Markdown reports.
 - Emits JSON for scripts and automation.
@@ -44,9 +45,10 @@ tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
 tlsanalyzer --host example.com --policy modern
 tlsanalyzer --host example.com --cert --output example.pem
+tlsanalyzer --host 203.0.113.10 --sni example.com
 ```
 
-Policy failures return exit code `3`, which makes `--policy modern` useful in CI.
+Policy failures return exit code `3`, which makes `--policy modern` useful in CI. Certificate policy checks fail when validation is invalid, skipped or unavailable.
 
 ## Documentation
 

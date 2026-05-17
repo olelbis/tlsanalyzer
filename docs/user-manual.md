@@ -31,6 +31,12 @@ Scan a different port:
 tlsanalyzer --host example.com --port 8443
 ```
 
+Scan an IP address or load balancer while sending a specific SNI name:
+
+```bash
+tlsanalyzer --host 203.0.113.10 --sni example.com
+```
+
 Start from TLS 1.2:
 
 ```bash
@@ -44,6 +50,8 @@ tlsanalyzer --host example.com --min-version 1.2
         Hostname or server IP to scan (required)
   --port string
         TLS server port (default "443")
+  --sni string
+        TLS Server Name Indication and certificate validation name
   --timeout int
         Connection timeout in seconds (default 5)
   --min-version string
@@ -80,7 +88,7 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
-The console output ends with a compact summary covering supported TLS versions, certificate validation status and cipher findings.
+The console output ends with a compact summary covering supported TLS versions, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `observed` or mixed evidence.
 
 ### Markdown report
 
@@ -164,6 +172,8 @@ Use `--skip-verify` only when you intentionally want to inspect the TLS handshak
 tlsanalyzer --host expired.example.com --skip-verify
 ```
 
+When certificate policy checks are enabled with `--policy modern` or `--fail-on invalid-cert`, skipped or unavailable certificate validation fails the policy.
+
 ### Cipher probing
 
 ```bash
@@ -198,6 +208,8 @@ The `modern` policy fails the run when it detects:
 - Expired certificates
 
 Because the `modern` policy includes weak cipher checks, it automatically enables cipher probing.
+
+Because the `modern` policy includes certificate checks, certificate validation must succeed. Invalid, skipped or unavailable validation fails the policy.
 
 Use targeted checks without a named policy:
 
@@ -243,6 +255,7 @@ Unsupported TLS versions are scan results, not CLI failures.
 
 - `--host` must not contain whitespace.
 - `--port` must be numeric and in the `1..65535` range.
+- `--sni`, when set, must not contain whitespace.
 - `--timeout` must be at least one second.
 - Some legacy TLS versions and cipher suites may be disabled by the remote server or by the Go runtime.
 - The scanner uses only the Go standard library at runtime.

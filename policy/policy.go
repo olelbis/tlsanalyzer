@@ -92,12 +92,10 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 				Message: fmt.Sprintf("%s is supported; modern policy requires TLS 1.2 or newer", r.Version),
 			})
 		}
-		if checks[CheckInvalidCert] && r.CertValidationStatus == scan.CertValidationInvalid {
-			result.Failures = append(result.Failures, Failure{
-				Check:   CheckInvalidCert,
-				Version: r.Version,
-				Message: fmt.Sprintf("%s certificate validation failed", r.Version),
-			})
+		if checks[CheckInvalidCert] {
+			if failure, ok := certificateValidationFailure(r); ok {
+				result.Failures = append(result.Failures, failure)
+			}
 		}
 		if checks[CheckExpiredCert] && r.Certificate != nil && !r.Certificate.NotAfter.After(now) {
 			result.Failures = append(result.Failures, Failure{
@@ -147,6 +145,31 @@ func isKnownCheck(check string) bool {
 }
 
 func isWeakCipher(cipher string) bool {
-	classification := utils.CipherClassification[cipher]
-	return strings.Contains(classification, "INSECURE") || strings.Contains(classification, "WEAK")
+	severity := utils.CipherSuiteSeverity(cipher)
+	return severity == utils.CipherSeverityInsecure || severity == utils.CipherSeverityWeak
+}
+
+func certificateValidationFailure(r scan.TLSScanResult) (Failure, bool) {
+	switch r.CertValidationStatus {
+	case scan.CertValidationInvalid:
+		return Failure{
+			Check:   CheckInvalidCert,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s certificate validation failed", r.Version),
+		}, true
+	case scan.CertValidationSkipped:
+		return Failure{
+			Check:   CheckInvalidCert,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s certificate validation was skipped", r.Version),
+		}, true
+	case scan.CertValidationUnavailable, "":
+		return Failure{
+			Check:   CheckInvalidCert,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s certificate validation is unavailable", r.Version),
+		}, true
+	default:
+		return Failure{}, false
+	}
 }

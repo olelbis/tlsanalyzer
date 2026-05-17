@@ -57,6 +57,30 @@ func TestEvaluateCustomFailOn(t *testing.T) {
 	}
 }
 
+func TestEvaluateInvalidCertCheckFailsWhenValidationSkippedOrUnavailable(t *testing.T) {
+	result := Evaluate([]scan.TLSScanResult{
+		{
+			Version:              "TLS 1.2",
+			VersionID:            tls.VersionTLS12,
+			Supported:            true,
+			CertValidationStatus: scan.CertValidationSkipped,
+		},
+		{
+			Version:              "TLS 1.3",
+			VersionID:            tls.VersionTLS13,
+			Supported:            true,
+			CertValidationStatus: scan.CertValidationUnavailable,
+		},
+	}, Config{FailOn: []string{CheckInvalidCert}}, time.Now())
+
+	if result.Passed {
+		t.Fatal("invalid-cert check should fail when validation is skipped or unavailable")
+	}
+	if len(result.Failures) != 2 {
+		t.Fatalf("Failures = %d, want 2: %+v", len(result.Failures), result.Failures)
+	}
+}
+
 func TestRequiresCipherProbe(t *testing.T) {
 	tests := []struct {
 		name   string

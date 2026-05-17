@@ -88,6 +88,18 @@ func TestScanTLSVersionLocalTLS13(t *testing.T) {
 	}
 }
 
+func TestOptionsTLSServerNameUsesOverride(t *testing.T) {
+	opts := Options{Host: "127.0.0.1", ServerName: "example.com"}
+	if got := opts.tlsServerName(); got != "example.com" {
+		t.Fatalf("tlsServerName() = %q, want example.com", got)
+	}
+
+	opts = Options{Host: "example.org"}
+	if got := opts.tlsServerName(); got != "example.org" {
+		t.Fatalf("tlsServerName() = %q, want example.org", got)
+	}
+}
+
 func TestScanTLSVersionInvalidCertificateIsNotUnsupportedTLS(t *testing.T) {
 	server, host, port := newLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
 	defer server.Close()

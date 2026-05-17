@@ -37,6 +37,7 @@ type TLSScanResult struct {
 type Options struct {
 	Host         string
 	Port         string
+	ServerName   string
 	Timeout      time.Duration
 	MinVersion   uint16
 	ForceCiphers bool
@@ -88,8 +89,9 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 	}()
 
 	address := net.JoinHostPort(opts.Host, opts.Port)
+	serverName := opts.tlsServerName()
 	config := &tls.Config{
-		ServerName: opts.Host,
+		ServerName: serverName,
 		// Certificate validation is performed after the handshake so TLS support
 		// is not confused with certificate trust failures.
 		InsecureSkipVerify: true,
@@ -102,14 +104,14 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		result.Status, result.ErrorMessage = classifyScanError(err)
 		return result
 	}
-	return buildSupportedResult(result, conn, opts)
+	return buildSupportedResult(result, conn, opts, serverName)
 }
 
-func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options) TLSScanResult {
+func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options, serverName string) TLSScanResult {
 	defer conn.Close()
 	state := conn.ConnectionState()
 	infos := utils.ExtractCertInfos(state.PeerCertificates)
-	validation := ValidatePeerCertificates(opts.Host, state.PeerCertificates, opts.SkipVerify)
+	validation := ValidatePeerCertificates(serverName, state.PeerCertificates, opts.SkipVerify)
 	cipher := tls.CipherSuiteName(state.CipherSuite)
 	result.Supported = true
 	result.Status = ScanStatusSupported
@@ -122,6 +124,13 @@ func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options) TL
 		result.Certificate = state.PeerCertificates[0]
 	}
 	return result
+}
+
+func (opts Options) tlsServerName() string {
+	if opts.ServerName != "" {
+		return opts.ServerName
+	}
+	return opts.Host
 }
 
 func ValidatePeerCertificates(host string, peerCertificates []*x509.Certificate, skipVerify bool) CertValidation {
@@ -180,7 +189,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 					MaxVersion:         version,
 					CipherSuites:       []uint16{cs.ID},
 					InsecureSkipVerify: true,
-					ServerName:         opts.Host,
+					ServerName:         opts.tlsServerName(),
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
 				if err == nil {
@@ -211,7 +220,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 					MinVersion:         tls.VersionTLS13,
 					MaxVersion:         tls.VersionTLS13,
 					InsecureSkipVerify: true,
-					ServerName:         opts.Host,
+					ServerName:         opts.tlsServerName(),
 				}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
 				if err == nil {

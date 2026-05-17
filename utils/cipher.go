@@ -8,6 +8,17 @@ type CipherSuite struct {
 	Name string
 }
 
+type CipherSeverity string
+
+const (
+	CipherSeverityInsecure   CipherSeverity = "insecure"
+	CipherSeverityWeak       CipherSeverity = "weak"
+	CipherSeverityAcceptable CipherSeverity = "acceptable"
+	CipherSeveritySecure     CipherSeverity = "secure"
+	CipherSeverityModern     CipherSeverity = "modern"
+	CipherSeverityUnknown    CipherSeverity = "unknown"
+)
+
 var AllCipherSuites = []CipherSuite{
 	{tls.TLS_RSA_WITH_RC4_128_SHA, "TLS_RSA_WITH_RC4_128_SHA"},
 	{tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, "TLS_RSA_WITH_3DES_EDE_CBC_SHA"},
@@ -62,6 +73,42 @@ var CipherClassification = map[string]string{
 	"TLS_AES_128_GCM_SHA256":                  "🟢 MODERN",
 	"TLS_AES_256_GCM_SHA384":                  "🟢 MODERN",
 	"TLS_CHACHA20_POLY1305_SHA256":            "🟢 MODERN",
+}
+
+var CipherSeverityByName = map[string]CipherSeverity{
+	"TLS_RSA_WITH_RC4_128_SHA":                CipherSeverityInsecure,
+	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           CipherSeverityInsecure,
+	"TLS_RSA_WITH_AES_128_CBC_SHA":            CipherSeverityWeak,
+	"TLS_RSA_WITH_AES_256_CBC_SHA":            CipherSeverityWeak,
+	"TLS_RSA_WITH_AES_128_CBC_SHA256":         CipherSeverityWeak,
+	"TLS_RSA_WITH_AES_128_GCM_SHA256":         CipherSeveritySecure,
+	"TLS_RSA_WITH_AES_256_GCM_SHA384":         CipherSeveritySecure,
+	"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA":        CipherSeverityInsecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":    CipherSeverityAcceptable,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":    CipherSeverityAcceptable,
+	"TLS_ECDHE_RSA_WITH_RC4_128_SHA":          CipherSeverityInsecure,
+	"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA":     CipherSeverityInsecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      CipherSeverityAcceptable,
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":      CipherSeverityAcceptable,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256": CipherSeveritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256":   CipherSeveritySecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256": CipherSeveritySecure,
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384": CipherSeveritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   CipherSeveritySecure,
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   CipherSeveritySecure,
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  CipherSeverityModern,
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    CipherSeverityModern,
+	"TLS_AES_128_GCM_SHA256":                  CipherSeverityModern,
+	"TLS_AES_256_GCM_SHA384":                  CipherSeverityModern,
+	"TLS_CHACHA20_POLY1305_SHA256":            CipherSeverityModern,
+}
+
+func CipherSuiteSeverity(name string) CipherSeverity {
+	severity, ok := CipherSeverityByName[name]
+	if !ok {
+		return CipherSeverityUnknown
+	}
+	return severity
 }
 
 func IsCipherSuiteCompatibleWith(version uint16, id uint16) bool {

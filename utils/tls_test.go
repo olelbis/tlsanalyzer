@@ -51,6 +51,23 @@ func TestIsCipherSuiteCompatibleWith(t *testing.T) {
 	}
 }
 
+func TestCipherSuiteSeverity(t *testing.T) {
+	tests := map[string]CipherSeverity{
+		"TLS_RSA_WITH_RC4_128_SHA":                CipherSeverityInsecure,
+		"TLS_RSA_WITH_AES_128_CBC_SHA":            CipherSeverityWeak,
+		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":      CipherSeverityAcceptable,
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":   CipherSeveritySecure,
+		"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    CipherSeverityModern,
+		"TLS_NOT_A_REAL_CIPHER_SUITE_FOR_TESTING": CipherSeverityUnknown,
+	}
+
+	for cipher, want := range tests {
+		if got := CipherSuiteSeverity(cipher); got != want {
+			t.Fatalf("CipherSuiteSeverity(%q) = %q, want %q", cipher, got, want)
+		}
+	}
+}
+
 func TestUniqueStringsPreservesFirstOccurrenceOrder(t *testing.T) {
 	got := UniqueStrings([]string{"b", "a", "b", "c", "a"})
 	want := []string{"b", "a", "c"}

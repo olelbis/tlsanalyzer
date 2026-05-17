@@ -1,14 +1,14 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.8.8
+- **Scanner Version**: v0.8.12
 - **JSON Schema Version**: 1.0
 
 ## Summary
 
 - **Supported TLS Versions**: 4
 - **Certificate Validation**: valid
-- **Cipher Findings**: weak cipher suites detected
+- **Cipher Findings**: weak cipher suites detected in probed evidence
 - **Policy**: modern (failed)
 
 ## Policy Failures

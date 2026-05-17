@@ -134,6 +134,23 @@ func TestRunRejectsUnknownPolicyBeforeScan(t *testing.T) {
 	}
 }
 
+func TestRunRejectsInvalidSNI(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--host", "example.com", "--sni", "bad name", "--json"}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "invalid --sni") {
+		t.Fatalf("stderr does not contain invalid sni error:\n%s", stderr.String())
+	}
+}
+
 func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -157,7 +174,7 @@ func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	var stderr bytes.Buffer
 
-	cfg, err := parseCLIArgs([]string{"--host", "example.com", "--policy", "modern", "--fail-on", "legacy-tls,weak-cipher"}, &stderr)
+	cfg, err := parseCLIArgs([]string{"--host", "example.com", "--sni", "service.example.com", "--policy", "modern", "--fail-on", "legacy-tls,weak-cipher"}, &stderr)
 	if err != nil {
 		t.Fatalf("parseCLIArgs() error = %v", err)
 	}
@@ -166,6 +183,9 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 	if cfg.failOn != "legacy-tls,weak-cipher" {
 		t.Fatalf("failOn = %q, want legacy-tls,weak-cipher", cfg.failOn)
+	}
+	if cfg.sni != "service.example.com" {
+		t.Fatalf("sni = %q, want service.example.com", cfg.sni)
 	}
 }
 
