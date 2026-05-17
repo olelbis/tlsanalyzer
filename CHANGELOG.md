@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.14.1 - 2026-05-18
+
+### Changed
+
+- Refined README badges to highlight verifiable releases, Linux packages, SBOMs and checksums.
+
 ## v0.14.0 - 2026-05-18
 
 ### Added

@@ -11,10 +11,11 @@
 [![Status: Preview](https://img.shields.io/badge/status-preview-yellowgreen.svg)](BACKLOG.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Dependencies](https://img.shields.io/badge/dependencies-standard%20library-only)](https://pkg.go.dev/std)
-[![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/)
-[![OS - macOS](https://img.shields.io/badge/OS-macOS-blue?logo=Apple&logoColor=white)](https://apple.com/)
-[![OS - Windows](https://img.shields.io/badge/OS-Windows-blue?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Runtime Deps](https://img.shields.io/badge/runtime%20deps-standard%20library-only)](https://pkg.go.dev/std)
+[![Packages](https://img.shields.io/badge/packages-deb%20%7C%20rpm-2ea44f?logo=linux&logoColor=white)](https://github.com/olelbis/tlsanalyzer/releases/latest)
+[![SBOM](https://img.shields.io/badge/SBOM-SPDX-6f42c1)](https://github.com/olelbis/tlsanalyzer/releases/latest)
+[![Checksums](https://img.shields.io/badge/checksums-SHA256-555555)](https://github.com/olelbis/tlsanalyzer/releases/latest)
+[![Provenance](https://img.shields.io/badge/provenance-attested-0f6ab4)](https://github.com/olelbis/tlsanalyzer/attestations)
 
 `tlsanalyzer` is a small, dependency-free TLS inspection CLI inspired by `sslscan`.
 
