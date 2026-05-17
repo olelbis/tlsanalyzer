@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
@@ -193,6 +194,129 @@ func TestBuildJSONReportIncludesPolicyWhenProvided(t *testing.T) {
 	}
 	if len(report.Policy.Failures) != 1 {
 		t.Fatalf("policy failures = %d, want 1", len(report.Policy.Failures))
+	}
+}
+
+func TestBuildJSONReportGolden(t *testing.T) {
+	generatedAt := time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC)
+	data, err := BuildJSONReport("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
+		{
+			Version:                   "TLS 1.2",
+			VersionID:                 0x0303,
+			Supported:                 true,
+			Status:                    scan.ScanStatusSupported,
+			DurationMillis:            12,
+			HandshakeAttempts:         21,
+			CipherDiscovery:           scan.CipherDiscoveryProbed,
+			NegotiatedCipherSuite:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			CipherSuites:              []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+			CipherProbeDurationMillis: 4,
+			CertValidationStatus:      scan.CertValidationValid,
+			CertValidationMessage:     "certificate validation passed",
+		},
+		{
+			Version:           "TLS 1.0",
+			VersionID:         0x0301,
+			Supported:         false,
+			Status:            scan.ScanStatusUnsupported,
+			ErrorMessage:      "protocol version not supported",
+			DurationMillis:    7,
+			HandshakeAttempts: 1,
+			CipherDiscovery:   scan.CipherDiscoveryNegotiated,
+		},
+	}, &policy.Result{
+		Enabled: true,
+		Name:    policy.NameModern,
+		Passed:  false,
+		Failures: []policy.Failure{{
+			Check:   policy.CheckLegacyTLS,
+			Version: "TLS 1.0",
+			Message: "TLS 1.0 is supported",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("BuildJSONReport() error = %v", err)
+	}
+
+	expected := `{
+  "host": "example.com",
+  "port": "443",
+  "schema_version": "1.0",
+  "scanner_version": "vtest",
+  "generated_at": "2026-05-16T20:30:00Z",
+  "policy": {
+    "enabled": true,
+    "name": "modern",
+    "passed": false,
+    "failures": [
+      {
+        "check": "legacy-tls",
+        "version": "TLS 1.0",
+        "message": "TLS 1.0 is supported"
+      }
+    ]
+  },
+  "results": [
+    {
+      "version": "TLS 1.2",
+      "version_id": 771,
+      "supported": true,
+      "status": "supported",
+      "duration_millis": 12,
+      "handshake_attempts": 21,
+      "cipher_discovery": "probed",
+      "negotiated_cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+      "cipher_suites": [
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+      ],
+      "cipher_suites_observed": false,
+      "cipher_probe_duration_millis": 4,
+      "certificate_validation_status": "valid",
+      "certificate_validation_message": "certificate validation passed"
+    },
+    {
+      "version": "TLS 1.0",
+      "version_id": 769,
+      "supported": false,
+      "status": "unsupported",
+      "error_message": "protocol version not supported",
+      "duration_millis": 7,
+      "handshake_attempts": 1,
+      "cipher_discovery": "negotiated",
+      "cipher_suites_observed": false
+    }
+  ]
+}`
+	if string(data) != expected {
+		t.Fatalf("JSON report changed.\nwant:\n%s\n\ngot:\n%s", expected, string(data))
+	}
+}
+
+func TestPrintScanSummary(t *testing.T) {
+	var buf bytes.Buffer
+	PrintScanSummary(&buf, []scan.TLSScanResult{
+		{
+			Version:              "TLS 1.2",
+			Supported:            true,
+			CipherSuites:         []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+			CertValidationStatus: scan.CertValidationValid,
+		},
+		{
+			Version:   "TLS 1.0",
+			Supported: false,
+		},
+	})
+
+	expectedFragments := []string{
+		"Summary:",
+		"Supported TLS versions: 1",
+		"Certificate validation: valid",
+		"Cipher findings: no weak cipher suites detected",
+	}
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(buf.String(), fragment) {
+			t.Fatalf("summary does not contain %q:\n%s", fragment, buf.String())
+		}
 	}
 }
 

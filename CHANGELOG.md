@@ -2,6 +2,14 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added a stable JSON golden test for the machine-readable report contract.
+- Added a human-readable scan summary to console output.
+- Added a release alignment check script and scheduled GitHub Actions workflow.
+
 ## v0.8.10 - 2026-05-17
 
 ### Changed

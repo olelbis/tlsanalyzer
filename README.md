@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
 [![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
+[![Release Alignment](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release-alignment.yml)
 [![Latest Release](https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver)](https://github.com/olelbis/tlsanalyzer/releases/latest)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](BACKLOG.md)
 [![Go Version](https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white)](https://go.dev/)
@@ -24,6 +25,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Exports human-readable Markdown reports.
 - Emits JSON for scripts and automation.
 - Evaluates simple TLS policy checks for CI workflows.
+- Prints a concise summary for supported TLS versions, certificate validation and cipher findings.
 - Builds multi-platform release binaries with GitHub Actions.
 
 ## Quick Start
@@ -89,5 +91,6 @@ Release checklist:
 2. Run `go test ./...`, `go test -race ./...` and `go vet ./...`.
 3. Commit the release preparation changes.
 4. Create and push an annotated tag.
+5. Run `scripts/check-release-alignment.sh` to confirm `main` points at the latest release tag.
 
 GitHub Actions builds Linux, macOS and Windows binaries for `amd64` and `arm64`, then uses the matching `CHANGELOG.md` section as the GitHub release body.

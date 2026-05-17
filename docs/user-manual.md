@@ -80,6 +80,8 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
+The console output ends with a compact summary covering supported TLS versions, certificate validation status and cipher findings.
+
 ### Markdown report
 
 ```bash

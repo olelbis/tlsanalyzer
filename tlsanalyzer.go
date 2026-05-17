@@ -179,6 +179,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	policyResult := policy.Evaluate(results, policyConfig, time.Now())
+	if !cfg.outputJSON {
+		output.PrintScanSummary(stdout, results)
+	}
+
 	var reportPolicy *policy.Result
 	if policyResult.Enabled {
 		reportPolicy = &policyResult

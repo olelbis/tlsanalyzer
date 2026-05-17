@@ -197,6 +197,13 @@ func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, r
 	return json.MarshalIndent(report, "", "  ")
 }
 
+func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
+	fmt.Fprintln(w, "\nSummary:")
+	fmt.Fprintf(w, "  Supported TLS versions: %d\n", countSupported(results))
+	fmt.Fprintf(w, "  Certificate validation: %s\n", summarizeCertificateValidation(results))
+	fmt.Fprintf(w, "  Cipher findings: %s\n", summarizeCipherFindings(results))
+}
+
 func firstPolicyResult(policyResults []*policy.Result) *policy.Result {
 	if len(policyResults) == 0 {
 		return nil
