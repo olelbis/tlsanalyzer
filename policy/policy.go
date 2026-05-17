@@ -65,6 +65,11 @@ func ValidateConfig(config Config) error {
 	return nil
 }
 
+func RequiresCipherProbe(config Config) bool {
+	checks := checksForConfig(config)
+	return checks[CheckWeakCipher]
+}
+
 func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result {
 	checks := checksForConfig(config)
 	result := Result{

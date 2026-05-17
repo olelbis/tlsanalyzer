@@ -44,6 +44,8 @@ tlsanalyzer --host example.com --policy modern
 tlsanalyzer --host example.com --cert --output example.pem
 ```
 
+Policy failures return exit code `3`, which makes `--policy modern` useful in CI.
+
 ## Documentation
 
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.

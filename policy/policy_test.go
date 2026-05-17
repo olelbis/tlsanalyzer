@@ -57,6 +57,27 @@ func TestEvaluateCustomFailOn(t *testing.T) {
 	}
 }
 
+func TestRequiresCipherProbe(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		want   bool
+	}{
+		{name: "disabled"},
+		{name: "modern", config: Config{Name: NameModern}, want: true},
+		{name: "weak cipher", config: Config{FailOn: []string{CheckWeakCipher}}, want: true},
+		{name: "legacy tls only", config: Config{FailOn: []string{CheckLegacyTLS}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := RequiresCipherProbe(tt.config); got != tt.want {
+				t.Fatalf("RequiresCipherProbe() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateConfigRejectsUnknownPolicyAndCheck(t *testing.T) {
 	if err := ValidateConfig(Config{Name: "strict"}); err == nil {
 		t.Fatal("ValidateConfig() error = nil, want unknown policy error")

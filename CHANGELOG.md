@@ -2,6 +2,15 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Changed
+
+- Changed default scans to report only the negotiated cipher suite unless cipher probing is requested.
+- Made `--force-ciphers` the explicit switch for full TLS 1.0, 1.1 and 1.2 cipher probing and TLS 1.3 cipher observation.
+- Made weak-cipher policy checks automatically enable cipher probing to avoid false policy passes.
+- Documented policy exit behavior and cipher probing semantics.
+
 ## v0.8.9 - 2026-05-17
 
 ### Added

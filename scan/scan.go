@@ -97,32 +97,6 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		MaxVersion:         version,
 	}
 
-	if opts.ForceCiphers && version <= tls.VersionTLS12 {
-		var suiteIDs []uint16
-		for _, cs := range utils.AllCipherSuites {
-			suiteIDs = append(suiteIDs, cs.ID)
-		}
-		config.CipherSuites = suiteIDs
-	}
-
-	if opts.ForceCiphers && version == tls.VersionTLS13 {
-		result.HandshakeAttempts = utils.DefaultTLS13Tries
-		for i := 0; i < utils.DefaultTLS13Tries; i++ {
-			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
-			if err != nil {
-				status, message := classifyScanError(err)
-				result.Status = status
-				result.ErrorMessage = message
-				continue
-			}
-			return buildSupportedResult(result, conn, opts)
-		}
-		if result.ErrorMessage == "" {
-			result.ErrorMessage = "all TLS 1.3 handshakes failed"
-		}
-		return result
-	}
-
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
 	if err != nil {
 		result.Status, result.ErrorMessage = classifyScanError(err)

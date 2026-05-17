@@ -170,7 +170,9 @@ tlsanalyzer --host example.com --force-ciphers
 
 For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to probe support.
 
-Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. For TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
+By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
+
+Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
 
 JSON and Markdown output distinguish:
 
@@ -193,11 +195,15 @@ The `modern` policy fails the run when it detects:
 - Invalid certificates
 - Expired certificates
 
+Because the `modern` policy includes weak cipher checks, it automatically enables cipher probing.
+
 Use targeted checks without a named policy:
 
 ```bash
 tlsanalyzer --host example.com --fail-on legacy-tls,weak-cipher
 ```
+
+The `weak-cipher` check also enables cipher probing.
 
 Available checks are:
 

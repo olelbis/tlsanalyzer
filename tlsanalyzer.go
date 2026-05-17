@@ -92,6 +92,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	probeCiphers := cfg.forceCiphers || policy.RequiresCipherProbe(policyConfig)
 
 	if !cfg.noClear && !cfg.outputJSON {
 		utils.ClearScreenTo(stdout)
@@ -119,8 +120,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		name := utils.TLSVersions[version]
 		if !cfg.outputJSON {
 			fmt.Fprintf(stdout, "\n👉 Trying TLS version %s", name)
-			if opts.ForceCiphers && version <= tls.VersionTLS12 {
-				fmt.Fprintf(stdout, "\n🔧 Forcing cipher suites for %s", name)
+			if probeCiphers && version <= tls.VersionTLS12 {
+				fmt.Fprintf(stdout, "\n🔧 Probing cipher suites for %s", name)
+			}
+			if probeCiphers && version == tls.VersionTLS13 {
+				fmt.Fprintf(stdout, "\n👀 Observing TLS 1.3 cipher suites for %s", name)
 			}
 		}
 
@@ -140,13 +144,15 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		if len(result.CipherSuites) > 0 {
 			negotiatedCipher = result.CipherSuites[0]
 		}
-		probe := scan.ProbeCipherSuitesForVersion(opts, version)
-		result.CipherSuites = probe.CipherSuites
-		result.CipherDiscovery = probe.Discovery
-		result.CipherSuitesObserved = probe.ObservedOnly
-		result.CipherProbeDurationMillis = probe.DurationMillis
-		result.HandshakeAttempts += probe.Attempts
-		result.Warnings = append(result.Warnings, probe.Warnings...)
+		if probeCiphers {
+			probe := scan.ProbeCipherSuitesForVersion(opts, version)
+			result.CipherSuites = probe.CipherSuites
+			result.CipherDiscovery = probe.Discovery
+			result.CipherSuitesObserved = probe.ObservedOnly
+			result.CipherProbeDurationMillis = probe.DurationMillis
+			result.HandshakeAttempts += probe.Attempts
+			result.Warnings = append(result.Warnings, probe.Warnings...)
+		}
 		results = append(results, result)
 
 		if result.Certificate != nil {
@@ -155,7 +161,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 					Status:  result.CertValidationStatus,
 					Message: result.CertValidationMessage,
 				})
-				output.PrintCipherSuites(stdout, result.CipherSuites, result.CipherSuitesObserved)
+				output.PrintCipherSuites(stdout, result.CipherSuites, result.CipherDiscovery)
 			}
 			if cfg.certChain {
 				prefix := strings.ReplaceAll(name, " ", "")

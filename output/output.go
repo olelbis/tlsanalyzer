@@ -330,12 +330,15 @@ func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, versio
 	fmt.Fprintf(w, "   DNS: %v\n", cert.DNSNames)
 }
 
-func PrintCipherSuites(w io.Writer, ciphers []string, observed bool) {
+func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {
 	if len(ciphers) > 0 {
-		if observed {
+		switch discovery {
+		case scan.CipherDiscoveryObserved:
 			fmt.Fprintln(w, "   Observed cipher suites:")
-		} else {
-			fmt.Fprintln(w, "   Supported cipher suites:")
+		case scan.CipherDiscoveryProbed:
+			fmt.Fprintln(w, "   Probed cipher suites:")
+		default:
+			fmt.Fprintln(w, "   Negotiated cipher suite:")
 		}
 		for _, cs := range ciphers {
 			fmt.Fprintf(w, "     • %s\n", cs)

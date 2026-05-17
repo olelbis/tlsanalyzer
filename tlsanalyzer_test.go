@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/olelbis/tlsanalyzer/policy"
 )
 
 func TestValidateHost(t *testing.T) {
@@ -164,5 +166,12 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 	if cfg.failOn != "legacy-tls,weak-cipher" {
 		t.Fatalf("failOn = %q, want legacy-tls,weak-cipher", cfg.failOn)
+	}
+}
+
+func TestPolicyModernRequiresCipherProbe(t *testing.T) {
+	cfg := policy.Config{Name: policy.NameModern}
+	if !policy.RequiresCipherProbe(cfg) {
+		t.Fatal("modern policy should require cipher probing")
 	}
 }

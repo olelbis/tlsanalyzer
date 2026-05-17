@@ -80,6 +80,12 @@ func TestScanTLSVersionLocalTLS13(t *testing.T) {
 	if len(result.CipherSuites) != 1 {
 		t.Fatalf("CipherSuites = %v, want negotiated cipher", result.CipherSuites)
 	}
+	if result.CipherDiscovery != CipherDiscoveryNegotiated {
+		t.Fatalf("CipherDiscovery = %q, want %q", result.CipherDiscovery, CipherDiscoveryNegotiated)
+	}
+	if result.HandshakeAttempts != 1 {
+		t.Fatalf("HandshakeAttempts = %d, want 1", result.HandshakeAttempts)
+	}
 }
 
 func TestScanTLSVersionInvalidCertificateIsNotUnsupportedTLS(t *testing.T) {
