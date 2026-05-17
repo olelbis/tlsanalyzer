@@ -436,6 +436,40 @@ func TestPrintScanSummaryReportsUnknownCipherEvidence(t *testing.T) {
 	}
 }
 
+func TestPrintCompactScanResults(t *testing.T) {
+	var buf bytes.Buffer
+	PrintCompactScanResults(&buf, []scan.TLSScanResult{
+		{
+			Version:              "TLS 1.3",
+			Supported:            true,
+			Status:               scan.ScanStatusSupported,
+			HandshakeAttempts:    4,
+			KeyExchangeGroup:     "X25519",
+			ALPNProtocol:         "h2",
+			CipherDiscovery:      scan.CipherDiscoveryRawProbed,
+			CertValidationStatus: scan.CertValidationValid,
+		},
+		{
+			Version:           "TLS 1.0",
+			Supported:         false,
+			Status:            scan.ScanStatusUnsupported,
+			ErrorMessage:      "protocol version not supported",
+			HandshakeAttempts: 1,
+		},
+	})
+
+	expectedFragments := []string{
+		"TLS Results:",
+		"TLS 1.3 supported cert=valid cipher=raw-probed kx=X25519 alpn=h2 attempts=4",
+		"TLS 1.0 unsupported error=protocol version not supported attempts=1",
+	}
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(buf.String(), fragment) {
+			t.Fatalf("compact results do not contain %q:\n%s", fragment, buf.String())
+		}
+	}
+}
+
 func pkixName(commonName string) pkix.Name {
 	return pkix.Name{CommonName: commonName}
 }

@@ -94,6 +94,10 @@ tlsanalyzer --host example.com --min-version 1.2
         Write scan result as JSON to stdout
   --no-clear
         Do not clear the terminal before scanning
+  --compact
+        Use compact human-readable console output
+  --version
+        Print version information and exit
   --policy string
         Policy to evaluate: modern
   --fail-on string
@@ -113,6 +117,12 @@ tlsanalyzer --host example.com --no-clear
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
 The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
+
+Use `--compact` for shorter human-readable output while preserving the final summary:
+
+```bash
+tlsanalyzer --host example.com --compact
+```
 
 `tlsanalyzer` offers `h2` and `http/1.1` through ALPN to observe the negotiated TLS application protocol. It does not send HTTP requests or evaluate non-TLS HTTP behavior.
 
@@ -279,9 +289,12 @@ Certificate validation is reported separately:
 
 ## Exit Behavior
 
-Invalid CLI input, report write failures and certificate output failures exit with a non-zero status.
-
-Policy failures exit with status `3`.
+| Code | Meaning |
+| ---: | --- |
+| 0 | Scan completed successfully and enabled policy checks passed. |
+| 1 | Invalid input, scan setup failure, report write failure or certificate output failure. |
+| 2 | CLI flag parsing failed. |
+| 3 | Scan completed but enabled policy checks failed. |
 
 Unsupported TLS versions are scan results, not CLI failures.
 

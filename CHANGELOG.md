@@ -2,6 +2,15 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.14.0 - 2026-05-18
+
+### Added
+
+- Added `--version` for quick version checks.
+- Added `--compact` for concise human-readable console output.
+- Documented exit codes more explicitly in README, user manual and man page.
+- Added future roadmap items for policy depth, installation channels, raw probe extraction, additional report formats and config profiles.
+
 ## v0.13.0 - 2026-05-18
 
 ### Added

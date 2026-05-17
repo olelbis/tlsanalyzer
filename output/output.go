@@ -293,6 +293,25 @@ func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
 	}
 }
 
+func PrintCompactScanResults(w io.Writer, results []scan.TLSScanResult) {
+	fmt.Fprintln(w, "\nTLS Results:")
+	for _, result := range results {
+		status := result.Status
+		if status == "" {
+			status = "unknown"
+		}
+		certificate := valueOrDash(result.CertValidationStatus)
+		cipherEvidence := valueOrDash(result.CipherDiscovery)
+		keyExchange := valueOrDash(result.KeyExchangeGroup)
+		alpn := valueOrDash(result.ALPNProtocol)
+		if result.Supported {
+			fmt.Fprintf(w, "  %-7s supported cert=%s cipher=%s kx=%s alpn=%s attempts=%d\n", result.Version, certificate, cipherEvidence, keyExchange, alpn, result.HandshakeAttempts)
+			continue
+		}
+		fmt.Fprintf(w, "  %-7s %-9s error=%s attempts=%d\n", result.Version, status, valueOrDash(result.ErrorMessage), result.HandshakeAttempts)
+	}
+}
+
 func firstPolicyResult(policyResults []*policy.Result) *policy.Result {
 	if len(policyResults) == 0 {
 		return nil
@@ -442,6 +461,13 @@ func emptyDash(value string) string {
 		return "-"
 	}
 	return escapeTable(value)
+}
+
+func valueOrDash(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return value
 }
 
 func escapeTable(value string) string {

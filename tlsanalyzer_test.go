@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/policy"
 )
 
@@ -117,6 +118,23 @@ func TestRunRejectsJSONCertWithoutOutputBeforeScan(t *testing.T) {
 	}
 }
 
+func TestRunVersionDoesNotRequireHost(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--version"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("run() exit code = %d, want 0", code)
+	}
+	if stderr.String() != "" {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "tlsanalyzer "+build.Version) {
+		t.Fatalf("stdout does not contain version:\n%s", stdout.String())
+	}
+}
+
 func TestRunRejectsUnknownPolicyBeforeScan(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -186,6 +204,21 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 	if cfg.sni != "service.example.com" {
 		t.Fatalf("sni = %q, want service.example.com", cfg.sni)
+	}
+}
+
+func TestParseCLIArgsProductPolishFlags(t *testing.T) {
+	var stderr bytes.Buffer
+
+	cfg, err := parseCLIArgs([]string{"--host", "example.com", "--compact", "--version"}, &stderr)
+	if err != nil {
+		t.Fatalf("parseCLIArgs() error = %v", err)
+	}
+	if !cfg.compact {
+		t.Fatal("compact = false, want true")
+	}
+	if !cfg.showVersion {
+		t.Fatal("showVersion = false, want true")
 	}
 }
 

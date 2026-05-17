@@ -50,11 +50,13 @@ tlsanalyzer --host example.com --min-version 1.2
 tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
 tlsanalyzer --host example.com --policy modern
+tlsanalyzer --host example.com --compact
 tlsanalyzer --host example.com --cert --output example.pem
 tlsanalyzer --host 203.0.113.10 --sni example.com
+tlsanalyzer --version
 ```
 
-Policy failures return exit code `3`, which makes `--policy modern` useful in CI. Certificate policy checks fail when validation is invalid, skipped or unavailable.
+Exit codes are stable for CI: `0` means success, `1` means input/runtime/report failure, `2` means CLI flag parsing failed and `3` means enabled policy checks failed. Certificate policy checks fail when validation is invalid, skipped or unavailable.
 
 ## Documentation
 

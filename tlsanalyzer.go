@@ -37,6 +37,8 @@ type cliConfig struct {
 	skipVerify      bool
 	outputJSON      bool
 	noClear         bool
+	compact         bool
+	showVersion     bool
 	policy          string
 	failOn          string
 }
@@ -52,6 +54,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	cfg, err := parseCLIArgs(args, stderr)
 	if err != nil {
 		return 2
+	}
+
+	if cfg.showVersion {
+		fmt.Fprintln(stdout, formatVersion())
+		return 0
 	}
 
 	if cfg.host == "" {
@@ -101,12 +108,14 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 	probeCiphers := cfg.forceCiphers || policy.RequiresCipherProbe(policyConfig)
+	humanOutput := !cfg.outputJSON
+	verboseOutput := humanOutput && !cfg.compact
 
-	if !cfg.noClear && !cfg.outputJSON {
+	if !cfg.noClear && verboseOutput {
 		utils.ClearScreenTo(stdout)
 	}
 
-	if !cfg.outputJSON {
+	if verboseOutput {
 		fmt.Fprintf(stdout, "\nStarting TLS analysis for %s:%s with minimum TLS version %s\n", h, port, cfg.minVersionStr)
 		if serverName != "" {
 			fmt.Fprintf(stdout, "Using SNI/certificate name %s\n", serverName)
@@ -123,14 +132,14 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		SkipVerify:   cfg.skipVerify,
 	}
 
-	if !cfg.outputJSON {
+	if verboseOutput {
 		fmt.Fprintf(stdout, "\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", opts.Host, opts.Port)
 	}
 	var results []scan.TLSScanResult
 
 	for _, version := range keys {
 		name := utils.TLSVersions[version]
-		if !cfg.outputJSON {
+		if verboseOutput {
 			fmt.Fprintf(stdout, "\n👉 Trying TLS version %s\n", name)
 			if probeCiphers && version <= tls.VersionTLS12 {
 				fmt.Fprintf(stdout, "🔧 Probing cipher suites for %s\n", name)
@@ -142,7 +151,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 		result := scan.ScanTLSVersion(opts, version)
 		if !result.Supported {
-			if !cfg.outputJSON {
+			if verboseOutput {
 				fmt.Fprintf(stdout, "\n🚫 %s: %s\n", name, result.Status)
 				if result.ErrorMessage != "" {
 					fmt.Fprintf(stdout, "   %s\n", result.ErrorMessage)
@@ -169,7 +178,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		results = append(results, result)
 
 		if result.Certificate != nil {
-			if !cfg.outputJSON {
+			if verboseOutput {
 				output.PrintCertSummary(stdout, result.Certificate, negotiatedCipher, name, cfg.checkCertExpiry, scan.CertValidation{
 					Status:  result.CertValidationStatus,
 					Message: result.CertValidationMessage,
@@ -193,14 +202,17 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	policyResult := policy.Evaluate(results, policyConfig, time.Now())
-	if !cfg.outputJSON {
+	if humanOutput {
+		if cfg.compact {
+			output.PrintCompactScanResults(stdout, results)
+		}
 		output.PrintScanSummary(stdout, results)
 	}
 
 	var reportPolicy *policy.Result
 	if policyResult.Enabled {
 		reportPolicy = &policyResult
-		if !cfg.outputJSON {
+		if humanOutput {
 			printPolicyResult(stdout, policyResult)
 		}
 	}
@@ -211,7 +223,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "❌ Failed to write markdown report: %v\n", err)
 			return 1
 		} else {
-			if !cfg.outputJSON {
+			if humanOutput {
 				fmt.Fprintf(stdout, "✅ Markdown report saved to %s\n", cfg.outputMarkdown)
 			}
 		}
@@ -271,6 +283,8 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.BoolVar(&cfg.skipVerify, "skip-verify", false, "Skip certificate validation and report TLS handshake support only")
 	fs.BoolVar(&cfg.outputJSON, "json", false, "Write scan result as JSON to stdout")
 	fs.BoolVar(&cfg.noClear, "no-clear", false, "Do not clear the terminal before scanning")
+	fs.BoolVar(&cfg.compact, "compact", false, "Use compact human-readable console output")
+	fs.BoolVar(&cfg.showVersion, "version", false, "Print version information and exit")
 	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern")
 	fs.StringVar(&cfg.failOn, "fail-on", "", "Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert")
 	fs.Usage = func() {
@@ -278,6 +292,17 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 		fs.PrintDefaults()
 	}
 	return fs
+}
+
+func formatVersion() string {
+	parts := []string{"tlsanalyzer", build.Version}
+	if build.BuildTime != "" {
+		parts = append(parts, "built "+build.BuildTime)
+	}
+	if build.BuildUser != "" {
+		parts = append(parts, "by "+build.BuildUser)
+	}
+	return strings.Join(parts, " ")
 }
 
 func writeUsage(stderr io.Writer) {

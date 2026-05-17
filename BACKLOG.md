@@ -482,13 +482,13 @@ Acceptance criteria:
 - Publish GitHub artifact attestations for release assets.
 - Document release verification steps.
 
-## P14 - Product Polish - Planned
+## P14 - Product Polish - Done
 
 ### Improve day-to-day CLI ergonomics
 
 Problem: the scanner is usable, but common CLI polish is still missing.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
@@ -496,3 +496,79 @@ Acceptance criteria:
 - Add a quiet or compact output mode.
 - Document exit codes more prominently.
 - Consider output format controls for table or compact console output.
+
+## P15 - Policy Depth - Planned
+
+### Add richer configurable policy checks
+
+Problem: the current policy mode is useful for basic CI gates, but mature environments often need more granular posture requirements.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add policy checks for minimum certificate public key size.
+- Add policy checks for required or forbidden TLS versions, including requiring TLS 1.3 when requested.
+- Add policy checks for allowed or forbidden ALPN protocols.
+- Add configurable certificate expiry thresholds.
+- Keep defaults conservative and avoid surprising users who only enable `--policy modern`.
+
+## P16 - Installation Channels - Planned
+
+### Expand distribution beyond GitHub release assets
+
+Problem: release binaries and Linux packages are available, but users still need to manually download assets from GitHub.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Evaluate and document a Homebrew tap for macOS and Linux users.
+- Evaluate Scoop or WinGet distribution for Windows users.
+- Evaluate publishing a container image for CI usage.
+- Keep release provenance, checksums and SBOM expectations consistent across channels.
+
+## P17 - Raw Probe Library Extraction - Planned
+
+### Prepare the TLS 1.3 raw probe for reuse
+
+Problem: the raw TLS 1.3 probe is useful inside `tlsanalyzer`, but it may become valuable as a standalone library.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Define a small public API for the raw probe package.
+- Separate reusable protocol logic from CLI/reporting assumptions.
+- Add package-level documentation and examples.
+- Decide whether to keep it internal or publish it as a separate Go module.
+
+## P18 - Report Formats - Planned
+
+### Add integrations for downstream tools
+
+Problem: Markdown and JSON cover humans and scripts, but CI/security platforms often consume specialized formats.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Evaluate SARIF output for security dashboards.
+- Evaluate JUnit-style output for CI test reports.
+- Evaluate a self-contained HTML report.
+- Keep JSON as the canonical machine-readable contract.
+
+## P19 - Config File and Profiles - Planned
+
+### Support repeatable scan configuration
+
+Problem: repeated scans currently require long CLI invocations, which is awkward for teams and CI templates.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add a YAML or TOML config file for common scan options.
+- Support named policy profiles.
+- Support reusable target definitions.
+- Keep CLI flags able to override config file values explicitly.
