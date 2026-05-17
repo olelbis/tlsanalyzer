@@ -59,6 +59,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"**Scanner Version**: vtest",
 		"**JSON Schema Version**: 1.1",
 		"## Summary",
+		"**Supported TLS Versions**: 2 of 3 tested",
 		"| TLS 1.0 | no |",
 		"| TLS 1.2 | yes | supported | valid | 12 ms | 20 |",
 		"**Negotiated**: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
@@ -325,7 +326,7 @@ func TestPrintScanSummary(t *testing.T) {
 
 	expectedFragments := []string{
 		"Summary:",
-		"Supported TLS versions: 1",
+		"Supported TLS versions: 1 of 2 tested",
 		"Protocol findings: no legacy TLS versions detected",
 		"Certificate validation: valid",
 		"Cipher findings: no weak cipher suites detected in negotiated evidence",

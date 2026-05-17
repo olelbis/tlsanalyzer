@@ -1,12 +1,12 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.10.1
+- **Scanner Version**: v0.10.2
 - **JSON Schema Version**: 1.1
 
 ## Summary
 
-- **Supported TLS Versions**: 4
+- **Supported TLS Versions**: 4 of 4 tested
 - **Protocol Findings**: legacy TLS versions supported: TLS 1.0, TLS 1.1
 - **Certificate Validation**: valid
 - **Cipher Findings**: weak cipher suites detected in probed evidence

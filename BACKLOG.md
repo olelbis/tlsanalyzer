@@ -425,6 +425,18 @@ Acceptance criteria:
 
 ## P11 - Report Quality - Planned
 
+### Clarify supported TLS version counts
+
+Problem: `Supported TLS versions: 1` can be ambiguous when the scan intentionally tests only one TLS version.
+
+Status: done.
+
+Acceptance criteria:
+
+- Console summaries show both supported and tested TLS version counts.
+- Markdown summaries use the same supported/tested wording.
+- Tests cover the summary wording.
+
 ### Make raw probe evidence easier to read
 
 Problem: raw probe details are available in JSON, but human reports do not summarize per-cipher probe status clearly.

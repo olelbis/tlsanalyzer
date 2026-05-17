@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.10.2 - 2026-05-17
+
+### Changed
+
+- Clarified supported TLS version summaries to show supported and tested counts.
+
 ## v0.10.1 - 2026-05-17
 
 ### Changed

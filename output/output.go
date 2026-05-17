@@ -86,7 +86,7 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 	sb.WriteString(fmt.Sprintf("- **Scanner Version**: %s\n", scannerVersion))
 	sb.WriteString(fmt.Sprintf("- **JSON Schema Version**: %s\n\n", JSONSchemaVersion))
 	sb.WriteString("## Summary\n\n")
-	sb.WriteString(fmt.Sprintf("- **Supported TLS Versions**: %d\n", countSupported(results)))
+	sb.WriteString(fmt.Sprintf("- **Supported TLS Versions**: %s\n", summarizeSupportedTLSVersions(results)))
 	sb.WriteString(fmt.Sprintf("- **Protocol Findings**: %s\n", summarizeProtocolFindings(results)))
 	sb.WriteString(fmt.Sprintf("- **Certificate Validation**: %s\n", summarizeCertificateValidation(results)))
 	sb.WriteString(fmt.Sprintf("- **Cipher Findings**: %s\n", summarizeCipherFindings(results)))
@@ -232,7 +232,7 @@ func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {
 
 func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
 	fmt.Fprintln(w, "\nSummary:")
-	fmt.Fprintf(w, "  Supported TLS versions: %d\n", countSupported(results))
+	fmt.Fprintf(w, "  Supported TLS versions: %s\n", summarizeSupportedTLSVersions(results))
 	fmt.Fprintf(w, "  Protocol findings: %s\n", summarizeProtocolFindings(results))
 	fmt.Fprintf(w, "  Certificate validation: %s\n", summarizeCertificateValidation(results))
 	fmt.Fprintf(w, "  Cipher findings: %s\n", summarizeCipherFindings(results))
@@ -253,6 +253,10 @@ func countSupported(results []scan.TLSScanResult) int {
 		}
 	}
 	return count
+}
+
+func summarizeSupportedTLSVersions(results []scan.TLSScanResult) string {
+	return fmt.Sprintf("%d of %d tested", countSupported(results), len(results))
 }
 
 func summarizeProtocolFindings(results []scan.TLSScanResult) string {
