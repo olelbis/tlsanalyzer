@@ -2,6 +2,14 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.9.3 - 2026-05-17
+
+### Changed
+
+- Made cipher severity and Markdown cipher labels account for the negotiated TLS version.
+- Added protocol findings to console and Markdown summaries.
+- Improved console spacing before supported TLS version results.
+
 ## v0.9.2 - 2026-05-17
 
 ### Added

@@ -2,6 +2,7 @@ package output
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -78,6 +79,7 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 	sb.WriteString(fmt.Sprintf("- **JSON Schema Version**: %s\n\n", JSONSchemaVersion))
 	sb.WriteString("## Summary\n\n")
 	sb.WriteString(fmt.Sprintf("- **Supported TLS Versions**: %d\n", countSupported(results)))
+	sb.WriteString(fmt.Sprintf("- **Protocol Findings**: %s\n", summarizeProtocolFindings(results)))
 	sb.WriteString(fmt.Sprintf("- **Certificate Validation**: %s\n", summarizeCertificateValidation(results)))
 	sb.WriteString(fmt.Sprintf("- **Cipher Findings**: %s\n", summarizeCipherFindings(results)))
 	if policyResult != nil && policyResult.Enabled {
@@ -122,7 +124,7 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 			sb.WriteString("\n| Cipher Suite | Classification |\n")
 			sb.WriteString("| --- | --- |\n")
 			for _, cs := range r.CipherSuites {
-				label, ok := utils.CipherClassification[cs]
+				label, ok := utils.CipherClassificationForVersion(r.VersionID, cs)
 				if ok {
 					sb.WriteString(fmt.Sprintf("| %s | %s |\n", cs, label))
 				} else {
@@ -206,6 +208,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
 	fmt.Fprintln(w, "\nSummary:")
 	fmt.Fprintf(w, "  Supported TLS versions: %d\n", countSupported(results))
+	fmt.Fprintf(w, "  Protocol findings: %s\n", summarizeProtocolFindings(results))
 	fmt.Fprintf(w, "  Certificate validation: %s\n", summarizeCertificateValidation(results))
 	fmt.Fprintf(w, "  Cipher findings: %s\n", summarizeCipherFindings(results))
 }
@@ -225,6 +228,34 @@ func countSupported(results []scan.TLSScanResult) int {
 		}
 	}
 	return count
+}
+
+func summarizeProtocolFindings(results []scan.TLSScanResult) string {
+	var legacyVersions []string
+	supported := false
+	for _, r := range results {
+		if !r.Supported {
+			continue
+		}
+		supported = true
+		if isLegacyTLSResult(r) {
+			legacyVersions = append(legacyVersions, r.Version)
+		}
+	}
+	if len(legacyVersions) > 0 {
+		return "legacy TLS versions supported: " + strings.Join(legacyVersions, ", ")
+	}
+	if supported {
+		return "no legacy TLS versions detected"
+	}
+	return "no supported TLS versions detected"
+}
+
+func isLegacyTLSResult(r scan.TLSScanResult) bool {
+	if r.VersionID != 0 {
+		return r.VersionID < tls.VersionTLS12
+	}
+	return r.Version == "TLS 1.0" || r.Version == "TLS 1.1"
 }
 
 func summarizeCertificateValidation(results []scan.TLSScanResult) string {
@@ -259,7 +290,10 @@ func summarizeCipherFindings(results []scan.TLSScanResult) string {
 			if r.CipherDiscovery != "" {
 				evidence[r.CipherDiscovery] = true
 			}
-			severity := utils.CipherSuiteSeverity(cipher)
+			if utils.IsLegacyCBCForVersion(r.VersionID, cipher) {
+				return fmt.Sprintf("legacy CBC cipher suites detected in %s evidence", describeCipherEvidence(evidence))
+			}
+			severity := utils.CipherSuiteSeverityForVersion(r.VersionID, cipher)
 			if severity == utils.CipherSeverityInsecure {
 				return fmt.Sprintf("insecure cipher suites detected in %s evidence", describeCipherEvidence(evidence))
 			}

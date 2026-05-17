@@ -68,6 +68,46 @@ func TestCipherSuiteSeverity(t *testing.T) {
 	}
 }
 
+func TestCipherSuiteSeverityForVersionTreatsLegacyCBCAsWeak(t *testing.T) {
+	cipher := "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
+	if got := CipherSuiteSeverityForVersion(tls.VersionTLS10, cipher); got != CipherSeverityWeak {
+		t.Fatalf("CipherSuiteSeverityForVersion(TLS 1.0, %q) = %q, want %q", cipher, got, CipherSeverityWeak)
+	}
+	if got := CipherSuiteSeverityForVersion(tls.VersionTLS12, cipher); got != CipherSeverityAcceptable {
+		t.Fatalf("CipherSuiteSeverityForVersion(TLS 1.2, %q) = %q, want %q", cipher, got, CipherSeverityAcceptable)
+	}
+}
+
+func TestIsLegacyCBCForVersion(t *testing.T) {
+	if !IsLegacyCBCForVersion(tls.VersionTLS11, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA") {
+		t.Fatal("TLS 1.1 ECDHE CBC should be reported as legacy CBC")
+	}
+	if IsLegacyCBCForVersion(tls.VersionTLS12, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA") {
+		t.Fatal("TLS 1.2 CBC should not be reported as legacy CBC")
+	}
+	if IsLegacyCBCForVersion(tls.VersionTLS10, "TLS_RSA_WITH_AES_128_CBC_SHA") {
+		t.Fatal("already weak CBC should not be reported as upgraded legacy CBC")
+	}
+}
+
+func TestCipherClassificationForVersion(t *testing.T) {
+	label, ok := CipherClassificationForVersion(tls.VersionTLS10, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA")
+	if !ok {
+		t.Fatal("CipherClassificationForVersion() ok = false, want true")
+	}
+	if label != "🟠 WEAK (legacy CBC)" {
+		t.Fatalf("CipherClassificationForVersion() = %q, want legacy CBC label", label)
+	}
+
+	label, ok = CipherClassificationForVersion(tls.VersionTLS12, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA")
+	if !ok {
+		t.Fatal("CipherClassificationForVersion() ok = false, want true")
+	}
+	if label != "🟡 ACCEPTABLE" {
+		t.Fatalf("CipherClassificationForVersion() = %q, want acceptable label", label)
+	}
+}
+
 func TestUniqueStringsPreservesFirstOccurrenceOrder(t *testing.T) {
 	got := UniqueStrings([]string{"b", "a", "b", "c", "a"})
 	want := []string{"b", "a", "c"}

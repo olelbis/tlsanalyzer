@@ -304,6 +304,7 @@ func TestPrintScanSummary(t *testing.T) {
 	PrintScanSummary(&buf, []scan.TLSScanResult{
 		{
 			Version:              "TLS 1.2",
+			VersionID:            0x0303,
 			Supported:            true,
 			CipherDiscovery:      scan.CipherDiscoveryNegotiated,
 			CipherSuites:         []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
@@ -318,8 +319,32 @@ func TestPrintScanSummary(t *testing.T) {
 	expectedFragments := []string{
 		"Summary:",
 		"Supported TLS versions: 1",
+		"Protocol findings: no legacy TLS versions detected",
 		"Certificate validation: valid",
 		"Cipher findings: no weak cipher suites detected in negotiated evidence",
+	}
+	for _, fragment := range expectedFragments {
+		if !strings.Contains(buf.String(), fragment) {
+			t.Fatalf("summary does not contain %q:\n%s", fragment, buf.String())
+		}
+	}
+}
+
+func TestPrintScanSummaryReportsLegacyTLSAndLegacyCBC(t *testing.T) {
+	var buf bytes.Buffer
+	PrintScanSummary(&buf, []scan.TLSScanResult{
+		{
+			Version:         "TLS 1.0",
+			VersionID:       0x0301,
+			Supported:       true,
+			CipherDiscovery: scan.CipherDiscoveryNegotiated,
+			CipherSuites:    []string{"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"},
+		},
+	})
+
+	expectedFragments := []string{
+		"Protocol findings: legacy TLS versions supported: TLS 1.0",
+		"Cipher findings: legacy CBC cipher suites detected in negotiated evidence",
 	}
 	for _, fragment := range expectedFragments {
 		if !strings.Contains(buf.String(), fragment) {
@@ -333,6 +358,7 @@ func TestPrintScanSummaryReportsUnknownCipherEvidence(t *testing.T) {
 	PrintScanSummary(&buf, []scan.TLSScanResult{
 		{
 			Version:         "TLS 1.2",
+			VersionID:       0x0303,
 			Supported:       true,
 			CipherDiscovery: scan.CipherDiscoveryProbed,
 			CipherSuites:    []string{"TLS_PRIVATE_UNKNOWN_CIPHER"},

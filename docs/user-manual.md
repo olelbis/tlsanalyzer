@@ -88,7 +88,7 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
-The console output ends with a compact summary covering supported TLS versions, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `observed` or mixed evidence.
+The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `observed` or mixed evidence. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
 
 ### Markdown report
 

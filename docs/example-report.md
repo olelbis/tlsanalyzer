@@ -1,12 +1,13 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.9.2
+- **Scanner Version**: v0.9.3
 - **JSON Schema Version**: 1.0
 
 ## Summary
 
 - **Supported TLS Versions**: 4
+- **Protocol Findings**: legacy TLS versions supported: TLS 1.0, TLS 1.1
 - **Certificate Validation**: valid
 - **Cipher Findings**: weak cipher suites detected in probed evidence
 - **Policy**: modern (failed)
@@ -38,7 +39,7 @@
 
 | Cipher Suite | Classification |
 | --- | --- |
-| TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA | 🟡 ACCEPTABLE |
+| TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA | 🟠 WEAK (legacy CBC) |
 | TLS_RSA_WITH_AES_128_CBC_SHA | 🟠 WEAK |
 
 ### TLS 1.2

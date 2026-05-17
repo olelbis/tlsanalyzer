@@ -103,6 +103,27 @@ func TestEvaluateWeakCipherCheckFailsOnUnknownCipher(t *testing.T) {
 	}
 }
 
+func TestEvaluateWeakCipherCheckTreatsLegacyCBCAsWeak(t *testing.T) {
+	result := Evaluate([]scan.TLSScanResult{
+		{
+			Version:      "TLS 1.0",
+			VersionID:    tls.VersionTLS10,
+			Supported:    true,
+			CipherSuites: []string{"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"},
+		},
+	}, Config{FailOn: []string{CheckWeakCipher}}, time.Now())
+
+	if result.Passed {
+		t.Fatal("weak-cipher check should fail on legacy CBC negotiated over TLS 1.0")
+	}
+	if len(result.Failures) != 1 {
+		t.Fatalf("Failures = %d, want 1: %+v", len(result.Failures), result.Failures)
+	}
+	if !strings.Contains(result.Failures[0].Message, "weak cipher") {
+		t.Fatalf("failure message should mention weak cipher: %+v", result.Failures[0])
+	}
+}
+
 func TestRequiresCipherProbe(t *testing.T) {
 	tests := []struct {
 		name   string

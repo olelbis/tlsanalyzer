@@ -131,12 +131,12 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	for _, version := range keys {
 		name := utils.TLSVersions[version]
 		if !cfg.outputJSON {
-			fmt.Fprintf(stdout, "\n👉 Trying TLS version %s", name)
+			fmt.Fprintf(stdout, "\n👉 Trying TLS version %s\n", name)
 			if probeCiphers && version <= tls.VersionTLS12 {
-				fmt.Fprintf(stdout, "\n🔧 Probing cipher suites for %s", name)
+				fmt.Fprintf(stdout, "🔧 Probing cipher suites for %s\n", name)
 			}
 			if probeCiphers && version == tls.VersionTLS13 {
-				fmt.Fprintf(stdout, "\n👀 Observing TLS 1.3 cipher suites for %s", name)
+				fmt.Fprintf(stdout, "👀 Observing TLS 1.3 cipher suites for %s\n", name)
 			}
 		}
 

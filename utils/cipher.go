@@ -1,6 +1,9 @@
 package utils
 
-import "crypto/tls"
+import (
+	"crypto/tls"
+	"strings"
+)
 
 type CipherSuite struct {
 	ID   uint16
@@ -110,6 +113,43 @@ func CipherSuiteSeverity(name string) CipherSeverity {
 		return CipherSeverityUnknown
 	}
 	return severity
+}
+
+func CipherSuiteSeverityForVersion(version uint16, name string) CipherSeverity {
+	severity := CipherSuiteSeverity(name)
+	if severity == CipherSeverityUnknown ||
+		severity == CipherSeverityInsecure ||
+		severity == CipherSeverityWeak {
+		return severity
+	}
+
+	if version != 0 && version < tls.VersionTLS12 && isCBCCipherSuite(name) {
+		return CipherSeverityWeak
+	}
+
+	return severity
+}
+
+func CipherClassificationForVersion(version uint16, name string) (string, bool) {
+	if IsLegacyCBCForVersion(version, name) {
+		return "🟠 WEAK (legacy CBC)", true
+	}
+	label, ok := CipherClassification[name]
+	return label, ok
+}
+
+func IsLegacyCBCForVersion(version uint16, name string) bool {
+	baseSeverity := CipherSuiteSeverity(name)
+	return version != 0 &&
+		version < tls.VersionTLS12 &&
+		isCBCCipherSuite(name) &&
+		baseSeverity != CipherSeverityUnknown &&
+		baseSeverity != CipherSeverityInsecure &&
+		baseSeverity != CipherSeverityWeak
+}
+
+func isCBCCipherSuite(name string) bool {
+	return strings.Contains(name, "_CBC_")
 }
 
 func IsCipherSuiteCompatibleWith(version uint16, id uint16) bool {
