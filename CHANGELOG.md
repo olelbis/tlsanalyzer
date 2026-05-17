@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.15.1 - 2026-05-18
+
+### Fixed
+
+- Updated the release attestation action to a Node 24-compatible version to remove GitHub Actions deprecation warnings.
+
 ## v0.15.0 - 2026-05-18
 
 ### Added
