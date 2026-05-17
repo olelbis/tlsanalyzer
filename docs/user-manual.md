@@ -117,6 +117,7 @@ JSON output is intended for scripts and automation. It includes:
 
 - Schema version
 - Host and port
+- Server name, when `--sni` is used
 - Scanner version and generation timestamp
 - Per-version support status
 - Scan status and error messages
@@ -128,7 +129,7 @@ JSON output is intended for scripts and automation. It includes:
 - Certificate validation status
 - Policy result, when `--policy` or `--fail-on` is used
 
-The current JSON schema version is `1.0`. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
+The current JSON schema version is `1.0`. See [json-schema-v1.md](json-schema-v1.md) for the field contract. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
 
 ### Certificate chain
 
@@ -204,6 +205,7 @@ The `modern` policy fails the run when it detects:
 
 - TLS 1.0 or TLS 1.1 support
 - Weak or insecure cipher suites
+- Unclassified cipher suites
 - Invalid certificates
 - Expired certificates
 

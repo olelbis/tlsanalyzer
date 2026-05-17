@@ -204,7 +204,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if cfg.outputMarkdown != "" {
-		err := output.WriteMarkdownReportToFile(h, port, build.Version, results, cfg.outputMarkdown, reportPolicy)
+		err := output.WriteMarkdownReportToFile(h, port, serverName, build.Version, results, cfg.outputMarkdown, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write markdown report: %v\n", err)
 			return 1
@@ -216,7 +216,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if cfg.outputJSON {
-		jsonReport, err := output.BuildJSONReport(h, port, build.Version, time.Now(), results, reportPolicy)
+		jsonReport, err := output.BuildJSONReport(h, port, serverName, build.Version, time.Now(), results, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to build JSON report: %v\n", err)
 			return 1

@@ -23,6 +23,7 @@ const JSONSchemaVersion = "1.0"
 type JSONReport struct {
 	Host           string           `json:"host"`
 	Port           string           `json:"port"`
+	ServerName     string           `json:"server_name,omitempty"`
 	SchemaVersion  string           `json:"schema_version"`
 	ScannerVersion string           `json:"scanner_version"`
 	GeneratedAt    string           `json:"generated_at"`
@@ -58,18 +59,21 @@ type JSONCertificate struct {
 	DNSNames          []string `json:"dns_names,omitempty"`
 }
 
-func WriteMarkdownReportToFile(host, port, scannerVersion string, results []scan.TLSScanResult, outputPath string, policyResults ...*policy.Result) error {
-	report := BuildMarkdownReportFromResults(host, port, scannerVersion, time.Now(), results, policyResults...)
+func WriteMarkdownReportToFile(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, outputPath string, policyResults ...*policy.Result) error {
+	report := BuildMarkdownReportFromResults(host, port, serverName, scannerVersion, time.Now(), results, policyResults...)
 	if !strings.HasSuffix(outputPath, ".md") {
 		outputPath += ".md"
 	}
 	return os.WriteFile(outputPath, []byte(report), 0640)
 }
 
-func BuildMarkdownReportFromResults(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) string {
+func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) string {
 	policyResult := firstPolicyResult(policyResults)
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("# TLS Scan Report for host %s:%s\n\n", host, port))
+	if serverName != "" {
+		sb.WriteString(fmt.Sprintf("- **Server Name**: %s\n", serverName))
+	}
 	sb.WriteString(fmt.Sprintf("- **Generated At**: %s\n", generatedAt.UTC().Format(time.RFC3339)))
 	sb.WriteString(fmt.Sprintf("- **Scanner Version**: %s\n", scannerVersion))
 	sb.WriteString(fmt.Sprintf("- **JSON Schema Version**: %s\n\n", JSONSchemaVersion))
@@ -152,11 +156,12 @@ func BuildMarkdownReportFromResults(host, port, scannerVersion string, generated
 	return sb.String()
 }
 
-func BuildJSONReport(host, port, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) ([]byte, error) {
+func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) ([]byte, error) {
 	policyResult := firstPolicyResult(policyResults)
 	report := JSONReport{
 		Host:           host,
 		Port:           port,
+		ServerName:     serverName,
 		SchemaVersion:  JSONSchemaVersion,
 		ScannerVersion: scannerVersion,
 		GeneratedAt:    generatedAt.UTC().Format(time.RFC3339),
@@ -261,6 +266,9 @@ func summarizeCipherFindings(results []scan.TLSScanResult) string {
 			}
 			if severity == utils.CipherSeverityWeak {
 				return fmt.Sprintf("weak cipher suites detected in %s evidence", describeCipherEvidence(evidence))
+			}
+			if severity == utils.CipherSeverityUnknown {
+				return fmt.Sprintf("unknown cipher suites detected in %s evidence", describeCipherEvidence(evidence))
 			}
 		}
 	}

@@ -100,6 +100,45 @@ func TestOptionsTLSServerNameUsesOverride(t *testing.T) {
 	}
 }
 
+func TestScanTLSVersionSendsServerName(t *testing.T) {
+	const expectedServerName = "service.example.test"
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		MaxVersion: tls.VersionTLS12,
+		GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			if hello.ServerName != expectedServerName {
+				return nil, errors.New("unexpected SNI")
+			}
+			return nil, nil
+		},
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	host, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("split server address: %v", err)
+	}
+
+	result := ScanTLSVersion(Options{
+		Host:       host,
+		Port:       port,
+		ServerName: expectedServerName,
+		Timeout:    time.Second,
+		SkipVerify: true,
+	}, tls.VersionTLS12)
+
+	if !result.Supported {
+		t.Fatalf("Supported = false, status %q, error %q", result.Status, result.ErrorMessage)
+	}
+	if result.CertValidationStatus != CertValidationSkipped {
+		t.Fatalf("CertValidationStatus = %q, want %q", result.CertValidationStatus, CertValidationSkipped)
+	}
+}
+
 func TestScanTLSVersionInvalidCertificateIsNotUnsupportedTLS(t *testing.T) {
 	server, host, port := newLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
 	defer server.Close()

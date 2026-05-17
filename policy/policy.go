@@ -106,12 +106,8 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 		}
 		if checks[CheckWeakCipher] {
 			for _, cipher := range r.CipherSuites {
-				if isWeakCipher(cipher) {
-					result.Failures = append(result.Failures, Failure{
-						Check:   CheckWeakCipher,
-						Version: r.Version,
-						Message: fmt.Sprintf("%s allows weak cipher %s", r.Version, cipher),
-					})
+				if failure, ok := cipherPolicyFailure(r.Version, cipher); ok {
+					result.Failures = append(result.Failures, failure)
 				}
 			}
 		}
@@ -144,9 +140,23 @@ func isKnownCheck(check string) bool {
 	}
 }
 
-func isWeakCipher(cipher string) bool {
+func cipherPolicyFailure(version string, cipher string) (Failure, bool) {
 	severity := utils.CipherSuiteSeverity(cipher)
-	return severity == utils.CipherSeverityInsecure || severity == utils.CipherSeverityWeak
+	if severity == utils.CipherSeverityInsecure || severity == utils.CipherSeverityWeak {
+		return Failure{
+			Check:   CheckWeakCipher,
+			Version: version,
+			Message: fmt.Sprintf("%s allows weak cipher %s", version, cipher),
+		}, true
+	}
+	if severity == utils.CipherSeverityUnknown {
+		return Failure{
+			Check:   CheckWeakCipher,
+			Version: version,
+			Message: fmt.Sprintf("%s allows unclassified cipher %s", version, cipher),
+		}, true
+	}
+	return Failure{}, false
 }
 
 func certificateValidationFailure(r scan.TLSScanResult) (Failure, bool) {

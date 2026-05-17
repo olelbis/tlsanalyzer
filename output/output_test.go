@@ -23,7 +23,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		DNSNames:  []string{"example.com", "www.example.com"},
 	}
 
-	report := BuildMarkdownReportFromResults("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
+	report := BuildMarkdownReportFromResults("example.com", "443", "service.example.com", "vtest", generatedAt, []scan.TLSScanResult{
 		{Version: "TLS 1.0", Supported: false},
 		{
 			Version:               "TLS 1.2",
@@ -54,6 +54,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 
 	expectedFragments := []string{
 		"# TLS Scan Report for host example.com:443",
+		"**Server Name**: service.example.com",
 		"**Generated At**: 2026-05-16T20:30:00Z",
 		"**Scanner Version**: vtest",
 		"**JSON Schema Version**: 1.0",
@@ -87,7 +88,7 @@ func TestBuildMarkdownReportGroupsDuplicateCertificates(t *testing.T) {
 		NotAfter:  generatedAt.Add(48 * time.Hour),
 	}
 
-	report := BuildMarkdownReportFromResults("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
+	report := BuildMarkdownReportFromResults("example.com", "443", "", "vtest", generatedAt, []scan.TLSScanResult{
 		{Version: "TLS 1.2", Supported: true, Certificate: cert, CertValidationStatus: "valid"},
 		{Version: "TLS 1.3", Supported: true, Certificate: cert, CertValidationStatus: "valid"},
 	})
@@ -110,7 +111,7 @@ func TestBuildJSONReport(t *testing.T) {
 		DNSNames:  []string{"example.com"},
 	}
 
-	data, err := BuildJSONReport("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
+	data, err := BuildJSONReport("example.com", "443", "service.example.com", "vtest", generatedAt, []scan.TLSScanResult{
 		{
 			Version:                   "TLS 1.2",
 			VersionID:                 0x0303,
@@ -144,6 +145,9 @@ func TestBuildJSONReport(t *testing.T) {
 	if report.Host != "example.com" || report.Port != "443" || report.ScannerVersion != "vtest" {
 		t.Fatalf("unexpected report metadata: %+v", report)
 	}
+	if report.ServerName != "service.example.com" {
+		t.Fatalf("ServerName = %q, want service.example.com", report.ServerName)
+	}
 	if report.SchemaVersion != JSONSchemaVersion {
 		t.Fatalf("SchemaVersion = %q, want %q", report.SchemaVersion, JSONSchemaVersion)
 	}
@@ -171,7 +175,7 @@ func TestBuildJSONReport(t *testing.T) {
 }
 
 func TestBuildJSONReportIncludesPolicyWhenProvided(t *testing.T) {
-	data, err := BuildJSONReport("example.com", "443", "vtest", time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC), nil, &policy.Result{
+	data, err := BuildJSONReport("example.com", "443", "", "vtest", time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC), nil, &policy.Result{
 		Enabled: true,
 		Name:    policy.NameModern,
 		Passed:  false,
@@ -202,7 +206,7 @@ func TestBuildJSONReportIncludesPolicyWhenProvided(t *testing.T) {
 
 func TestBuildJSONReportGolden(t *testing.T) {
 	generatedAt := time.Date(2026, 5, 16, 20, 30, 0, 0, time.UTC)
-	data, err := BuildJSONReport("example.com", "443", "vtest", generatedAt, []scan.TLSScanResult{
+	data, err := BuildJSONReport("example.com", "443", "", "vtest", generatedAt, []scan.TLSScanResult{
 		{
 			Version:                   "TLS 1.2",
 			VersionID:                 0x0303,
@@ -321,6 +325,22 @@ func TestPrintScanSummary(t *testing.T) {
 		if !strings.Contains(buf.String(), fragment) {
 			t.Fatalf("summary does not contain %q:\n%s", fragment, buf.String())
 		}
+	}
+}
+
+func TestPrintScanSummaryReportsUnknownCipherEvidence(t *testing.T) {
+	var buf bytes.Buffer
+	PrintScanSummary(&buf, []scan.TLSScanResult{
+		{
+			Version:         "TLS 1.2",
+			Supported:       true,
+			CipherDiscovery: scan.CipherDiscoveryProbed,
+			CipherSuites:    []string{"TLS_PRIVATE_UNKNOWN_CIPHER"},
+		},
+	})
+
+	if !strings.Contains(buf.String(), "Cipher findings: unknown cipher suites detected in probed evidence") {
+		t.Fatalf("summary should report unknown cipher evidence:\n%s", buf.String())
 	}
 }
 

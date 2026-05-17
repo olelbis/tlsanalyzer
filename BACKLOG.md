@@ -266,3 +266,51 @@ Acceptance criteria:
 - Add `--sni` for TLS Server Name Indication and certificate validation name.
 - Validate `--sni` before scanning.
 - Document the flag and add tests.
+
+## P7 - Pre-Beta Contract Tightening - Done
+
+### Include SNI in reports
+
+Problem: reports should preserve the TLS server name used for SNI and certificate validation.
+
+Status: done.
+
+Acceptance criteria:
+
+- JSON includes `server_name` when `--sni` is used.
+- Markdown reports include the server name when `--sni` is used.
+- Tests cover SNI report metadata.
+
+### Test SNI with a real local TLS handshake
+
+Problem: SNI support should be covered beyond CLI parsing and helper fallback behavior.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add a local TLS test that requires the expected SNI value.
+- Keep the test offline and standard-library only.
+
+### Treat unknown cipher suites as policy evidence
+
+Problem: unclassified cipher suites should not silently pass modern weak-cipher checks.
+
+Status: done.
+
+Acceptance criteria:
+
+- Weak-cipher policy checks fail on unclassified cipher suites.
+- Human summaries report unknown cipher evidence explicitly.
+- Tests cover policy and summary behavior.
+
+### Document JSON schema v1
+
+Problem: JSON consumers need a field-level contract beyond prose in the manual.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add a dedicated JSON schema v1 document.
+- Link it from the README and user manual.

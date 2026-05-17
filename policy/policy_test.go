@@ -3,6 +3,7 @@ package policy
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,6 +79,27 @@ func TestEvaluateInvalidCertCheckFailsWhenValidationSkippedOrUnavailable(t *test
 	}
 	if len(result.Failures) != 2 {
 		t.Fatalf("Failures = %d, want 2: %+v", len(result.Failures), result.Failures)
+	}
+}
+
+func TestEvaluateWeakCipherCheckFailsOnUnknownCipher(t *testing.T) {
+	result := Evaluate([]scan.TLSScanResult{
+		{
+			Version:      "TLS 1.2",
+			VersionID:    tls.VersionTLS12,
+			Supported:    true,
+			CipherSuites: []string{"TLS_PRIVATE_UNKNOWN_CIPHER"},
+		},
+	}, Config{FailOn: []string{CheckWeakCipher}}, time.Now())
+
+	if result.Passed {
+		t.Fatal("weak-cipher check should fail on unclassified cipher suites")
+	}
+	if len(result.Failures) != 1 {
+		t.Fatalf("Failures = %d, want 1: %+v", len(result.Failures), result.Failures)
+	}
+	if !strings.Contains(result.Failures[0].Message, "unclassified cipher") {
+		t.Fatalf("failure message should mention unclassified cipher: %+v", result.Failures[0])
 	}
 }
 

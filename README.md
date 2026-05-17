@@ -53,6 +53,7 @@ Policy failures return exit code `3`, which makes `--policy modern` useful in CI
 ## Documentation
 
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
+- [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
 - [Changelog](CHANGELOG.md): release history.
 - [Backlog](BACKLOG.md): prioritized future work.

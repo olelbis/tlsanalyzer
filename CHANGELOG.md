@@ -2,6 +2,20 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added `server_name` to JSON output when `--sni` is used.
+- Added SNI details to Markdown reports when `--sni` is used.
+- Added JSON schema v1 documentation.
+- Added a local TLS test that verifies SNI is sent during the handshake.
+
+### Changed
+
+- Made weak-cipher policy checks fail on unclassified cipher suites.
+- Made scan summaries report unknown cipher evidence explicitly.
+
 ## v0.8.12 - 2026-05-17
 
 ### Added
