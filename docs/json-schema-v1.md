@@ -34,6 +34,7 @@ This document describes the `schema_version: "1.1"` JSON output contract.
 | `cipher_suites_observed` | boolean | yes | `true` when TLS 1.3 suites are observed rather than forced. |
 | `cipher_probe_duration_millis` | number | no | Extra duration used for cipher probing or observation. |
 | `cipher_probe_results` | array | no | Per-cipher raw probe statuses when available. |
+| `raw_probe_completed_full_handshake` | boolean | no | `false` when `cipher_discovery` is `raw-probed`; raw probes stop after ServerHello, alert or another probe outcome. |
 | `warnings` | array | no | Semantics warnings, such as TLS 1.3 observation limitations. |
 | `certificate` | object | no | Leaf certificate details when available. |
 | `certificate_validation_status` | string | no | `valid`, `invalid`, `skipped` or `unavailable`. |

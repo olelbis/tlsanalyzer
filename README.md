@@ -90,7 +90,7 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 
 - JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
-- TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with observed-handshake fallback for inconclusive raw probes.
+- TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
 - The project remains dependency-free at runtime and uses only the Go standard library.
 

@@ -40,15 +40,19 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 			CertValidationMessage: "certificate validation passed",
 		},
 		{
-			Version:              "TLS 1.3",
-			VersionID:            0x0304,
-			Supported:            true,
-			Status:               scan.ScanStatusSupported,
-			HandshakeAttempts:    11,
-			CipherDiscovery:      scan.CipherDiscoveryObserved,
-			CipherSuites:         []string{"TLS_AES_128_GCM_SHA256"},
-			CipherSuitesObserved: true,
-			Warnings:             []string{"TLS 1.3 cipher suites are observed from repeated handshakes."},
+			Version:                   "TLS 1.3",
+			VersionID:                 0x0304,
+			Supported:                 true,
+			Status:                    scan.ScanStatusSupported,
+			HandshakeAttempts:         11,
+			CipherDiscovery:           scan.CipherDiscoveryRawProbed,
+			CipherSuites:              []string{"TLS_AES_128_GCM_SHA256"},
+			CipherProbeDurationMillis: 9,
+			CipherProbeResults: []scan.CipherProbeStatus{{
+				CipherSuite: "TLS_AES_128_GCM_SHA256",
+				Status:      "supported",
+			}},
+			Warnings: []string{"TLS 1.3 cipher suites were raw-probed with ClientHello-only handshakes; full TLS handshakes are not completed by the raw probe."},
 		},
 	})
 
@@ -63,7 +67,10 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"| TLS 1.0 | no |",
 		"| TLS 1.2 | yes | supported | valid | 12 ms | 20 |",
 		"**Negotiated**: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-		"**Discovery**: observed",
+		"**Discovery**: raw-probed",
+		"#### Cipher Probe Results",
+		"Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.",
+		"| TLS_AES_128_GCM_SHA256 | supported | - | - |",
 		"| TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |",
 		"**Subject CN**: example.com",
 		"**Issuer**: Example CA",
@@ -114,18 +121,18 @@ func TestBuildJSONReport(t *testing.T) {
 
 	data, err := BuildJSONReport("example.com", "443", "service.example.com", "vtest", generatedAt, []scan.TLSScanResult{
 		{
-			Version:                   "TLS 1.2",
-			VersionID:                 0x0303,
+			Version:                   "TLS 1.3",
+			VersionID:                 0x0304,
 			Supported:                 true,
 			Status:                    scan.ScanStatusSupported,
 			DurationMillis:            12,
 			HandshakeAttempts:         20,
-			CipherDiscovery:           scan.CipherDiscoveryProbed,
-			NegotiatedCipherSuite:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-			CipherSuites:              []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+			CipherDiscovery:           scan.CipherDiscoveryRawProbed,
+			NegotiatedCipherSuite:     "TLS_AES_128_GCM_SHA256",
+			CipherSuites:              []string{"TLS_AES_128_GCM_SHA256"},
 			CipherProbeDurationMillis: 4,
 			CipherProbeResults: []scan.CipherProbeStatus{{
-				CipherSuite: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				CipherSuite: "TLS_AES_128_GCM_SHA256",
 				Status:      "supported",
 			}},
 			Certificate:           cert,
@@ -168,14 +175,17 @@ func TestBuildJSONReport(t *testing.T) {
 	if report.Results[0].Certificate.DaysUntilExpiry != 2 {
 		t.Fatalf("DaysUntilExpiry = %d, want 2", report.Results[0].Certificate.DaysUntilExpiry)
 	}
-	if report.Results[0].CipherDiscovery != scan.CipherDiscoveryProbed {
-		t.Fatalf("CipherDiscovery = %q, want %q", report.Results[0].CipherDiscovery, scan.CipherDiscoveryProbed)
+	if report.Results[0].CipherDiscovery != scan.CipherDiscoveryRawProbed {
+		t.Fatalf("CipherDiscovery = %q, want %q", report.Results[0].CipherDiscovery, scan.CipherDiscoveryRawProbed)
 	}
 	if report.Results[0].NegotiatedCipherSuite == "" {
 		t.Fatal("expected negotiated cipher in first JSON result")
 	}
 	if len(report.Results[0].CipherProbeResults) != 1 {
 		t.Fatalf("CipherProbeResults = %d, want 1", len(report.Results[0].CipherProbeResults))
+	}
+	if report.Results[0].RawProbeFullHandshake == nil || *report.Results[0].RawProbeFullHandshake {
+		t.Fatalf("RawProbeFullHandshake = %v, want false", report.Results[0].RawProbeFullHandshake)
 	}
 	if report.Results[1].Status != scan.ScanStatusUnsupported {
 		t.Fatalf("unsupported status = %q", report.Results[1].Status)
@@ -319,6 +329,18 @@ func TestPrintScanSummary(t *testing.T) {
 			CertValidationStatus: scan.CertValidationValid,
 		},
 		{
+			Version:         "TLS 1.3",
+			VersionID:       0x0304,
+			Supported:       true,
+			CipherDiscovery: scan.CipherDiscoveryRawProbed,
+			CipherSuites:    []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"},
+			CipherProbeResults: []scan.CipherProbeStatus{
+				{CipherSuite: "TLS_AES_128_GCM_SHA256", Status: "supported"},
+				{CipherSuite: "TLS_AES_256_GCM_SHA384", Status: "supported"},
+				{CipherSuite: "TLS_CHACHA20_POLY1305_SHA256", Status: "supported"},
+			},
+		},
+		{
 			Version:   "TLS 1.0",
 			Supported: false,
 		},
@@ -326,10 +348,11 @@ func TestPrintScanSummary(t *testing.T) {
 
 	expectedFragments := []string{
 		"Summary:",
-		"Supported TLS versions: 1 of 2 tested",
+		"Supported TLS versions: 2 of 3 tested",
 		"Protocol findings: no legacy TLS versions detected",
 		"Certificate validation: valid",
-		"Cipher findings: no weak cipher suites detected in negotiated evidence",
+		"Cipher findings: no weak cipher suites detected in mixed (negotiated, raw-probed) evidence",
+		"Raw probe: 3/3 ciphers supported (ClientHello-only; no full handshakes)",
 	}
 	for _, fragment := range expectedFragments {
 		if !strings.Contains(buf.String(), fragment) {

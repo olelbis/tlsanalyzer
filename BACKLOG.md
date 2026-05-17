@@ -423,7 +423,7 @@ Acceptance criteria:
 - Silence expected local TLS server handshake logs in tests.
 - Keep unexpected test failures visible through assertions.
 
-## P11 - Report Quality - Planned
+## P11 - Report Quality - Done
 
 ### Clarify supported TLS version counts
 
@@ -441,7 +441,7 @@ Acceptance criteria:
 
 Problem: raw probe details are available in JSON, but human reports do not summarize per-cipher probe status clearly.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 

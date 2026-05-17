@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.11.0 - 2026-05-17
+
+### Added
+
+- Added Markdown tables for per-cipher raw probe results.
+- Added a concise console summary for TLS 1.3 raw probe support counts.
+- Added optional JSON `raw_probe_completed_full_handshake` metadata for raw-probed results.
+
+### Changed
+
+- Documented raw probe evidence more clearly as ClientHello-only and not a full TLS handshake.
+
 ## v0.10.2 - 2026-05-17
 
 ### Changed

@@ -1,7 +1,7 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.10.2
+- **Scanner Version**: v0.11.0
 - **JSON Schema Version**: 1.1
 
 ## Summary
@@ -66,6 +66,16 @@
 | TLS_AES_128_GCM_SHA256 | 🟢 MODERN |
 | TLS_AES_256_GCM_SHA384 | 🟢 MODERN |
 | TLS_CHACHA20_POLY1305_SHA256 | 🟢 MODERN |
+
+#### Cipher Probe Results
+
+Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.
+
+| Cipher Suite | Status | Alert | Error |
+| --- | --- | --- | --- |
+| TLS_AES_128_GCM_SHA256 | supported | - | - |
+| TLS_AES_256_GCM_SHA384 | supported | - | - |
+| TLS_CHACHA20_POLY1305_SHA256 | supported | - | - |
 
 ## Certificate Details
 

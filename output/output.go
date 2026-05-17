@@ -45,6 +45,7 @@ type JSONScanResult struct {
 	CipherSuitesObserved      bool              `json:"cipher_suites_observed"`
 	CipherProbeDurationMillis int64             `json:"cipher_probe_duration_millis,omitempty"`
 	CipherProbeResults        []JSONProbeResult `json:"cipher_probe_results,omitempty"`
+	RawProbeFullHandshake     *bool             `json:"raw_probe_completed_full_handshake,omitempty"`
 	Warnings                  []string          `json:"warnings,omitempty"`
 	Certificate               *JSONCertificate  `json:"certificate,omitempty"`
 	CertValidationStatus      string            `json:"certificate_validation_status,omitempty"`
@@ -119,7 +120,7 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 	}
 	sb.WriteString("\n## Cipher Suites\n")
 	for _, r := range results {
-		if r.Supported && len(r.CipherSuites) > 0 {
+		if r.Supported && (len(r.CipherSuites) > 0 || len(r.CipherProbeResults) > 0) {
 			sb.WriteString(fmt.Sprintf("\n### %s\n\n", r.Version))
 			sb.WriteString(fmt.Sprintf("- **Negotiated**: %s\n", emptyDash(r.NegotiatedCipherSuite)))
 			sb.WriteString(fmt.Sprintf("- **Discovery**: %s\n", emptyDash(r.CipherDiscovery)))
@@ -129,16 +130,19 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 			for _, warning := range r.Warnings {
 				sb.WriteString(fmt.Sprintf("- **Warning**: %s\n", warning))
 			}
-			sb.WriteString("\n| Cipher Suite | Classification |\n")
-			sb.WriteString("| --- | --- |\n")
-			for _, cs := range r.CipherSuites {
-				label, ok := utils.CipherClassificationForVersion(r.VersionID, cs)
-				if ok {
-					sb.WriteString(fmt.Sprintf("| %s | %s |\n", cs, label))
-				} else {
-					sb.WriteString(fmt.Sprintf("| %s | ❓ UNKNOWN |\n", cs))
+			if len(r.CipherSuites) > 0 {
+				sb.WriteString("\n| Cipher Suite | Classification |\n")
+				sb.WriteString("| --- | --- |\n")
+				for _, cs := range r.CipherSuites {
+					label, ok := utils.CipherClassificationForVersion(r.VersionID, cs)
+					if ok {
+						sb.WriteString(fmt.Sprintf("| %s | %s |\n", cs, label))
+					} else {
+						sb.WriteString(fmt.Sprintf("| %s | ❓ UNKNOWN |\n", cs))
+					}
 				}
 			}
+			appendCipherProbeResultsMarkdown(&sb, r)
 		}
 	}
 
@@ -193,6 +197,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			CipherSuitesObserved:      r.CipherSuitesObserved,
 			CipherProbeDurationMillis: r.CipherProbeDurationMillis,
 			CipherProbeResults:        buildJSONProbeResults(r.CipherProbeResults),
+			RawProbeFullHandshake:     rawProbeFullHandshakeFlag(r),
 			Warnings:                  r.Warnings,
 			CertValidationStatus:      r.CertValidationStatus,
 			CertValidationMessage:     r.CertValidationMessage,
@@ -230,12 +235,39 @@ func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {
 	return jsonResults
 }
 
+func rawProbeFullHandshakeFlag(result scan.TLSScanResult) *bool {
+	if result.CipherDiscovery != scan.CipherDiscoveryRawProbed {
+		return nil
+	}
+	completed := false
+	return &completed
+}
+
+func appendCipherProbeResultsMarkdown(sb *strings.Builder, result scan.TLSScanResult) {
+	if len(result.CipherProbeResults) == 0 {
+		return
+	}
+
+	sb.WriteString("\n#### Cipher Probe Results\n\n")
+	if result.CipherDiscovery == scan.CipherDiscoveryRawProbed {
+		sb.WriteString("Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.\n\n")
+	}
+	sb.WriteString("| Cipher Suite | Status | Alert | Error |\n")
+	sb.WriteString("| --- | --- | --- | --- |\n")
+	for _, probe := range result.CipherProbeResults {
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", escapeTable(probe.CipherSuite), emptyDash(probe.Status), emptyDash(probe.Alert), emptyDash(probe.Error)))
+	}
+}
+
 func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
 	fmt.Fprintln(w, "\nSummary:")
 	fmt.Fprintf(w, "  Supported TLS versions: %s\n", summarizeSupportedTLSVersions(results))
 	fmt.Fprintf(w, "  Protocol findings: %s\n", summarizeProtocolFindings(results))
 	fmt.Fprintf(w, "  Certificate validation: %s\n", summarizeCertificateValidation(results))
 	fmt.Fprintf(w, "  Cipher findings: %s\n", summarizeCipherFindings(results))
+	if rawProbeSummary, ok := summarizeRawProbeResults(results); ok {
+		fmt.Fprintf(w, "  Raw probe: %s\n", rawProbeSummary)
+	}
 }
 
 func firstPolicyResult(policyResults []*policy.Result) *policy.Result {
@@ -257,6 +289,26 @@ func countSupported(results []scan.TLSScanResult) int {
 
 func summarizeSupportedTLSVersions(results []scan.TLSScanResult) string {
 	return fmt.Sprintf("%d of %d tested", countSupported(results), len(results))
+}
+
+func summarizeRawProbeResults(results []scan.TLSScanResult) (string, bool) {
+	supported := 0
+	total := 0
+	for _, result := range results {
+		if result.CipherDiscovery != scan.CipherDiscoveryRawProbed {
+			continue
+		}
+		for _, probe := range result.CipherProbeResults {
+			total++
+			if probe.Status == "supported" {
+				supported++
+			}
+		}
+	}
+	if total == 0 {
+		return "", false
+	}
+	return fmt.Sprintf("%d/%d ciphers supported (ClientHello-only; no full handshakes)", supported, total), true
 }
 
 func summarizeProtocolFindings(results []scan.TLSScanResult) string {
