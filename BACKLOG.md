@@ -340,3 +340,46 @@ Acceptance criteria:
 - Update README status from experimental to preview.
 - Document JSON compatibility expectations.
 - Document TLS 1.3 cipher observation and conservative policy behavior.
+
+## P9 - TLS 1.3 Raw Probe Library - Planned
+
+### Design an internal TLS 1.3 probe package
+
+Problem: Go's `crypto/tls` package does not allow callers to force individual TLS 1.3 cipher suites, so the current scanner can only report TLS 1.3 ciphers as observed handshake evidence.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add an internal package, such as `internal/tlsprobe`, with a small public surface inside the repository.
+- Keep the implementation focused on handshake probing, not on building a full TLS stack.
+- Define structured probe statuses such as supported, rejected, hello-retry-request, alert, timeout and inconclusive.
+- Keep the API independent enough that it can later move to a standalone Go module.
+
+### Implement minimal raw ClientHello probing for TLS 1.3
+
+Problem: TLS 1.3 cipher support should be probed directly by offering one cipher suite at a time instead of relying only on normal negotiated handshakes.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Build and send a minimal TLS 1.3 `ClientHello` over a raw TCP connection.
+- Support SNI and optional ALPN in the probe input.
+- Offer one TLS 1.3 cipher suite per probe attempt.
+- Parse `ServerHello`, TLS alerts, connection close and timeout outcomes.
+- Recognize `HelloRetryRequest` explicitly, even if it is initially reported as inconclusive.
+- Cover the implementation with offline tests using local TCP/TLS test servers or recorded handshake fixtures.
+
+### Integrate TLS 1.3 probe evidence into reports
+
+Problem: once direct TLS 1.3 probing exists, reports should distinguish raw-probed cipher support from observed handshake evidence.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add JSON fields for TLS 1.3 raw probe method, per-cipher result and probe errors.
+- Keep schema compatibility by adding optional fields under the existing JSON schema version rules, or bump the schema version if fields need to be renamed.
+- Update console and Markdown output to label TLS 1.3 cipher evidence as raw-probed when available.
+- Keep the existing observed-cipher fallback when raw probing is disabled or inconclusive.

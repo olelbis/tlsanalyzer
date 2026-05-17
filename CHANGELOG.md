@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.9.1 - 2026-05-17
+
+### Added
+
+- Added backlog items for a future internal TLS 1.3 raw probe library.
+
 ## v0.9.0 - 2026-05-17
 
 ### Changed
