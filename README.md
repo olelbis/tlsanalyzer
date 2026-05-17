@@ -24,6 +24,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
 - Reports negotiated and supported cipher suites.
+- Raw-probes TLS 1.3 cipher support when full cipher probing is enabled.
 - Keeps TLS support separate from certificate validation status.
 - Supports explicit SNI/certificate name overrides for IP and load balancer scans.
 - Prints certificate summaries and optional PEM certificate chains.
@@ -87,9 +88,9 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 
 ## Stability & Guarantees
 
-- JSON output uses `schema_version: "1.0"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
+- JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
-- TLS 1.3 cipher suites are observed from handshakes, not forced individually, due to Go TLS API limitations.
+- TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with observed-handshake fallback for inconclusive raw probes.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
 - The project remains dependency-free at runtime and uses only the Go standard library.
 

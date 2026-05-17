@@ -2,6 +2,19 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.10.0 - 2026-05-17
+
+### Added
+
+- Added an internal TLS 1.3 raw ClientHello probe for per-cipher support checks.
+- Added JSON `cipher_probe_results` details for raw probe statuses.
+
+### Changed
+
+- Bumped the JSON schema version to `1.1` for the new TLS 1.3 raw probe evidence value.
+- TLS 1.3 cipher probing now reports `raw-probed` evidence when ServerHello confirms support.
+- TLS 1.3 probing falls back to observed handshakes when raw probing is inconclusive.
+
 ## v0.9.3 - 2026-05-17
 
 ### Changed

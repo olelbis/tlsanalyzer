@@ -1,8 +1,8 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.9.3
-- **JSON Schema Version**: 1.0
+- **Scanner Version**: v0.10.0
+- **JSON Schema Version**: 1.1
 
 ## Summary
 
@@ -27,7 +27,7 @@
 | TLS 1.0 | yes | supported | valid | 82 ms | 21 |
 | TLS 1.1 | yes | supported | valid | 75 ms | 21 |
 | TLS 1.2 | yes | supported | valid | 95 ms | 21 |
-| TLS 1.3 | yes | supported | valid | 44 ms | 11 |
+| TLS 1.3 | yes | supported | valid | 44 ms | 4 |
 
 ## Cipher Suites
 
@@ -57,13 +57,15 @@
 ### TLS 1.3
 
 - **Negotiated**: TLS_AES_128_GCM_SHA256
-- **Discovery**: observed
+- **Discovery**: raw-probed
 - **Cipher Probe Duration**: 168 ms
-- **Warning**: TLS 1.3 cipher suites are observed from repeated handshakes; Go does not allow forcing individual TLS 1.3 cipher suites.
+- **Warning**: TLS 1.3 cipher suites were raw-probed with ClientHello-only handshakes; full TLS handshakes are not completed by the raw probe.
 
 | Cipher Suite | Classification |
 | --- | --- |
 | TLS_AES_128_GCM_SHA256 | 🟢 MODERN |
+| TLS_AES_256_GCM_SHA384 | 🟢 MODERN |
+| TLS_CHACHA20_POLY1305_SHA256 | 🟢 MODERN |
 
 ## Certificate Details
 

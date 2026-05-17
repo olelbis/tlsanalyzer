@@ -341,13 +341,13 @@ Acceptance criteria:
 - Document JSON compatibility expectations.
 - Document TLS 1.3 cipher observation and conservative policy behavior.
 
-## P9 - TLS 1.3 Raw Probe Library - Planned
+## P9 - TLS 1.3 Raw Probe Library - In Progress
 
 ### Design an internal TLS 1.3 probe package
 
 Problem: Go's `crypto/tls` package does not allow callers to force individual TLS 1.3 cipher suites, so the current scanner can only report TLS 1.3 ciphers as observed handshake evidence.
 
-Status: planned.
+Status: done for MVP.
 
 Acceptance criteria:
 
@@ -360,7 +360,7 @@ Acceptance criteria:
 
 Problem: TLS 1.3 cipher support should be probed directly by offering one cipher suite at a time instead of relying only on normal negotiated handshakes.
 
-Status: planned.
+Status: done for MVP.
 
 Acceptance criteria:
 
@@ -375,7 +375,7 @@ Acceptance criteria:
 
 Problem: once direct TLS 1.3 probing exists, reports should distinguish raw-probed cipher support from observed handshake evidence.
 
-Status: planned.
+Status: done for MVP.
 
 Acceptance criteria:
 

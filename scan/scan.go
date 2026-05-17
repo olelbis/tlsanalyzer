@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/internal/tlsprobe"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
@@ -23,6 +25,7 @@ type TLSScanResult struct {
 	CipherSuites              []string
 	CipherSuitesObserved      bool
 	CipherProbeDurationMillis int64
+	CipherProbeResults        []CipherProbeStatus
 	Warnings                  []string
 	Supported                 bool
 	Status                    string
@@ -57,6 +60,7 @@ const (
 
 	CipherDiscoveryNegotiated = "negotiated"
 	CipherDiscoveryProbed     = "probed"
+	CipherDiscoveryRawProbed  = "raw-probed"
 	CipherDiscoveryObserved   = "observed"
 
 	CertValidationValid       = "valid"
@@ -71,7 +75,15 @@ type CipherProbeResult struct {
 	Attempts       int
 	Warnings       []string
 	ObservedOnly   bool
+	Statuses       []CipherProbeStatus
 	DurationMillis int64
+}
+
+type CipherProbeStatus struct {
+	CipherSuite string
+	Status      string
+	Alert       string
+	Error       string
 }
 
 func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
@@ -204,12 +216,18 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	}
 
 	if version == tls.VersionTLS13 {
-		// Go does not let callers force individual TLS 1.3 cipher suites, so
-		// this branch samples normal handshakes and reports observed evidence.
+		rawResult := probeTLS13CipherSuites(opts)
+		result.Attempts = rawResult.Attempts
+		result.Statuses = rawResult.Statuses
+		if len(rawResult.CipherSuites) > 0 {
+			rawResult.DurationMillis = time.Since(start).Milliseconds()
+			return rawResult
+		}
+
 		result.Discovery = CipherDiscoveryObserved
 		result.ObservedOnly = true
-		result.Attempts = utils.DefaultTLS13Tries
-		result.Warnings = append(result.Warnings, "TLS 1.3 cipher suites are observed from repeated handshakes; Go does not allow forcing individual TLS 1.3 cipher suites.")
+		result.Attempts += utils.DefaultTLS13Tries
+		result.Warnings = append(result.Warnings, "TLS 1.3 raw probing did not confirm cipher support; falling back to observed handshakes.")
 		found := make(map[string]bool)
 		var tls13Mutex sync.Mutex
 		var wg3 sync.WaitGroup
@@ -244,6 +262,56 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	result.CipherSuites = supported
 	result.DurationMillis = time.Since(start).Milliseconds()
 	return result
+}
+
+func probeTLS13CipherSuites(opts Options) CipherProbeResult {
+	cipherIDs := tls13CipherSuiteIDs()
+	probeResults, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
+		Address:    net.JoinHostPort(opts.Host, opts.Port),
+		ServerName: opts.tlsServerName(),
+		Timeout:    opts.Timeout,
+	}, cipherIDs)
+
+	result := CipherProbeResult{
+		Discovery: CipherDiscoveryRawProbed,
+		Attempts:  len(cipherIDs),
+		Warnings: []string{
+			"TLS 1.3 cipher suites were raw-probed with ClientHello-only handshakes; full TLS handshakes are not completed by the raw probe.",
+		},
+	}
+	if err != nil {
+		result.Warnings = append(result.Warnings, "TLS 1.3 raw probe failed: "+err.Error())
+		return result
+	}
+
+	for _, probeResult := range probeResults {
+		result.Statuses = append(result.Statuses, CipherProbeStatus{
+			CipherSuite: probeResult.Name,
+			Status:      string(probeResult.Status),
+			Alert:       probeResult.Alert,
+			Error:       probeResult.Error,
+		})
+		if probeResult.Status == tlsprobe.StatusSupported {
+			result.CipherSuites = append(result.CipherSuites, probeResult.Name)
+		}
+		if probeResult.Status == tlsprobe.StatusHelloRetryRequest {
+			result.Warnings = append(result.Warnings, probeResult.Name+" returned HelloRetryRequest; this MVP does not retry after HRR.")
+		}
+	}
+
+	result.CipherSuites = utils.UniqueStrings(result.CipherSuites)
+	sort.Strings(result.CipherSuites)
+	return result
+}
+
+func tls13CipherSuiteIDs() []uint16 {
+	var cipherIDs []uint16
+	for _, cipher := range utils.AllCipherSuites {
+		if utils.IsCipherSuiteCompatibleWith(tls.VersionTLS13, cipher.ID) {
+			cipherIDs = append(cipherIDs, cipher.ID)
+		}
+	}
+	return cipherIDs
 }
 
 func classifyScanError(err error) (string, string) {

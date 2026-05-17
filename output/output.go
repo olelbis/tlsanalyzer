@@ -18,7 +18,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
-const JSONSchemaVersion = "1.0"
+const JSONSchemaVersion = "1.1"
 
 type JSONReport struct {
 	Host           string           `json:"host"`
@@ -32,22 +32,30 @@ type JSONReport struct {
 }
 
 type JSONScanResult struct {
-	Version                   string           `json:"version"`
-	VersionID                 uint16           `json:"version_id"`
-	Supported                 bool             `json:"supported"`
-	Status                    string           `json:"status"`
-	ErrorMessage              string           `json:"error_message,omitempty"`
-	DurationMillis            int64            `json:"duration_millis"`
-	HandshakeAttempts         int              `json:"handshake_attempts"`
-	CipherDiscovery           string           `json:"cipher_discovery"`
-	NegotiatedCipherSuite     string           `json:"negotiated_cipher_suite,omitempty"`
-	CipherSuites              []string         `json:"cipher_suites,omitempty"`
-	CipherSuitesObserved      bool             `json:"cipher_suites_observed"`
-	CipherProbeDurationMillis int64            `json:"cipher_probe_duration_millis,omitempty"`
-	Warnings                  []string         `json:"warnings,omitempty"`
-	Certificate               *JSONCertificate `json:"certificate,omitempty"`
-	CertValidationStatus      string           `json:"certificate_validation_status,omitempty"`
-	CertValidationMessage     string           `json:"certificate_validation_message,omitempty"`
+	Version                   string            `json:"version"`
+	VersionID                 uint16            `json:"version_id"`
+	Supported                 bool              `json:"supported"`
+	Status                    string            `json:"status"`
+	ErrorMessage              string            `json:"error_message,omitempty"`
+	DurationMillis            int64             `json:"duration_millis"`
+	HandshakeAttempts         int               `json:"handshake_attempts"`
+	CipherDiscovery           string            `json:"cipher_discovery"`
+	NegotiatedCipherSuite     string            `json:"negotiated_cipher_suite,omitempty"`
+	CipherSuites              []string          `json:"cipher_suites,omitempty"`
+	CipherSuitesObserved      bool              `json:"cipher_suites_observed"`
+	CipherProbeDurationMillis int64             `json:"cipher_probe_duration_millis,omitempty"`
+	CipherProbeResults        []JSONProbeResult `json:"cipher_probe_results,omitempty"`
+	Warnings                  []string          `json:"warnings,omitempty"`
+	Certificate               *JSONCertificate  `json:"certificate,omitempty"`
+	CertValidationStatus      string            `json:"certificate_validation_status,omitempty"`
+	CertValidationMessage     string            `json:"certificate_validation_message,omitempty"`
+}
+
+type JSONProbeResult struct {
+	CipherSuite string `json:"cipher_suite"`
+	Status      string `json:"status"`
+	Alert       string `json:"alert,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 type JSONCertificate struct {
@@ -184,6 +192,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			CipherSuites:              r.CipherSuites,
 			CipherSuitesObserved:      r.CipherSuitesObserved,
 			CipherProbeDurationMillis: r.CipherProbeDurationMillis,
+			CipherProbeResults:        buildJSONProbeResults(r.CipherProbeResults),
 			Warnings:                  r.Warnings,
 			CertValidationStatus:      r.CertValidationStatus,
 			CertValidationMessage:     r.CertValidationMessage,
@@ -203,6 +212,22 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 	}
 
 	return json.MarshalIndent(report, "", "  ")
+}
+
+func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {
+	if len(results) == 0 {
+		return nil
+	}
+	jsonResults := make([]JSONProbeResult, 0, len(results))
+	for _, result := range results {
+		jsonResults = append(jsonResults, JSONProbeResult{
+			CipherSuite: result.CipherSuite,
+			Status:      result.Status,
+			Alert:       result.Alert,
+			Error:       result.Error,
+		})
+	}
+	return jsonResults
 }
 
 func PrintScanSummary(w io.Writer, results []scan.TLSScanResult) {
@@ -409,6 +434,8 @@ func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, versio
 func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {
 	if len(ciphers) > 0 {
 		switch discovery {
+		case scan.CipherDiscoveryRawProbed:
+			fmt.Fprintln(w, "   Raw-probed cipher suites:")
 		case scan.CipherDiscoveryObserved:
 			fmt.Fprintln(w, "   Observed cipher suites:")
 		case scan.CipherDiscoveryProbed:

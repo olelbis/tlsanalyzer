@@ -57,7 +57,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"**Server Name**: service.example.com",
 		"**Generated At**: 2026-05-16T20:30:00Z",
 		"**Scanner Version**: vtest",
-		"**JSON Schema Version**: 1.0",
+		"**JSON Schema Version**: 1.1",
 		"## Summary",
 		"| TLS 1.0 | no |",
 		"| TLS 1.2 | yes | supported | valid | 12 ms | 20 |",
@@ -123,9 +123,13 @@ func TestBuildJSONReport(t *testing.T) {
 			NegotiatedCipherSuite:     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 			CipherSuites:              []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
 			CipherProbeDurationMillis: 4,
-			Certificate:               cert,
-			CertValidationStatus:      "valid",
-			CertValidationMessage:     "certificate validation passed",
+			CipherProbeResults: []scan.CipherProbeStatus{{
+				CipherSuite: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				Status:      "supported",
+			}},
+			Certificate:           cert,
+			CertValidationStatus:  "valid",
+			CertValidationMessage: "certificate validation passed",
 		},
 		{
 			Version:      "TLS 1.0",
@@ -168,6 +172,9 @@ func TestBuildJSONReport(t *testing.T) {
 	}
 	if report.Results[0].NegotiatedCipherSuite == "" {
 		t.Fatal("expected negotiated cipher in first JSON result")
+	}
+	if len(report.Results[0].CipherProbeResults) != 1 {
+		t.Fatalf("CipherProbeResults = %d, want 1", len(report.Results[0].CipherProbeResults))
 	}
 	if report.Results[1].Status != scan.ScanStatusUnsupported {
 		t.Fatalf("unsupported status = %q", report.Results[1].Status)
@@ -248,7 +255,7 @@ func TestBuildJSONReportGolden(t *testing.T) {
 	expected := `{
   "host": "example.com",
   "port": "443",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "scanner_version": "vtest",
   "generated_at": "2026-05-16T20:30:00Z",
   "policy": {

@@ -136,7 +136,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "🔧 Probing cipher suites for %s\n", name)
 			}
 			if probeCiphers && version == tls.VersionTLS13 {
-				fmt.Fprintf(stdout, "👀 Observing TLS 1.3 cipher suites for %s\n", name)
+				fmt.Fprintf(stdout, "🔧 Inspecting TLS 1.3 cipher suites for %s\n", name)
 			}
 		}
 
@@ -162,6 +162,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			result.CipherDiscovery = probe.Discovery
 			result.CipherSuitesObserved = probe.ObservedOnly
 			result.CipherProbeDurationMillis = probe.DurationMillis
+			result.CipherProbeResults = probe.Statuses
 			result.HandshakeAttempts += probe.Attempts
 			result.Warnings = append(result.Warnings, probe.Warnings...)
 		}

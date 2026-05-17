@@ -88,7 +88,7 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
-The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `observed` or mixed evidence. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
+The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
 
 ### Markdown report
 
@@ -122,14 +122,15 @@ JSON output is intended for scripts and automation. It includes:
 - Per-version support status
 - Scan status and error messages
 - Negotiated cipher suite
-- Cipher suite discovery mode: `negotiated`, `probed` or `observed`
+- Cipher suite discovery mode: `negotiated`, `probed`, `raw-probed` or `observed`
 - Cipher suites found by probing or observation
+- Raw probe status details when available
 - Handshake attempts, scan duration and warnings
 - Certificate details
 - Certificate validation status
 - Policy result, when `--policy` or `--fail-on` is used
 
-The current JSON schema version is `1.0`. See [json-schema-v1.md](json-schema-v1.md) for the field contract. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
+The current JSON schema version is `1.1`. See [json-schema-v1.md](json-schema-v1.md) for the field contract. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
 
 ### Certificate chain
 
@@ -185,13 +186,16 @@ For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to pr
 
 By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
 
-Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` reports cipher suites observed across repeated handshakes.
+Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its internal raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads the ServerHello or alert and records per-cipher status without completing the full TLS handshake.
+
+If the raw probe cannot confirm support, `tlsanalyzer` falls back to observed handshakes so the report still includes the negotiated TLS 1.3 evidence.
 
 JSON and Markdown output distinguish:
 
 - `negotiated`: the cipher selected by the first successful handshake.
 - `probed`: cipher suites accepted when forcing individual TLS 1.0, 1.1 or 1.2 suites.
-- `observed`: TLS 1.3 cipher suites seen across repeated handshakes.
+- `raw-probed`: TLS 1.3 cipher suites accepted by the internal raw ClientHello probe.
+- `observed`: TLS 1.3 cipher suites seen across repeated handshakes when raw probing is inconclusive.
 
 ### Policy mode
 

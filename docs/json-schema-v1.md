@@ -1,6 +1,6 @@
 # JSON Schema v1
 
-This document describes the `schema_version: "1.0"` JSON output contract.
+This document describes the `schema_version: "1.1"` JSON output contract.
 
 `tlsanalyzer --json` writes one JSON object to stdout. PEM certificate chains are never mixed into JSON stdout; `--json --cert` requires `--output`.
 
@@ -11,7 +11,7 @@ This document describes the `schema_version: "1.0"` JSON output contract.
 | `host` | string | yes | TCP host or IP address scanned. |
 | `port` | string | yes | TCP port scanned. |
 | `server_name` | string | no | TLS SNI and certificate validation name when `--sni` is used. |
-| `schema_version` | string | yes | JSON schema version. Current value is `1.0`. |
+| `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
 | `policy` | object | no | Policy result when `--policy` or `--fail-on` is used. |
@@ -28,15 +28,25 @@ This document describes the `schema_version: "1.0"` JSON output contract.
 | `error_message` | string | no | Original scan error when the handshake did not succeed. |
 | `duration_millis` | number | yes | Scan duration for the TLS version. |
 | `handshake_attempts` | number | yes | Handshake attempts used for this result. |
-| `cipher_discovery` | string | yes | `negotiated`, `probed` or `observed`. |
+| `cipher_discovery` | string | yes | `negotiated`, `probed`, `raw-probed` or `observed`. |
 | `negotiated_cipher_suite` | string | no | Cipher suite selected by the first successful handshake. |
 | `cipher_suites` | array | no | Cipher suites discovered by the selected discovery mode. |
 | `cipher_suites_observed` | boolean | yes | `true` when TLS 1.3 suites are observed rather than forced. |
 | `cipher_probe_duration_millis` | number | no | Extra duration used for cipher probing or observation. |
+| `cipher_probe_results` | array | no | Per-cipher raw probe statuses when available. |
 | `warnings` | array | no | Semantics warnings, such as TLS 1.3 observation limitations. |
 | `certificate` | object | no | Leaf certificate details when available. |
 | `certificate_validation_status` | string | no | `valid`, `invalid`, `skipped` or `unavailable`. |
 | `certificate_validation_message` | string | no | Human-readable certificate validation detail. |
+
+## Cipher Probe Result Object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cipher_suite` | string | yes | Cipher suite attempted by the raw probe. |
+| `status` | string | yes | `supported`, `rejected`, `hello-retry-request`, `alert`, `timeout`, `closed` or `inconclusive`. |
+| `alert` | string | no | TLS alert level and description when the server returned an alert. |
+| `error` | string | no | Probe error detail when the status is not supported. |
 
 ## Certificate Object
 

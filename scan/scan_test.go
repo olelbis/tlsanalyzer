@@ -255,7 +255,7 @@ func TestClassifyScanError(t *testing.T) {
 	}
 }
 
-func TestProbeCipherSuitesTLS13MarksObservedOnly(t *testing.T) {
+func TestProbeCipherSuitesTLS13UsesRawProbe(t *testing.T) {
 	server, host, port := newLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
 	defer server.Close()
 
@@ -266,17 +266,23 @@ func TestProbeCipherSuitesTLS13MarksObservedOnly(t *testing.T) {
 		SkipVerify: true,
 	}, tls.VersionTLS13)
 
-	if result.Discovery != CipherDiscoveryObserved {
-		t.Fatalf("Discovery = %q, want %q", result.Discovery, CipherDiscoveryObserved)
+	if result.Discovery != CipherDiscoveryRawProbed {
+		t.Fatalf("Discovery = %q, want %q", result.Discovery, CipherDiscoveryRawProbed)
 	}
-	if !result.ObservedOnly {
-		t.Fatal("ObservedOnly = false, want true")
+	if result.ObservedOnly {
+		t.Fatal("ObservedOnly = true, want false")
 	}
-	if result.Attempts != 10 {
-		t.Fatalf("Attempts = %d, want 10", result.Attempts)
+	if result.Attempts != 3 {
+		t.Fatalf("Attempts = %d, want 3", result.Attempts)
+	}
+	if len(result.CipherSuites) == 0 {
+		t.Fatal("CipherSuites should include raw-probed TLS 1.3 support")
+	}
+	if len(result.Statuses) != 3 {
+		t.Fatalf("Statuses = %d, want 3", len(result.Statuses))
 	}
 	if len(result.Warnings) == 0 {
-		t.Fatal("Warnings should explain TLS 1.3 observation semantics")
+		t.Fatal("Warnings should explain TLS 1.3 raw probe semantics")
 	}
 }
 
