@@ -341,7 +341,7 @@ Acceptance criteria:
 - Document JSON compatibility expectations.
 - Document TLS 1.3 cipher observation and conservative policy behavior.
 
-## P9 - TLS 1.3 Raw Probe Library - In Progress
+## P9 - TLS 1.3 Raw Probe Library - Done
 
 ### Design an internal TLS 1.3 probe package
 
@@ -383,3 +383,102 @@ Acceptance criteria:
 - Keep schema compatibility by adding optional fields under the existing JSON schema version rules, or bump the schema version if fields need to be renamed.
 - Update console and Markdown output to label TLS 1.3 cipher evidence as raw-probed when available.
 - Keep the existing observed-cipher fallback when raw probing is disabled or inconclusive.
+
+## P10 - Raw Probe Hardening - Done
+
+### Retry TLS 1.3 HelloRetryRequest
+
+Problem: the raw probe recognizes `HelloRetryRequest`, but the MVP does not retry with the requested key share.
+
+Status: done.
+
+Acceptance criteria:
+
+- Parse the selected group from a TLS 1.3 `HelloRetryRequest`.
+- Retry the probe on the same connection with a matching key share when the requested group is supported.
+- Preserve `hello-retry-request` as the result status when the requested group cannot be retried.
+- Cover the retry path with a local TLS test.
+
+### Add raw parser fixtures
+
+Problem: raw TLS parser behavior should be locked with deterministic fixtures, not only live local TLS servers.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add fixture-style tests for supported `ServerHello` parsing.
+- Add fixture-style tests for `HelloRetryRequest` parsing.
+- Add fixture-style tests for TLS alert parsing.
+- Keep parser errors stable enough for tests and JSON consumers.
+
+### Reduce raw probe test noise
+
+Problem: local TLS probe tests can print expected handshake errors when the raw probe stops after `ServerHello`.
+
+Status: done.
+
+Acceptance criteria:
+
+- Silence expected local TLS server handshake logs in tests.
+- Keep unexpected test failures visible through assertions.
+
+## P11 - Report Quality - Planned
+
+### Make raw probe evidence easier to read
+
+Problem: raw probe details are available in JSON, but human reports do not summarize per-cipher probe status clearly.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add a Markdown table for `cipher_probe_results`.
+- Add a concise console summary such as `raw probe: 3/3 supported`.
+- Document that raw probes do not complete full TLS handshakes.
+- Consider a JSON field that explicitly states whether the raw probe completed a full handshake.
+
+## P12 - Security Depth - Planned
+
+### Expand TLS posture evidence
+
+Problem: protocol and cipher evidence are useful, but deeper TLS posture depends on groups, signatures and application negotiation.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Report supported or negotiated key exchange groups where feasible.
+- Summarize certificate key type and signature algorithm.
+- Capture ALPN negotiation evidence.
+- Keep non-TLS HTTP checks out of scope unless explicitly promoted later.
+
+## P13 - Supply Chain and Release Trust - Planned
+
+### Strengthen release artifacts
+
+Problem: release binaries are built automatically, but consumers need stronger artifact integrity signals.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Publish checksum files with releases.
+- Evaluate SBOM generation.
+- Evaluate GitHub artifact attestations or signing.
+- Document release verification steps.
+
+## P14 - Product Polish - Planned
+
+### Improve day-to-day CLI ergonomics
+
+Problem: the scanner is usable, but common CLI polish is still missing.
+
+Status: planned.
+
+Acceptance criteria:
+
+- Add `--version`.
+- Add a quiet or compact output mode.
+- Document exit codes more prominently.
+- Consider output format controls for table or compact console output.

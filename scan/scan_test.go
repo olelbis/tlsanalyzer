@@ -3,6 +3,8 @@ package scan
 import (
 	"crypto/tls"
 	"errors"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -296,6 +298,7 @@ func newLocalTLSServer(t *testing.T, minVersion, maxVersion uint16) (*httptest.S
 		MinVersion: minVersion,
 		MaxVersion: maxVersion,
 	}
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
 	server.StartTLS()
 
 	host, port, err := net.SplitHostPort(server.Listener.Addr().String())

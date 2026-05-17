@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -48,6 +49,38 @@ var helloRetryRequestRandom = []byte{
 	0x07, 0x9e, 0x09, 0xe2, 0xc8, 0xa8, 0x33, 0x9c,
 }
 
+const (
+	extensionCookie              uint16 = 44
+	extensionKeyShare            uint16 = 51
+	extensionServerName          uint16 = 0
+	extensionSupportedGroups     uint16 = 10
+	extensionSignatureAlgorithms uint16 = 13
+	extensionALPN                uint16 = 16
+	extensionSupportedVersions   uint16 = 43
+	extensionPSKModes            uint16 = 45
+
+	groupX25519 uint16 = 0x001d
+	groupP256   uint16 = 0x0017
+)
+
+type clientHelloSpec struct {
+	opts          Options
+	cipherSuite   uint16
+	sessionID     []byte
+	keyShareGroup uint16
+	cookie        []byte
+}
+
+type helloRetryRequest struct {
+	selectedGroup uint16
+	cookie        []byte
+}
+
+type readResult struct {
+	result Result
+	hrr    *helloRetryRequest
+}
+
 func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []uint16) ([]Result, error) {
 	if len(cipherSuites) == 0 {
 		return nil, nil
@@ -83,7 +116,18 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		timeout = 5 * time.Second
 	}
 
-	clientHello, err := buildTLS13ClientHello(opts, cipherSuite)
+	sessionID := make([]byte, 32)
+	if _, err := rand.Read(sessionID); err != nil {
+		result.Error = err.Error()
+		return result, nil
+	}
+
+	clientHello, err := buildTLS13ClientHello(clientHelloSpec{
+		opts:          opts,
+		cipherSuite:   cipherSuite,
+		sessionID:     sessionID,
+		keyShareGroup: groupX25519,
+	})
 	if err != nil {
 		result.Error = err.Error()
 		return result, nil
@@ -93,7 +137,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 	conn, err := dialer.DialContext(ctx, "tcp", opts.Address)
 	if err != nil {
 		result.Status = statusForNetworkError(err)
-		result.Error = err.Error()
+		result.Error = stableNetworkError(err)
 		return result, nil
 	}
 	defer conn.Close()
@@ -105,15 +149,49 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 
 	if _, err := conn.Write(clientHello); err != nil {
 		result.Status = statusForNetworkError(err)
-		result.Error = err.Error()
+		result.Error = stableNetworkError(err)
 		return result, nil
 	}
 
-	return readProbeResult(conn, result)
+	read, err := readProbeRecord(conn, result)
+	if err != nil || read.hrr == nil {
+		return read.result, err
+	}
+
+	retryHello, retryErr := buildRetryClientHello(opts, cipherSuite, sessionID, read.hrr)
+	if retryErr != nil {
+		read.result.Status = StatusHelloRetryRequest
+		read.result.Error = retryErr.Error()
+		return read.result, nil
+	}
+	if _, err := conn.Write(retryHello); err != nil {
+		read.result.Status = statusForNetworkError(err)
+		read.result.Error = stableNetworkError(err)
+		return read.result, nil
+	}
+
+	return readProbeResult(conn, read.result)
 }
 
-func buildTLS13ClientHello(opts Options, cipherSuite uint16) ([]byte, error) {
-	privateKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, hrr *helloRetryRequest) ([]byte, error) {
+	if hrr.selectedGroup == 0 {
+		return nil, errors.New("HelloRetryRequest did not include a selected group")
+	}
+	if !isSupportedKeyShareGroup(hrr.selectedGroup) {
+		return nil, fmt.Errorf("HelloRetryRequest selected unsupported group 0x%04x", hrr.selectedGroup)
+	}
+
+	return buildTLS13ClientHello(clientHelloSpec{
+		opts:          opts,
+		cipherSuite:   cipherSuite,
+		sessionID:     sessionID,
+		keyShareGroup: hrr.selectedGroup,
+		cookie:        hrr.cookie,
+	})
+}
+
+func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
+	publicKey, err := generateKeyShare(spec.keyShareGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -122,20 +200,19 @@ func buildTLS13ClientHello(opts Options, cipherSuite uint16) ([]byte, error) {
 	if _, err := rand.Read(randomBytes); err != nil {
 		return nil, err
 	}
-	sessionID := make([]byte, 32)
-	if _, err := rand.Read(sessionID); err != nil {
-		return nil, err
+	if len(spec.sessionID) > 32 {
+		return nil, errors.New("session ID is too long")
 	}
 
 	var body []byte
 	body = appendUint16(body, 0x0303)
 	body = append(body, randomBytes...)
-	body = appendOpaque8(body, sessionID)
+	body = appendOpaque8(body, spec.sessionID)
 	body = appendUint16(body, 2)
-	body = appendUint16(body, cipherSuite)
+	body = appendUint16(body, spec.cipherSuite)
 	body = append(body, 1, 0)
 
-	extensions := buildClientHelloExtensions(opts, privateKey.PublicKey().Bytes())
+	extensions := buildClientHelloExtensions(spec, publicKey)
 	body = appendOpaque16(body, extensions)
 
 	handshake := []byte{1}
@@ -148,45 +225,66 @@ func buildTLS13ClientHello(opts Options, cipherSuite uint16) ([]byte, error) {
 	return record, nil
 }
 
-func buildClientHelloExtensions(opts Options, keyShare []byte) []byte {
+func generateKeyShare(group uint16) ([]byte, error) {
+	var curve ecdh.Curve
+	switch group {
+	case groupX25519:
+		curve = ecdh.X25519()
+	case groupP256:
+		curve = ecdh.P256()
+	default:
+		return nil, fmt.Errorf("unsupported key share group 0x%04x", group)
+	}
+	privateKey, err := curve.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	return privateKey.PublicKey().Bytes(), nil
+}
+
+func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 	var extensions []byte
-	if opts.ServerName != "" {
+	if spec.opts.ServerName != "" {
 		var serverName []byte
 		serverName = append(serverName, 0)
-		serverName = appendOpaque16(serverName, []byte(opts.ServerName))
-		extensions = appendExtension(extensions, 0, appendOpaque16(nil, serverName))
+		serverName = appendOpaque16(serverName, []byte(spec.opts.ServerName))
+		extensions = appendExtension(extensions, extensionServerName, appendOpaque16(nil, serverName))
 	}
 
 	var supportedGroups []byte
-	supportedGroups = appendUint16(supportedGroups, 0x001d)
-	supportedGroups = appendUint16(supportedGroups, 0x0017)
-	extensions = appendExtension(extensions, 10, appendOpaque16(nil, supportedGroups))
+	supportedGroups = appendUint16(supportedGroups, groupX25519)
+	supportedGroups = appendUint16(supportedGroups, groupP256)
+	extensions = appendExtension(extensions, extensionSupportedGroups, appendOpaque16(nil, supportedGroups))
 
 	var signatureAlgorithms []byte
 	for _, algorithm := range []uint16{0x0403, 0x0804, 0x0805, 0x0806, 0x0401, 0x0501} {
 		signatureAlgorithms = appendUint16(signatureAlgorithms, algorithm)
 	}
-	extensions = appendExtension(extensions, 13, appendOpaque16(nil, signatureAlgorithms))
+	extensions = appendExtension(extensions, extensionSignatureAlgorithms, appendOpaque16(nil, signatureAlgorithms))
 
-	extensions = appendExtension(extensions, 43, []byte{2, 0x03, 0x04})
+	extensions = appendExtension(extensions, extensionSupportedVersions, []byte{2, 0x03, 0x04})
 
 	var keyShareEntry []byte
-	keyShareEntry = appendUint16(keyShareEntry, 0x001d)
+	keyShareEntry = appendUint16(keyShareEntry, spec.keyShareGroup)
 	keyShareEntry = appendOpaque16(keyShareEntry, keyShare)
-	extensions = appendExtension(extensions, 51, appendOpaque16(nil, keyShareEntry))
+	extensions = appendExtension(extensions, extensionKeyShare, appendOpaque16(nil, keyShareEntry))
 
-	extensions = appendExtension(extensions, 45, []byte{1, 1})
+	extensions = appendExtension(extensions, extensionPSKModes, []byte{1, 1})
 
-	if len(opts.ALPN) > 0 {
+	if len(spec.cookie) > 0 {
+		extensions = appendExtension(extensions, extensionCookie, spec.cookie)
+	}
+
+	if len(spec.opts.ALPN) > 0 {
 		var protocols []byte
-		for _, protocol := range opts.ALPN {
+		for _, protocol := range spec.opts.ALPN {
 			if len(protocol) == 0 || len(protocol) > 255 {
 				continue
 			}
 			protocols = appendOpaque8(protocols, []byte(protocol))
 		}
 		if len(protocols) > 0 {
-			extensions = appendExtension(extensions, 16, appendOpaque16(nil, protocols))
+			extensions = appendExtension(extensions, extensionALPN, appendOpaque16(nil, protocols))
 		}
 	}
 
@@ -194,26 +292,31 @@ func buildClientHelloExtensions(opts Options, keyShare []byte) []byte {
 }
 
 func readProbeResult(conn net.Conn, result Result) (Result, error) {
+	read, err := readProbeRecord(conn, result)
+	return read.result, err
+}
+
+func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 	for i := 0; i < 8; i++ {
 		header := make([]byte, 5)
 		if _, err := io.ReadFull(conn, header); err != nil {
 			result.Status = statusForNetworkError(err)
-			result.Error = err.Error()
-			return result, nil
+			result.Error = stableNetworkError(err)
+			return readResult{result: result}, nil
 		}
 
 		recordLength := int(binary.BigEndian.Uint16(header[3:5]))
 		if recordLength == 0 || recordLength > 18432 {
 			result.Status = StatusInconclusive
 			result.Error = fmt.Sprintf("invalid TLS record length %d", recordLength)
-			return result, nil
+			return readResult{result: result}, nil
 		}
 
 		payload := make([]byte, recordLength)
 		if _, err := io.ReadFull(conn, payload); err != nil {
 			result.Status = statusForNetworkError(err)
-			result.Error = err.Error()
-			return result, nil
+			result.Error = stableNetworkError(err)
+			return readResult{result: result}, nil
 		}
 
 		switch header[0] {
@@ -222,29 +325,29 @@ func readProbeResult(conn net.Conn, result Result) (Result, error) {
 		case 21:
 			result.Status = StatusAlert
 			result.Alert = describeAlert(payload)
-			return result, nil
+			return readResult{result: result}, nil
 		case 22:
 			return parseHandshakePayload(payload, result), nil
 		default:
 			result.Status = StatusInconclusive
 			result.Error = fmt.Sprintf("unexpected TLS record type %d", header[0])
-			return result, nil
+			return readResult{result: result}, nil
 		}
 	}
 
 	result.Status = StatusInconclusive
 	result.Error = "server did not send a ServerHello or alert"
-	return result, nil
+	return readResult{result: result}, nil
 }
 
-func parseHandshakePayload(payload []byte, result Result) Result {
+func parseHandshakePayload(payload []byte, result Result) readResult {
 	for len(payload) >= 4 {
 		handshakeType := payload[0]
 		handshakeLength := int(payload[1])<<16 | int(payload[2])<<8 | int(payload[3])
 		if handshakeLength > len(payload)-4 {
 			result.Status = StatusInconclusive
 			result.Error = "incomplete handshake message"
-			return result
+			return readResult{result: result}
 		}
 		body := payload[4 : 4+handshakeLength]
 		payload = payload[4+handshakeLength:]
@@ -257,19 +360,23 @@ func parseHandshakePayload(payload []byte, result Result) Result {
 
 	result.Status = StatusInconclusive
 	result.Error = "ServerHello not found"
-	return result
+	return readResult{result: result}
 }
 
-func parseServerHello(body []byte, result Result) Result {
+func parseServerHello(body []byte, result Result) readResult {
 	if len(body) < 38 {
 		result.Status = StatusInconclusive
 		result.Error = "ServerHello is too short"
-		return result
+		return readResult{result: result}
 	}
 
 	if bytes.Equal(body[2:34], helloRetryRequestRandom) {
 		result.Status = StatusHelloRetryRequest
-		return result
+		hrr, err := parseHelloRetryRequest(body)
+		if err != nil {
+			result.Error = err.Error()
+		}
+		return readResult{result: result, hrr: hrr}
 	}
 
 	offset := 34
@@ -278,19 +385,72 @@ func parseServerHello(body []byte, result Result) Result {
 	if offset+sessionIDLength+3 > len(body) {
 		result.Status = StatusInconclusive
 		result.Error = "ServerHello session ID is truncated"
-		return result
+		return readResult{result: result}
 	}
 	offset += sessionIDLength
 
 	selectedCipher := binary.BigEndian.Uint16(body[offset : offset+2])
 	if selectedCipher == result.CipherSuite {
 		result.Status = StatusSupported
-		return result
+		return readResult{result: result}
 	}
 
 	result.Status = StatusRejected
 	result.Error = fmt.Sprintf("server selected %s", tls.CipherSuiteName(selectedCipher))
-	return result
+	return readResult{result: result}
+}
+
+func parseHelloRetryRequest(body []byte) (*helloRetryRequest, error) {
+	offset := 34
+	sessionIDLength := int(body[offset])
+	offset++
+	if offset+sessionIDLength+3 > len(body) {
+		return nil, errors.New("HelloRetryRequest session ID is truncated")
+	}
+	offset += sessionIDLength + 3
+	if offset+2 > len(body) {
+		return nil, errors.New("HelloRetryRequest extensions are missing")
+	}
+	extensionsLength := int(binary.BigEndian.Uint16(body[offset : offset+2]))
+	offset += 2
+	if offset+extensionsLength > len(body) {
+		return nil, errors.New("HelloRetryRequest extensions are truncated")
+	}
+
+	hrr := &helloRetryRequest{}
+	extensions := body[offset : offset+extensionsLength]
+	for len(extensions) > 0 {
+		if len(extensions) < 4 {
+			return hrr, errors.New("HelloRetryRequest extension header is truncated")
+		}
+		extensionType := binary.BigEndian.Uint16(extensions[0:2])
+		extensionLength := int(binary.BigEndian.Uint16(extensions[2:4]))
+		extensions = extensions[4:]
+		if extensionLength > len(extensions) {
+			return hrr, errors.New("HelloRetryRequest extension data is truncated")
+		}
+		extensionData := extensions[:extensionLength]
+		extensions = extensions[extensionLength:]
+
+		switch extensionType {
+		case extensionKeyShare:
+			if len(extensionData) != 2 {
+				return hrr, errors.New("HelloRetryRequest key_share extension is malformed")
+			}
+			hrr.selectedGroup = binary.BigEndian.Uint16(extensionData)
+		case extensionCookie:
+			hrr.cookie = append([]byte(nil), extensionData...)
+		}
+	}
+
+	if hrr.selectedGroup == 0 {
+		return hrr, errors.New("HelloRetryRequest selected group is missing")
+	}
+	return hrr, nil
+}
+
+func isSupportedKeyShareGroup(group uint16) bool {
+	return group == groupX25519 || group == groupP256
 }
 
 func statusForNetworkError(err error) Status {
@@ -302,6 +462,25 @@ func statusForNetworkError(err error) Status {
 		return StatusTimeout
 	}
 	return StatusInconclusive
+}
+
+func stableNetworkError(err error) string {
+	if err == nil {
+		return ""
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "timeout"
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return "connection closed"
+	}
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "connection reset by peer") ||
+		strings.Contains(message, "use of closed network connection") {
+		return "connection closed"
+	}
+	return err.Error()
 }
 
 func describeAlert(payload []byte) string {

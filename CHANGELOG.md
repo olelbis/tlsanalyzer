@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.10.1 - 2026-05-17
+
+### Changed
+
+- Made the TLS 1.3 raw probe retry `HelloRetryRequest` with the requested key share when supported.
+- Stabilized raw probe network error messages.
+- Reduced expected local TLS probe noise in tests.
+
+### Tests
+
+- Added fixture-style tests for `ServerHello`, `HelloRetryRequest` and TLS alert parsing.
+
 ## v0.10.0 - 2026-05-17
 
 ### Added
