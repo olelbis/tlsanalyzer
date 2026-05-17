@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.9.2 - 2026-05-17
+
+### Added
+
+- Added a pixel art project logo to the README.
+
 ## v0.9.1 - 2026-05-17
 
 ### Added

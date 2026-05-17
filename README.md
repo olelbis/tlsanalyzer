@@ -1,4 +1,8 @@
-# tlsanalyzer
+<p align="center">
+  <img src="docs/assets/tlsanalyzer-logo.png" alt="tlsanalyzer pixel art logo" width="180">
+</p>
+
+<h1 align="center">tlsanalyzer</h1>
 
 [![CI](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml)
 [![Release](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml/badge.svg)](https://github.com/olelbis/tlsanalyzer/actions/workflows/release.yml)
