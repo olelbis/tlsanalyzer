@@ -591,20 +591,20 @@ Acceptance criteria:
 - Defer a self-contained HTML report until there is a clearer use case.
 - Keep JSON as the canonical machine-readable contract.
 
-## P21 - Operational Hardening - Planned
+## P21 - Operational Hardening - Done
 
 ### Improve CI and batch-scan reliability
 
 Problem: `tlsanalyzer` is useful for one target at a time, but operational use often needs predictable behavior across many endpoints and occasionally unreliable networks.
 
-Status: planned.
+Status: done.
 
 Acceptance criteria:
 
-- Add support for scanning multiple targets from a file.
+- Add support for scanning multiple targets from a JSON file.
 - Add bounded parallel scanning with a configurable concurrency limit.
 - Add retry/backoff controls for transient network failures.
-- Preserve per-target exit evidence in JSON and future CI-oriented report formats.
+- Preserve per-target exit evidence in JSON, SARIF and JUnit reports.
 - Keep terminal output readable for both single-target and batch modes.
 - Document operational limits, timeout behavior and recommended CI defaults.
 

@@ -121,7 +121,30 @@ func WriteSARIFReportToFile(host, port, serverName, scannerVersion string, resul
 
 // BuildSARIFReport builds a SARIF v2.1.0 report from enabled policy failures.
 func BuildSARIFReport(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, policyResult *policy.Result) ([]byte, error) {
-	failures := policyFailures(policyResult)
+	return BuildSARIFBatchReport([]TargetReport{{
+		Host:           host,
+		Port:           port,
+		ServerName:     serverName,
+		ScannerVersion: scannerVersion,
+		Results:        results,
+		Policy:         policyResult,
+	}})
+}
+
+// BuildSARIFBatchReport builds one SARIF v2.1.0 report for multiple targets.
+func BuildSARIFBatchReport(reports []TargetReport) ([]byte, error) {
+	var failures []policy.Failure
+	var results []sarifResult
+	scannerVersion := ""
+	for _, report := range reports {
+		if scannerVersion == "" {
+			scannerVersion = report.ScannerVersion
+		}
+		targetFailures := policyFailures(report.Policy)
+		failures = append(failures, targetFailures...)
+		results = append(results, sarifResultsForFailures(report.Host, report.Port, report.ServerName, report.Results, targetFailures)...)
+	}
+
 	log := sarifLog{
 		Version: sarifVersion,
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
@@ -132,7 +155,7 @@ func BuildSARIFReport(host, port, serverName, scannerVersion string, results []s
 				Version:        scannerVersion,
 				Rules:          sarifRulesForFailures(failures),
 			}},
-			Results: sarifResultsForFailures(host, port, serverName, results, failures),
+			Results: results,
 		}},
 	}
 	return json.MarshalIndent(log, "", "  ")
@@ -152,12 +175,54 @@ func WriteJUnitReportToFile(host, port, serverName, scannerVersion string, resul
 
 // BuildJUnitReport builds a JUnit XML report for CI systems.
 func BuildJUnitReport(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, policyResult *policy.Result) ([]byte, error) {
-	suite := junitTestSuite{
-		Name: fmt.Sprintf("tlsanalyzer %s", targetLabel(host, port, serverName)),
-		Time: junitSeconds(totalDurationMillis(results)),
+	return BuildJUnitBatchReport([]TargetReport{{
+		Host:           host,
+		Port:           port,
+		ServerName:     serverName,
+		ScannerVersion: scannerVersion,
+		Results:        results,
+		Policy:         policyResult,
+	}})
+}
+
+// BuildJUnitBatchReport builds one JUnit XML report with one suite per target.
+func BuildJUnitBatchReport(reports []TargetReport) ([]byte, error) {
+	suites := junitTestSuites{}
+	for _, report := range reports {
+		suite := buildJUnitSuite(report)
+		suites.Tests += suite.Tests
+		suites.Failures += suite.Failures
+		suites.Errors += suite.Errors
+		suites.Suites = append(suites.Suites, suite)
+	}
+	if len(suites.Suites) == 0 {
+		suite := junitTestSuite{
+			Name: "tlsanalyzer batch",
+			TestCases: []junitTestCase{{
+				ClassName: "tlsanalyzer.scan",
+				Name:      "scan.completed",
+				Time:      "0",
+			}},
+		}
+		suite.Tests = len(suite.TestCases)
+		suites.Tests = suite.Tests
+		suites.Suites = []junitTestSuite{suite}
 	}
 
-	for _, result := range results {
+	data, err := xml.MarshalIndent(suites, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(xml.Header), data...), nil
+}
+
+func buildJUnitSuite(report TargetReport) junitTestSuite {
+	suite := junitTestSuite{
+		Name: fmt.Sprintf("tlsanalyzer %s", targetLabel(report.Host, report.Port, report.ServerName)),
+		Time: junitSeconds(totalDurationMillis(report.Results)),
+	}
+
+	for _, result := range report.Results {
 		testCase := junitTestCase{
 			ClassName: "tlsanalyzer.tls",
 			Name:      result.Version,
@@ -174,15 +239,29 @@ func BuildJUnitReport(host, port, serverName, scannerVersion string, results []s
 		suite.TestCases = append(suite.TestCases, testCase)
 	}
 
-	if policyResult != nil && policyResult.Enabled {
-		if policyResult.Passed {
+	if report.Error != "" {
+		suite.Errors++
+		suite.TestCases = append(suite.TestCases, junitTestCase{
+			ClassName: "tlsanalyzer.target",
+			Name:      "target.error",
+			Time:      "0",
+			Error: &junitFailure{
+				Message: report.Error,
+				Type:    "target-error",
+				Text:    report.Error,
+			},
+		})
+	}
+
+	if report.Policy != nil && report.Policy.Enabled {
+		if report.Policy.Passed {
 			suite.TestCases = append(suite.TestCases, junitTestCase{
 				ClassName: "tlsanalyzer.policy",
-				Name:      "policy." + displayPolicyName(policyResult),
+				Name:      "policy." + displayPolicyName(report.Policy),
 				Time:      "0",
 			})
 		}
-		for _, failure := range policyResult.Failures {
+		for _, failure := range report.Policy.Failures {
 			testCase := junitTestCase{
 				ClassName: "tlsanalyzer.policy",
 				Name:      "policy." + failure.Check + versionSuffix(failure.Version),
@@ -207,18 +286,7 @@ func BuildJUnitReport(host, port, serverName, scannerVersion string, results []s
 	}
 
 	suite.Tests = len(suite.TestCases)
-	suites := junitTestSuites{
-		Tests:    suite.Tests,
-		Failures: suite.Failures,
-		Errors:   suite.Errors,
-		Suites:   []junitTestSuite{suite},
-	}
-
-	data, err := xml.MarshalIndent(suites, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append([]byte(xml.Header), data...), nil
+	return suite
 }
 
 func policyFailures(result *policy.Result) []policy.Failure {

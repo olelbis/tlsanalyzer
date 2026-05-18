@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"io"
 	"log"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/build"
+	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
 )
@@ -266,6 +268,26 @@ func TestParseCLIArgsCIReportFlags(t *testing.T) {
 	}
 }
 
+func TestParseCLIArgsBatchFlags(t *testing.T) {
+	var stderr bytes.Buffer
+
+	cfg, err := parseCLIArgs([]string{
+		"--targets-file", "targets.json",
+		"--concurrency", "3",
+		"--retries", "2",
+		"--retry-backoff", "4",
+	}, &stderr)
+	if err != nil {
+		t.Fatalf("parseCLIArgs() error = %v", err)
+	}
+	if cfg.targetsFile != "targets.json" {
+		t.Fatalf("targetsFile = %q, want targets.json", cfg.targetsFile)
+	}
+	if cfg.concurrency != 3 || cfg.retries != 2 || cfg.retryBackoff != 4 {
+		t.Fatalf("batch flags = concurrency %d retries %d retryBackoff %d", cfg.concurrency, cfg.retries, cfg.retryBackoff)
+	}
+}
+
 func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
 	config := `{
@@ -275,6 +297,10 @@ func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) 
   "no_clear": true,
   "sarif": "config.sarif",
   "junit": "config.xml",
+  "targets_file": "targets.json",
+  "concurrency": 3,
+  "retries": 2,
+  "retry_backoff": 4,
   "targets": {
     "example": {
       "host": "config.example.com",
@@ -316,6 +342,9 @@ func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) 
 	}
 	if cfg.outputSARIF != "config.sarif" || cfg.outputJUnit != "config.xml" {
 		t.Fatalf("report outputs = sarif %q junit %q", cfg.outputSARIF, cfg.outputJUnit)
+	}
+	if cfg.targetsFile != "targets.json" || cfg.concurrency != 3 || cfg.retries != 2 || cfg.retryBackoff != 4 {
+		t.Fatalf("batch config = targets %q concurrency %d retries %d backoff %d", cfg.targetsFile, cfg.concurrency, cfg.retries, cfg.retryBackoff)
 	}
 	if cfg.policy != "modern" || cfg.requireTLS != "1.3" || cfg.forbidTLS != "1.0,1.1" {
 		t.Fatalf("profile values = policy %q require %q forbid %q", cfg.policy, cfg.requireTLS, cfg.forbidTLS)
@@ -380,6 +409,98 @@ func TestRunWritesCIReports(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "JUnit report saved") {
 		t.Fatalf("stdout does not mention JUnit report:\n%s", stdout.String())
+	}
+}
+
+func TestRunBatchWritesJSONReport(t *testing.T) {
+	server, host, port := newMainLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
+	defer server.Close()
+
+	targetsPath := filepath.Join(t.TempDir(), "targets.json")
+	targets := `[{"host":"` + host + `","port":"` + port + `"},{"host":"` + host + `","port":"` + port + `"}]`
+	if err := os.WriteFile(targetsPath, []byte(targets), 0640); err != nil {
+		t.Fatalf("write targets: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{
+		"--targets-file", targetsPath,
+		"--min-version", "1.3",
+		"--skip-verify",
+		"--concurrency", "2",
+		"--json",
+	}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("run() exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	var report output.JSONBatchReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, stdout.String())
+	}
+	if report.Batch.TargetCount != 2 || report.Batch.Concurrency != 2 {
+		t.Fatalf("batch metadata = %+v", report.Batch)
+	}
+	if len(report.Targets) != 2 {
+		t.Fatalf("targets = %d, want 2", len(report.Targets))
+	}
+	for _, target := range report.Targets {
+		if target.Attempts != 1 || target.ExitCode != 0 {
+			t.Fatalf("target evidence = attempts %d exit %d", target.Attempts, target.ExitCode)
+		}
+		if len(target.Report) == 0 {
+			t.Fatal("target report should include embedded JSON evidence")
+		}
+	}
+}
+
+func TestLoadTargetsFileObjectAppliesDefaultPort(t *testing.T) {
+	targetsPath := filepath.Join(t.TempDir(), "targets.json")
+	if err := os.WriteFile(targetsPath, []byte(`{"targets":[{"host":"example.com","sni":"service.example.com"}]}`), 0640); err != nil {
+		t.Fatalf("write targets: %v", err)
+	}
+
+	targets, err := loadTargetsFile(targetsPath, "443", "")
+	if err != nil {
+		t.Fatalf("loadTargetsFile() error = %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("targets = %d, want 1", len(targets))
+	}
+	if targets[0].Host != "example.com" || targets[0].Port != "443" || targets[0].SNI != "service.example.com" {
+		t.Fatalf("target = %+v", targets[0])
+	}
+}
+
+func TestLoadTargetsFileAppliesDefaultSNI(t *testing.T) {
+	targetsPath := filepath.Join(t.TempDir(), "targets.json")
+	if err := os.WriteFile(targetsPath, []byte(`[{"host":"192.0.2.10"}]`), 0640); err != nil {
+		t.Fatalf("write targets: %v", err)
+	}
+
+	targets, err := loadTargetsFile(targetsPath, "443", "example.com")
+	if err != nil {
+		t.Fatalf("loadTargetsFile() error = %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("targets = %d, want 1", len(targets))
+	}
+	if targets[0].SNI != "example.com" {
+		t.Fatalf("SNI = %q, want example.com", targets[0].SNI)
+	}
+}
+
+func TestHasTransientScanFailure(t *testing.T) {
+	if !hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusTimeout}}) {
+		t.Fatal("timeout should be retryable")
+	}
+	if !hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusNetworkError}}) {
+		t.Fatal("network error should be retryable")
+	}
+	if hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusUnsupported}}) {
+		t.Fatal("unsupported protocol should not be retryable")
 	}
 }
 

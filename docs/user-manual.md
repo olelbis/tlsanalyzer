@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.19.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.20.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -101,6 +101,14 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         TLS server port (default "443")
   --sni string
         TLS Server Name Indication and certificate validation name
+  --targets-file string
+        JSON file with targets to scan in batch mode
+  --concurrency int
+        Maximum concurrent targets in batch mode (default 4)
+  --retries int
+        Retry count for transient network failures
+  --retry-backoff int
+        Base retry backoff in seconds (default 1)
   --timeout int
         Connection timeout in seconds (default 5)
   --min-version string
@@ -181,6 +189,10 @@ tlsanalyzer --host example.com --compact
   "sarif": "tlsanalyzer.sarif",
   "junit": "tlsanalyzer.xml",
   "no_clear": true,
+  "targets_file": "targets.json",
+  "concurrency": 4,
+  "retries": 2,
+  "retry_backoff": 1,
   "targets": {
     "production": {
       "host": "example.com",
@@ -218,6 +230,45 @@ tlsanalyzer --config tlsanalyzer.json --target production --host override.exampl
 ```
 
 Unknown JSON fields are rejected so configuration typos fail early.
+
+### Batch scans
+
+Use `--targets-file` to scan multiple endpoints in one run. The file can be a JSON array:
+
+```json
+[
+  {"host": "example.com"},
+  {"host": "203.0.113.10", "port": "443", "sni": "example.com"}
+]
+```
+
+It can also be wrapped in a `targets` object:
+
+```json
+{
+  "targets": [
+    {"host": "example.com", "port": "443"}
+  ]
+}
+```
+
+Run a batch scan with bounded concurrency and retry controls:
+
+```bash
+tlsanalyzer --targets-file targets.json --concurrency 4 --retries 2 --retry-backoff 1 --json
+```
+
+Batch mode supports human summaries, aggregate JSON output, SARIF and JUnit XML:
+
+```bash
+tlsanalyzer --targets-file targets.json --policy modern --sarif tls.sarif --junit tls.xml
+```
+
+Retries are only applied when a target produces transient `network_error` or `timeout` scan statuses. Backoff is linear, so `--retry-backoff 2` waits 2 seconds before the first retry, 4 seconds before the second retry and so on.
+
+If a target omits `port`, the global `--port` value is used. If a target omits `sni`, the global `--sni` value is used when present.
+
+`--cert` and `--markdown` are currently single-target features and are rejected together with `--targets-file`.
 
 ### CI report formats
 

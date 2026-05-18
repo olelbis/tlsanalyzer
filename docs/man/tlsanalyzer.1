@@ -36,6 +36,21 @@ TCP port to scan. Defaults to 443.
 .BR --sni " " \fIname\fR
 TLS Server Name Indication and certificate validation name.
 .TP
+.BR --targets-file " " \fIfile\fR
+Read a JSON target list and run a batch scan. The file can be either a JSON
+array of target objects or an object with a
+.BR targets
+array.
+.TP
+.BR --concurrency " " \fIn\fR
+Maximum number of targets scanned concurrently in batch mode. Defaults to 4.
+.TP
+.BR --retries " " \fIn\fR
+Retry count for transient network failures in batch mode.
+.TP
+.BR --retry-backoff " " \fIseconds\fR
+Base retry backoff in seconds for batch mode. Backoff is linear.
+.TP
 .BR --min-version " " \fIversion\fR
 Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3. Defaults to 1.0.
 .TP
@@ -133,6 +148,9 @@ Run a modern TLS policy gate:
 .TP
 Write CI reports:
 .B tlsanalyzer --host example.com --policy modern --sarif tls.sarif --junit tls.xml
+.TP
+Run a batch scan:
+.B tlsanalyzer --targets-file targets.json --concurrency 4 --retries 2 --policy modern --json
 .TP
 Run a custom TLS 1.3 policy gate:
 .B tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30

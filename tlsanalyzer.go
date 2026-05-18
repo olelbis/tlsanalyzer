@@ -27,6 +27,7 @@ type cliConfig struct {
 	configPath      string
 	targetName      string
 	profileName     string
+	targetsFile     string
 	host            string
 	port            string
 	sni             string
@@ -44,6 +45,9 @@ type cliConfig struct {
 	noClear         bool
 	compact         bool
 	showVersion     bool
+	concurrency     int
+	retries         int
+	retryBackoff    int
 	policy          string
 	failOn          string
 	requireTLS      string
@@ -75,6 +79,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if cfg.showVersion {
 		fmt.Fprintln(stdout, formatVersion())
 		return 0
+	}
+
+	if cfg.targetsFile != "" {
+		return runBatch(cfg, stdout, stderr)
 	}
 
 	if cfg.host == "" {
@@ -315,6 +323,7 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.StringVar(&cfg.configPath, "config", "", "JSON config file")
 	fs.StringVar(&cfg.targetName, "target", "", "Named target from --config")
 	fs.StringVar(&cfg.profileName, "profile", "", "Named policy profile from --config")
+	fs.StringVar(&cfg.targetsFile, "targets-file", "", "JSON file with targets to scan in batch mode")
 	fs.StringVar(&cfg.host, "host", "", "Hostname or server IP")
 	fs.StringVar(&cfg.port, "port", "443", "TLS server port")
 	fs.StringVar(&cfg.sni, "sni", "", "TLS Server Name Indication and certificate validation name")
@@ -332,6 +341,9 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.BoolVar(&cfg.noClear, "no-clear", false, "Do not clear the terminal before scanning")
 	fs.BoolVar(&cfg.compact, "compact", false, "Use compact human-readable console output")
 	fs.BoolVar(&cfg.showVersion, "version", false, "Print version information and exit")
+	fs.IntVar(&cfg.concurrency, "concurrency", 4, "Maximum concurrent targets in batch mode")
+	fs.IntVar(&cfg.retries, "retries", 0, "Retry count for transient network failures")
+	fs.IntVar(&cfg.retryBackoff, "retry-backoff", 1, "Base retry backoff in seconds")
 	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern")
 	fs.StringVar(&cfg.failOn, "fail-on", "", "Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert")
 	fs.StringVar(&cfg.requireTLS, "require-tls", "", "Comma-separated TLS versions that must be supported, such as 1.3")

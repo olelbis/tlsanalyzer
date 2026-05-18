@@ -34,6 +34,10 @@ type fileConfig struct {
 	MinCertDays    *int                         `json:"min_cert_days,omitempty"`
 	Target         *string                      `json:"target,omitempty"`
 	Profile        *string                      `json:"profile,omitempty"`
+	TargetsFile    *string                      `json:"targets_file,omitempty"`
+	Concurrency    *int                         `json:"concurrency,omitempty"`
+	Retries        *int                         `json:"retries,omitempty"`
+	RetryBackoff   *int                         `json:"retry_backoff,omitempty"`
 	Targets        map[string]fileTarget        `json:"targets,omitempty"`
 	Profiles       map[string]filePolicyProfile `json:"profiles,omitempty"`
 }
@@ -143,6 +147,10 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyString(&cfg.forbidALPN, file.ForbidALPN)
 	applyInt(&cfg.minCertKeyBits, file.MinCertKeyBits)
 	applyInt(&cfg.minCertDays, file.MinCertDays)
+	applyString(&cfg.targetsFile, file.TargetsFile)
+	applyInt(&cfg.concurrency, file.Concurrency)
+	applyInt(&cfg.retries, file.Retries)
+	applyInt(&cfg.retryBackoff, file.RetryBackoff)
 }
 
 func applyFileTarget(cfg *cliConfig, target fileTarget) {
@@ -243,6 +251,18 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["profile"] {
 		dst.profileName = src.profileName
+	}
+	if explicit["targets-file"] {
+		dst.targetsFile = src.targetsFile
+	}
+	if explicit["concurrency"] {
+		dst.concurrency = src.concurrency
+	}
+	if explicit["retries"] {
+		dst.retries = src.retries
+	}
+	if explicit["retry-backoff"] {
+		dst.retryBackoff = src.retryBackoff
 	}
 	dst.configPath = src.configPath
 }

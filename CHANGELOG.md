@@ -2,6 +2,24 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.20.0 - 2026-05-18
+
+### Added
+
+- Added `--targets-file` for dependency-free JSON batch scans.
+- Added `--concurrency`, `--retries` and `--retry-backoff` to control batch parallelism and transient network retries.
+- Added aggregate batch JSON output with embedded per-target scan reports.
+- Added batch SARIF and JUnit XML report generation for CI/security workflows.
+
+### Changed
+
+- Documented batch target files, retry behavior and batch report limitations in the README, user manual and man page.
+- Marked operational hardening work complete in the backlog.
+
+### Tests
+
+- Added tests for batch JSON output, target-file normalization, default batch SNI, config-driven batch settings and retryable scan detection.
+
 ## v0.19.0 - 2026-05-18
 
 ### Added
