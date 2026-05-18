@@ -61,6 +61,7 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 			CipherProbeResults: []scan.CipherProbeStatus{{
 				CipherSuite: "TLS_AES_128_GCM_SHA256",
 				Status:      "supported",
+				Evidence:    "clienthello-serverhello",
 			}},
 			Warnings: []string{"TLS 1.3 cipher suites were raw-probed with ClientHello-only handshakes; full TLS handshakes are not completed by the raw probe."},
 		},
@@ -79,8 +80,8 @@ func TestBuildMarkdownReportFromResults(t *testing.T) {
 		"**Negotiated**: TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
 		"**Discovery**: raw-probed",
 		"#### Cipher Probe Results",
-		"Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.",
-		"| TLS_AES_128_GCM_SHA256 | supported | - | - |",
+		"Raw probe evidence is ClientHello-only. `clienthello-serverhello` and `clienthello-hrr-serverhello` evidence means the server selected a cipher in ServerHello, but the probe still does not complete a full TLS handshake.",
+		"| TLS_AES_128_GCM_SHA256 | supported | clienthello-serverhello | - | - | - | - |",
 		"| TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |",
 		"**Subject CN**: example.com",
 		"**Issuer**: Example CA",
@@ -154,6 +155,7 @@ func TestBuildJSONReport(t *testing.T) {
 			CipherProbeResults: []scan.CipherProbeStatus{{
 				CipherSuite: "TLS_AES_128_GCM_SHA256",
 				Status:      "supported",
+				Evidence:    "clienthello-serverhello",
 			}},
 			Certificate:           cert,
 			CertValidationStatus:  "valid",
@@ -215,6 +217,9 @@ func TestBuildJSONReport(t *testing.T) {
 	}
 	if len(report.Results[0].CipherProbeResults) != 1 {
 		t.Fatalf("CipherProbeResults = %d, want 1", len(report.Results[0].CipherProbeResults))
+	}
+	if report.Results[0].CipherProbeResults[0].Evidence != "clienthello-serverhello" {
+		t.Fatalf("CipherProbeResults[0].Evidence = %q, want clienthello-serverhello", report.Results[0].CipherProbeResults[0].Evidence)
 	}
 	if report.Results[0].RawProbeFullHandshake == nil || *report.Results[0].RawProbeFullHandshake {
 		t.Fatalf("RawProbeFullHandshake = %v, want false", report.Results[0].RawProbeFullHandshake)
@@ -507,9 +512,9 @@ func TestPrintScanSummary(t *testing.T) {
 			CipherDiscovery: scan.CipherDiscoveryRawProbed,
 			CipherSuites:    []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"},
 			CipherProbeResults: []scan.CipherProbeStatus{
-				{CipherSuite: "TLS_AES_128_GCM_SHA256", Status: "supported"},
-				{CipherSuite: "TLS_AES_256_GCM_SHA384", Status: "supported"},
-				{CipherSuite: "TLS_CHACHA20_POLY1305_SHA256", Status: "supported"},
+				{CipherSuite: "TLS_AES_128_GCM_SHA256", Status: "supported", Evidence: "clienthello-serverhello"},
+				{CipherSuite: "TLS_AES_256_GCM_SHA384", Status: "supported", Evidence: "clienthello-serverhello"},
+				{CipherSuite: "TLS_CHACHA20_POLY1305_SHA256", Status: "supported", Evidence: "clienthello-serverhello"},
 			},
 		},
 		{
@@ -524,7 +529,7 @@ func TestPrintScanSummary(t *testing.T) {
 		"Protocol findings: no legacy TLS versions detected",
 		"Certificate validation: valid",
 		"Cipher findings: no weak cipher suites detected in mixed (negotiated, raw-probed) evidence",
-		"Raw probe: 3/3 ciphers supported (ClientHello-only; no full handshakes)",
+		"Raw probe: 3/3 ciphers supported (ClientHello-only ServerHello evidence; no full handshakes)",
 	}
 	for _, fragment := range expectedFragments {
 		if !strings.Contains(buf.String(), fragment) {

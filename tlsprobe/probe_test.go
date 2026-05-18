@@ -110,6 +110,12 @@ func TestProbeTLS13CipherSuiteRetriesHelloRetryRequest(t *testing.T) {
 	if result.Status != StatusSupported {
 		t.Fatalf("Status = %q, want %q; alert %q error %q", result.Status, StatusSupported, result.Alert, result.Error)
 	}
+	if !result.HelloRetryRequest || !result.HelloRetryRequestRetried {
+		t.Fatalf("HelloRetryRequest = %t retried = %t, want true/true", result.HelloRetryRequest, result.HelloRetryRequestRetried)
+	}
+	if result.SelectedGroupName != "P-256" {
+		t.Fatalf("SelectedGroupName = %q, want P-256", result.SelectedGroupName)
+	}
 }
 
 func TestProbeTLS13CipherSuiteKeepsHelloRetryRequestForUnsupportedGroup(t *testing.T) {
@@ -128,8 +134,35 @@ func TestProbeTLS13CipherSuiteKeepsHelloRetryRequestForUnsupportedGroup(t *testi
 	if result.Status != StatusHelloRetryRequest {
 		t.Fatalf("Status = %q, want %q; alert %q error %q", result.Status, StatusHelloRetryRequest, result.Alert, result.Error)
 	}
+	if !result.HelloRetryRequest || result.HelloRetryRequestRetried {
+		t.Fatalf("HelloRetryRequest = %t retried = %t, want true/false", result.HelloRetryRequest, result.HelloRetryRequestRetried)
+	}
 	if result.Error == "" {
 		t.Fatal("Error should explain why the HelloRetryRequest was not retried")
+	}
+}
+
+func TestProbeTLS13CipherSuiteHonorsConfiguredKeyShareGroups(t *testing.T) {
+	address, closeServer := newHelloRetryRequestOnlyFixtureServer(t, tls.TLS_AES_128_GCM_SHA256, groupP256)
+	defer closeServer()
+
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address:        address,
+		Timeout:        time.Second,
+		KeyShareGroups: []uint16{groupX25519},
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err != nil {
+		t.Fatalf("ProbeTLS13CipherSuite() error = %v", err)
+	}
+
+	if result.Status != StatusHelloRetryRequest {
+		t.Fatalf("Status = %q, want %q; alert %q error %q", result.Status, StatusHelloRetryRequest, result.Alert, result.Error)
+	}
+	if result.SelectedGroupName != "P-256" {
+		t.Fatalf("SelectedGroupName = %q, want P-256", result.SelectedGroupName)
+	}
+	if result.HelloRetryRequestRetried {
+		t.Fatal("HelloRetryRequestRetried = true, want false for a group outside configured options")
 	}
 }
 
@@ -289,6 +322,20 @@ func TestValidateOptionsRejectsOverlongALPNProtocol(t *testing.T) {
 	}
 }
 
+func TestValidateOptionsRejectsUnsupportedKeyShareGroup(t *testing.T) {
+	err := ValidateOptions(Options{
+		Address:        "127.0.0.1:443",
+		KeyShareGroups: []uint16{0x9999},
+	})
+	if err == nil {
+		t.Fatal("ValidateOptions() error = nil, want unsupported group error")
+	}
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Fatalf("ValidateOptions() error = %T, want *ConfigError", err)
+	}
+}
+
 func TestSupportedTLS13CipherSuitesReturnsIndependentCopy(t *testing.T) {
 	first := SupportedTLS13CipherSuites()
 	second := SupportedTLS13CipherSuites()
@@ -301,9 +348,22 @@ func TestSupportedTLS13CipherSuitesReturnsIndependentCopy(t *testing.T) {
 	}
 }
 
+func TestSupportedKeyShareGroupsReturnsIndependentCopy(t *testing.T) {
+	first := SupportedKeyShareGroups()
+	second := SupportedKeyShareGroups()
+	if len(first) != 4 {
+		t.Fatalf("len(SupportedKeyShareGroups()) = %d, want 4", len(first))
+	}
+	first[0] = 0
+	if second[0] == 0 {
+		t.Fatal("SupportedKeyShareGroups() returned shared mutable storage")
+	}
+}
+
 func TestParseServerHelloFixtureSupported(t *testing.T) {
 	sessionID := []byte("fixture-session")
-	body := serverHelloBody(bytesOf(32, 0x42), sessionID, tls.TLS_AES_128_GCM_SHA256, nil)
+	keyShareExtension := appendExtension(nil, extensionKeyShare, appendOpaque16(appendUint16(nil, groupX25519), []byte{1, 2, 3, 4}))
+	body := serverHelloBody(bytesOf(32, 0x42), sessionID, tls.TLS_AES_128_GCM_SHA256, keyShareExtension)
 
 	read := parseServerHello(body, Result{CipherSuite: tls.TLS_AES_128_GCM_SHA256})
 
@@ -312,6 +372,9 @@ func TestParseServerHelloFixtureSupported(t *testing.T) {
 	}
 	if read.hrr != nil {
 		t.Fatal("hrr should be nil for a normal ServerHello")
+	}
+	if read.result.SelectedGroupName != "X25519" {
+		t.Fatalf("SelectedGroupName = %q, want X25519", read.result.SelectedGroupName)
 	}
 }
 
@@ -375,6 +438,35 @@ func TestReadProbeRecordFixtureUnexpectedRecordType(t *testing.T) {
 	}
 	if read.result.Error != "unexpected TLS record type 23" {
 		t.Fatalf("Error = %q, want unexpected TLS record type 23", read.result.Error)
+	}
+	<-done
+}
+
+func TestReadProbeRecordFixtureFragmentedHandshake(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+
+	body := serverHelloBody(bytesOf(32, 0x55), nil, tls.TLS_AES_128_GCM_SHA256, nil)
+	handshake := []byte{2}
+	handshake = appendUint24(handshake, len(body))
+	handshake = append(handshake, body...)
+	first := handshake[:3]
+	second := handshake[3:]
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer server.Close()
+		_ = writeTLSRecordPayload(server, 22, first)
+		_ = writeTLSRecordPayload(server, 22, second)
+	}()
+
+	read, err := readProbeRecord(client, Result{CipherSuite: tls.TLS_AES_128_GCM_SHA256})
+	if err != nil {
+		t.Fatalf("readProbeRecord() error = %v", err)
+	}
+	if read.result.Status != StatusSupported {
+		t.Fatalf("Status = %q, want %q; error %q", read.result.Status, StatusSupported, read.result.Error)
 	}
 	<-done
 }
@@ -629,6 +721,14 @@ func writeHandshakeRecord(conn net.Conn, body []byte) error {
 	record := []byte{22, 0x03, 0x03}
 	record = appendUint16(record, uint16(len(handshake)))
 	record = append(record, handshake...)
+	_, err := conn.Write(record)
+	return err
+}
+
+func writeTLSRecordPayload(conn net.Conn, recordType byte, payload []byte) error {
+	record := []byte{recordType, 0x03, 0x03}
+	record = appendUint16(record, uint16(len(payload)))
+	record = append(record, payload...)
 	_, err := conn.Write(record)
 	return err
 }

@@ -83,7 +83,13 @@ Single-target scans and batch scans share the same schema version but use differ
 | --- | --- | --- | --- |
 | `cipher_suite` | string | yes | Cipher suite attempted by the raw probe. |
 | `status` | string | yes | `supported`, `rejected`, `hello-retry-request`, `alert`, `timeout`, `closed` or `inconclusive`. |
+| `evidence` | string | no | ClientHello-only evidence level, such as `clienthello-serverhello`, `clienthello-hrr-serverhello`, `clienthello-alert`, `clienthello-timeout`, `clienthello-closed` or `clienthello-inconclusive`. |
 | `alert` | string | no | TLS alert level and description when the server returned an alert. |
+| `alert_level` | number | no | Raw TLS alert level code when an alert is available. |
+| `alert_description` | number | no | Raw TLS alert description code when an alert is available. |
+| `selected_group` | string | no | Key share group selected by ServerHello or HelloRetryRequest when available. |
+| `hello_retry_request` | boolean | no | Whether the server sent HelloRetryRequest. |
+| `hello_retry_request_retried` | boolean | no | Whether the probe retried after HelloRetryRequest. |
 | `error` | string | no | Probe error detail when the status is not supported. |
 
 ## Certificate Object

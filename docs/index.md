@@ -8,7 +8,7 @@
 It is built for environments where the scanner should be easy to carry, easy to
 audit and able to run without runtime dependencies.
 
-The project is currently in preview maintenance on the `v0.24.x` line. Feature
+The project is currently in preview maintenance on the `v0.25.x` line. Feature
 growth is paused; patch releases are limited to bug fixes, documentation updates
 and compatibility-preserving hardening while the project gathers real-world
 usage before a future beta/v1 decision.

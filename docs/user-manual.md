@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.2 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.25.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -80,7 +80,7 @@ results, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.O
 }, tlsprobe.SupportedTLS13CipherSuites())
 ```
 
-`tlsprobe` sends ClientHello-only probes and classifies the first useful server response. It does not complete full TLS handshakes. See [TLS probe Go package](tlsprobe-package.md) for status values and current limits.
+`tlsprobe` sends ClientHello-only probes and classifies the first useful server response. It does not complete full TLS handshakes. The package also exposes selected key share group, HelloRetryRequest retry and TLS alert-code metadata when available. See [TLS probe Go package](tlsprobe-package.md) for status values and current limits.
 
 ## Basic Usage
 
@@ -191,7 +191,7 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
-The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
+The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count and makes clear that the evidence is ClientHello-only ServerHello evidence, not a full TLS handshake. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
 
 Use `--compact` for shorter human-readable output while preserving the final summary:
 
@@ -414,7 +414,7 @@ For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to pr
 
 By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
 
-Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its preview `tlsprobe` raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads the ServerHello, alert or another probe outcome and records per-cipher status without completing the full TLS handshake.
+Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its preview `tlsprobe` raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads ServerHello, HelloRetryRequest, alert, close, timeout or inconclusive outcomes and records per-cipher status without completing the full TLS handshake.
 
 If the raw probe cannot confirm support, `tlsanalyzer` falls back to observed handshakes so the report still includes the negotiated TLS 1.3 evidence.
 
@@ -424,6 +424,13 @@ JSON and Markdown output distinguish:
 - `probed`: cipher suites accepted when forcing individual TLS 1.0, 1.1 or 1.2 suites.
 - `raw-probed`: TLS 1.3 cipher suites accepted by the raw ClientHello probe.
 - `observed`: TLS 1.3 cipher suites seen across repeated handshakes when raw probing is inconclusive.
+
+Raw probe status rows may include:
+
+- `evidence`: classification level such as `clienthello-serverhello`, `clienthello-hrr-serverhello`, `clienthello-alert`, `clienthello-timeout`, `clienthello-closed` or `clienthello-inconclusive`.
+- `selected_group`: the key share group selected by ServerHello or HelloRetryRequest when available.
+- `hello_retry_request` and `hello_retry_request_retried`: whether the server requested a different key share and whether the probe retried it.
+- `alert_level` and `alert_description`: raw TLS alert codes when the server returned an alert.
 
 ### Policy mode
 

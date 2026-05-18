@@ -82,10 +82,16 @@ type CipherProbeResult struct {
 }
 
 type CipherProbeStatus struct {
-	CipherSuite string
-	Status      string
-	Alert       string
-	Error       string
+	CipherSuite              string
+	Status                   string
+	Evidence                 string
+	Alert                    string
+	AlertLevel               uint8
+	AlertDescription         uint8
+	SelectedGroup            string
+	HelloRetryRequest        bool
+	HelloRetryRequestRetried bool
+	Error                    string
 }
 
 func DefaultALPNProtocols() []string {
@@ -305,10 +311,16 @@ func probeTLS13CipherSuites(opts Options) CipherProbeResult {
 
 	for _, probeResult := range probeResults {
 		result.Statuses = append(result.Statuses, CipherProbeStatus{
-			CipherSuite: probeResult.Name,
-			Status:      string(probeResult.Status),
-			Alert:       probeResult.Alert,
-			Error:       probeResult.Error,
+			CipherSuite:              probeResult.Name,
+			Status:                   string(probeResult.Status),
+			Evidence:                 rawProbeEvidence(probeResult),
+			Alert:                    probeResult.Alert,
+			AlertLevel:               probeResult.AlertLevel,
+			AlertDescription:         probeResult.AlertDescription,
+			SelectedGroup:            probeResult.SelectedGroupName,
+			HelloRetryRequest:        probeResult.HelloRetryRequest,
+			HelloRetryRequestRetried: probeResult.HelloRetryRequestRetried,
+			Error:                    probeResult.Error,
 		})
 		if probeResult.Status == tlsprobe.StatusSupported {
 			result.CipherSuites = append(result.CipherSuites, probeResult.Name)
@@ -321,6 +333,26 @@ func probeTLS13CipherSuites(opts Options) CipherProbeResult {
 	result.CipherSuites = utils.UniqueStrings(result.CipherSuites)
 	sort.Strings(result.CipherSuites)
 	return result
+}
+
+func rawProbeEvidence(result tlsprobe.Result) string {
+	switch result.Status {
+	case tlsprobe.StatusSupported, tlsprobe.StatusRejected:
+		if result.HelloRetryRequestRetried {
+			return "clienthello-hrr-serverhello"
+		}
+		return "clienthello-serverhello"
+	case tlsprobe.StatusHelloRetryRequest:
+		return "clienthello-hello-retry-request"
+	case tlsprobe.StatusAlert:
+		return "clienthello-alert"
+	case tlsprobe.StatusTimeout:
+		return "clienthello-timeout"
+	case tlsprobe.StatusClosed:
+		return "clienthello-closed"
+	default:
+		return "clienthello-inconclusive"
+	}
 }
 
 func classifyScanError(err error) (string, string) {

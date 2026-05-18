@@ -1,7 +1,7 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.24.2
+- **Scanner Version**: v0.25.0
 - **JSON Schema Version**: 1.1
 
 ## Summary
@@ -69,13 +69,13 @@
 
 #### Cipher Probe Results
 
-Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.
+Raw probe evidence is ClientHello-only. `clienthello-serverhello` and `clienthello-hrr-serverhello` evidence means the server selected a cipher in ServerHello, but the probe still does not complete a full TLS handshake.
 
-| Cipher Suite | Status | Alert | Error |
-| --- | --- | --- | --- |
-| TLS_AES_128_GCM_SHA256 | supported | - | - |
-| TLS_AES_256_GCM_SHA384 | supported | - | - |
-| TLS_CHACHA20_POLY1305_SHA256 | supported | - | - |
+| Cipher Suite | Status | Evidence | Group | HRR | Alert | Error |
+| --- | --- | --- | --- | --- | --- | --- |
+| TLS_AES_128_GCM_SHA256 | supported | clienthello-serverhello | X25519 | - | - | - |
+| TLS_AES_256_GCM_SHA384 | supported | clienthello-serverhello | X25519 | - | - | - |
+| TLS_CHACHA20_POLY1305_SHA256 | supported | clienthello-serverhello | X25519 | - | - | - |
 
 ## Certificate Details
 

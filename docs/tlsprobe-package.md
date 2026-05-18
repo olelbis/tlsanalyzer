@@ -11,7 +11,7 @@ full TLS handshakes.
 ## Install
 
 ```bash
-go get github.com/olelbis/tlsanalyzer@v0.24.2
+go get github.com/olelbis/tlsanalyzer@v0.25.0
 ```
 
 ## Example
@@ -33,7 +33,8 @@ func main() {
 		Address:    net.JoinHostPort("example.com", "443"),
 		ServerName: "example.com",
 		Timeout:    5 * time.Second,
-		ALPN:       []string{"h2", "http/1.1"},
+		ALPN:           []string{"h2", "http/1.1"},
+		KeyShareGroups: tlsprobe.SupportedKeyShareGroups(),
 	}, tlsprobe.SupportedTLS13CipherSuites())
 	if err != nil {
 		panic(err)
@@ -55,6 +56,7 @@ Public entry points:
 - `ConfigError`
 - `ValidateOptions`
 - `SupportedTLS13CipherSuites`
+- `SupportedKeyShareGroups`
 - `ProbeTLS13CipherSuite`
 - `ProbeTLS13CipherSuites`
 
@@ -64,6 +66,12 @@ protocol outcomes are normally returned as `Result` values with a `Status`.
 Consumers should rely on `Status` values for automation. `Result.Error` is
 human-readable diagnostic detail and may change while the package remains under
 `v0.x`.
+
+`Result` also includes optional evidence metadata:
+
+- `SelectedGroup` and `SelectedGroupName` when ServerHello or HelloRetryRequest exposes a key share group.
+- `HelloRetryRequest` and `HelloRetryRequestRetried` when the server asks the probe to retry with another group.
+- `Alert`, `AlertLevel` and `AlertDescription` when the server returns a TLS alert.
 
 ## Status Values
 
@@ -81,6 +89,6 @@ human-readable diagnostic detail and may change while the package remains under
 
 - TLS 1.3 only.
 - ClientHello-only evidence; no full TLS handshake completion.
-- Fixed supported key share groups for now: X25519 and P-256.
-- No attempt to parse every legal fragmented TLS handshake shape.
+- Supported key share groups are configurable. Defaults are X25519, P-256, P-384 and P-521.
+- Fragmented handshake records are reassembled for ServerHello parsing, but this is still a focused probe rather than a complete TLS parser.
 - API is public but preview-level until a future `v1.0` compatibility freeze.

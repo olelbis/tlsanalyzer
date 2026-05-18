@@ -2,6 +2,24 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.25.0 - 2026-05-19
+
+### Added
+
+- Added configurable TLS 1.3 raw probe key share groups with X25519, P-256, P-384 and P-521 support.
+- Added raw probe metadata for selected key share group, HelloRetryRequest retry evidence, raw alert codes and per-cipher evidence level.
+- Added JSON and Markdown output fields that expose stronger TLS 1.3 raw probe evidence without claiming full-handshake completion.
+
+### Changed
+
+- Hardened TLS 1.3 raw probe parsing so fragmented handshake records can be reassembled before classification.
+- Clarified raw-probe console and Markdown summaries as ClientHello-only ServerHello evidence.
+- Moved the preview maintenance line forward to `v0.25.x` after compatibility-preserving TLS 1.3 hardening.
+
+### Tests
+
+- Added offline raw-probe fixtures for fragmented handshakes, configured key share groups, selected group metadata and unsupported group validation.
+
 ## v0.24.2 - 2026-05-19
 
 ### Changed

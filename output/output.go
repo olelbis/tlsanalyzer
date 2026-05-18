@@ -135,12 +135,19 @@ func appendCipherProbeResultsMarkdown(sb *strings.Builder, result scan.TLSScanRe
 
 	sb.WriteString("\n#### Cipher Probe Results\n\n")
 	if result.CipherDiscovery == scan.CipherDiscoveryRawProbed {
-		sb.WriteString("Raw probe evidence is ClientHello-only and does not complete full TLS handshakes.\n\n")
+		sb.WriteString("Raw probe evidence is ClientHello-only. `clienthello-serverhello` and `clienthello-hrr-serverhello` evidence means the server selected a cipher in ServerHello, but the probe still does not complete a full TLS handshake.\n\n")
 	}
-	sb.WriteString("| Cipher Suite | Status | Alert | Error |\n")
-	sb.WriteString("| --- | --- | --- | --- |\n")
+	sb.WriteString("| Cipher Suite | Status | Evidence | Group | HRR | Alert | Error |\n")
+	sb.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, probe := range result.CipherProbeResults {
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", escapeTable(probe.CipherSuite), emptyDash(probe.Status), emptyDash(probe.Alert), emptyDash(probe.Error)))
+		hrr := "-"
+		if probe.HelloRetryRequest {
+			hrr = "yes"
+			if probe.HelloRetryRequestRetried {
+				hrr = "retried"
+			}
+		}
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n", escapeTable(probe.CipherSuite), emptyDash(probe.Status), emptyDash(probe.Evidence), emptyDash(probe.SelectedGroup), hrr, emptyDash(probe.Alert), emptyDash(probe.Error)))
 	}
 }
 
@@ -212,7 +219,7 @@ func summarizeRawProbeResults(results []scan.TLSScanResult) (string, bool) {
 	if total == 0 {
 		return "", false
 	}
-	return fmt.Sprintf("%d/%d ciphers supported (ClientHello-only; no full handshakes)", supported, total), true
+	return fmt.Sprintf("%d/%d ciphers supported (ClientHello-only ServerHello evidence; no full handshakes)", supported, total), true
 }
 
 func summarizeProtocolFindings(results []scan.TLSScanResult) string {

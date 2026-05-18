@@ -45,10 +45,16 @@ type JSONScanResult struct {
 }
 
 type JSONProbeResult struct {
-	CipherSuite string `json:"cipher_suite"`
-	Status      string `json:"status"`
-	Alert       string `json:"alert,omitempty"`
-	Error       string `json:"error,omitempty"`
+	CipherSuite              string `json:"cipher_suite"`
+	Status                   string `json:"status"`
+	Evidence                 string `json:"evidence,omitempty"`
+	Alert                    string `json:"alert,omitempty"`
+	AlertLevel               *uint8 `json:"alert_level,omitempty"`
+	AlertDescription         *uint8 `json:"alert_description,omitempty"`
+	SelectedGroup            string `json:"selected_group,omitempty"`
+	HelloRetryRequest        bool   `json:"hello_retry_request,omitempty"`
+	HelloRetryRequestRetried bool   `json:"hello_retry_request_retried,omitempty"`
+	Error                    string `json:"error,omitempty"`
 }
 
 type JSONCertificate struct {
@@ -128,13 +134,26 @@ func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {
 	jsonResults := make([]JSONProbeResult, 0, len(results))
 	for _, result := range results {
 		jsonResults = append(jsonResults, JSONProbeResult{
-			CipherSuite: result.CipherSuite,
-			Status:      result.Status,
-			Alert:       result.Alert,
-			Error:       result.Error,
+			CipherSuite:              result.CipherSuite,
+			Status:                   result.Status,
+			Evidence:                 result.Evidence,
+			Alert:                    result.Alert,
+			AlertLevel:               alertCodePointer(result.Alert, result.AlertLevel),
+			AlertDescription:         alertCodePointer(result.Alert, result.AlertDescription),
+			SelectedGroup:            result.SelectedGroup,
+			HelloRetryRequest:        result.HelloRetryRequest,
+			HelloRetryRequestRetried: result.HelloRetryRequestRetried,
+			Error:                    result.Error,
 		})
 	}
 	return jsonResults
+}
+
+func alertCodePointer(alert string, code uint8) *uint8 {
+	if alert == "" {
+		return nil
+	}
+	return &code
 }
 
 func rawProbeFullHandshakeFlag(result scan.TLSScanResult) *bool {

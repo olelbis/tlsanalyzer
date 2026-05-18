@@ -40,12 +40,15 @@ const (
 //
 // Address is required and must be a host:port TCP address. ServerName is used
 // for SNI when set. Timeout applies to connect, write and read operations.
-// ALPN values are advertised as-is after empty values are ignored.
+// ALPN values are advertised as-is after empty values are ignored. KeyShareGroups
+// controls the supported groups advertised by the probe; when empty, a
+// conservative default set is used.
 type Options struct {
-	Address    string
-	ServerName string
-	Timeout    time.Duration
-	ALPN       []string
+	Address        string
+	ServerName     string
+	Timeout        time.Duration
+	ALPN           []string
+	KeyShareGroups []uint16
 }
 
 // Result contains evidence from one raw TLS 1.3 cipher probe.
@@ -53,11 +56,17 @@ type Options struct {
 // The probe stops after enough handshake evidence is observed to classify the
 // offered cipher suite. It does not complete a full TLS handshake.
 type Result struct {
-	CipherSuite uint16
-	Name        string
-	Status      Status
-	Alert       string
-	Error       string
+	CipherSuite              uint16
+	Name                     string
+	Status                   Status
+	Alert                    string
+	AlertLevel               uint8
+	AlertDescription         uint8
+	SelectedGroup            uint16
+	SelectedGroupName        string
+	HelloRetryRequest        bool
+	HelloRetryRequestRetried bool
+	Error                    string
 }
 
 // ConfigError describes an invalid probe option.
@@ -95,8 +104,19 @@ const (
 	extensionSupportedVersions   uint16 = 43
 	extensionPSKModes            uint16 = 45
 
-	groupX25519 uint16 = 0x001d
-	groupP256   uint16 = 0x0017
+	// GroupP256 is the TLS supported group ID for secp256r1.
+	GroupP256 uint16 = 0x0017
+	// GroupP384 is the TLS supported group ID for secp384r1.
+	GroupP384 uint16 = 0x0018
+	// GroupP521 is the TLS supported group ID for secp521r1.
+	GroupP521 uint16 = 0x0019
+	// GroupX25519 is the TLS supported group ID for X25519.
+	GroupX25519 uint16 = 0x001d
+
+	groupP256   = GroupP256
+	groupP384   = GroupP384
+	groupP521   = GroupP521
+	groupX25519 = GroupX25519
 )
 
 type clientHelloSpec struct {
@@ -165,6 +185,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		timeout = 5 * time.Second
 	}
 
+	keyShareGroups := normalizedKeyShareGroups(opts)
 	sessionID := make([]byte, 32)
 	if _, err := rand.Read(sessionID); err != nil {
 		result.Error = err.Error()
@@ -175,7 +196,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		opts:          opts,
 		cipherSuite:   cipherSuite,
 		sessionID:     sessionID,
-		keyShareGroup: groupX25519,
+		keyShareGroup: keyShareGroups[0],
 	})
 	if err != nil {
 		result.Error = err.Error()
@@ -213,6 +234,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		read.result.Error = retryErr.Error()
 		return read.result, nil
 	}
+	read.result.HelloRetryRequestRetried = true
 	if _, err := conn.Write(retryHello); err != nil {
 		read.result.Status = statusForNetworkError(err)
 		read.result.Error = stableNetworkError(err)
@@ -229,6 +251,11 @@ func SupportedTLS13CipherSuites() []uint16 {
 		tls.TLS_AES_256_GCM_SHA384,
 		tls.TLS_CHACHA20_POLY1305_SHA256,
 	}
+}
+
+// SupportedKeyShareGroups returns the key share groups understood by the probe.
+func SupportedKeyShareGroups() []uint16 {
+	return append([]uint16(nil), defaultKeyShareGroups()...)
 }
 
 // ValidateOptions checks probe configuration without opening a network connection.
@@ -258,6 +285,14 @@ func ValidateOptions(opts Options) error {
 			return configError("alpn", fmt.Sprintf("protocol %q is longer than 255 bytes", protocol), nil)
 		}
 	}
+	if opts.KeyShareGroups != nil && len(opts.KeyShareGroups) == 0 {
+		return configError("key_share_groups", "must not be empty when set", nil)
+	}
+	for _, group := range opts.KeyShareGroups {
+		if !isSupportedKeyShareGroup(group) {
+			return configError("key_share_groups", fmt.Sprintf("unsupported group 0x%04x", group), nil)
+		}
+	}
 	return nil
 }
 
@@ -273,7 +308,7 @@ func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, h
 	if hrr.selectedGroup == 0 {
 		return nil, errors.New("HelloRetryRequest did not include a selected group")
 	}
-	if !isSupportedKeyShareGroup(hrr.selectedGroup) {
+	if !isAllowedKeyShareGroup(hrr.selectedGroup, normalizedKeyShareGroups(opts)) {
 		return nil, fmt.Errorf("HelloRetryRequest selected unsupported group 0x%04x", hrr.selectedGroup)
 	}
 
@@ -324,10 +359,14 @@ func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
 func generateKeyShare(group uint16) ([]byte, error) {
 	var curve ecdh.Curve
 	switch group {
-	case groupX25519:
+	case GroupX25519:
 		curve = ecdh.X25519()
-	case groupP256:
+	case GroupP256:
 		curve = ecdh.P256()
+	case GroupP384:
+		curve = ecdh.P384()
+	case GroupP521:
+		curve = ecdh.P521()
 	default:
 		return nil, fmt.Errorf("unsupported key share group 0x%04x", group)
 	}
@@ -348,8 +387,9 @@ func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 	}
 
 	var supportedGroups []byte
-	supportedGroups = appendUint16(supportedGroups, groupX25519)
-	supportedGroups = appendUint16(supportedGroups, groupP256)
+	for _, group := range normalizedKeyShareGroups(spec.opts) {
+		supportedGroups = appendUint16(supportedGroups, group)
+	}
 	extensions = appendExtension(extensions, extensionSupportedGroups, appendOpaque16(nil, supportedGroups))
 
 	var signatureAlgorithms []byte
@@ -393,6 +433,7 @@ func readProbeResult(conn net.Conn, result Result) (Result, error) {
 }
 
 func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
+	var handshakePayload []byte
 	for i := 0; i < 8; i++ {
 		header := make([]byte, 5)
 		if _, err := io.ReadFull(conn, header); err != nil {
@@ -421,9 +462,15 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 		case 21:
 			result.Status = StatusAlert
 			result.Alert = describeAlert(payload)
+			result.AlertLevel, result.AlertDescription = alertCodes(payload)
 			return readResult{result: result}, nil
 		case 22:
-			return parseHandshakePayload(payload, result), nil
+			handshakePayload = append(handshakePayload, payload...)
+			read, needMore := parseHandshakePayloadBuffered(handshakePayload, result)
+			if needMore {
+				continue
+			}
+			return read, nil
 		default:
 			result.Status = StatusInconclusive
 			result.Error = fmt.Sprintf("unexpected TLS record type %d", header[0])
@@ -437,13 +484,25 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 }
 
 func parseHandshakePayload(payload []byte, result Result) readResult {
+	read, _ := parseHandshakePayloadWithMode(payload, result, false)
+	return read
+}
+
+func parseHandshakePayloadBuffered(payload []byte, result Result) (readResult, bool) {
+	return parseHandshakePayloadWithMode(payload, result, true)
+}
+
+func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplete bool) (readResult, bool) {
 	for len(payload) >= 4 {
 		handshakeType := payload[0]
 		handshakeLength := int(payload[1])<<16 | int(payload[2])<<8 | int(payload[3])
 		if handshakeLength > len(payload)-4 {
+			if allowIncomplete {
+				return readResult{result: result}, true
+			}
 			result.Status = StatusInconclusive
 			result.Error = "incomplete handshake message"
-			return readResult{result: result}
+			return readResult{result: result}, false
 		}
 		body := payload[4 : 4+handshakeLength]
 		payload = payload[4+handshakeLength:]
@@ -451,12 +510,15 @@ func parseHandshakePayload(payload []byte, result Result) readResult {
 		if handshakeType != 2 {
 			continue
 		}
-		return parseServerHello(body, result)
+		return parseServerHello(body, result), false
 	}
 
+	if allowIncomplete {
+		return readResult{result: result}, true
+	}
 	result.Status = StatusInconclusive
 	result.Error = "ServerHello not found"
-	return readResult{result: result}
+	return readResult{result: result}, false
 }
 
 func parseServerHello(body []byte, result Result) readResult {
@@ -468,9 +530,14 @@ func parseServerHello(body []byte, result Result) readResult {
 
 	if bytes.Equal(body[2:34], helloRetryRequestRandom) {
 		result.Status = StatusHelloRetryRequest
+		result.HelloRetryRequest = true
 		hrr, err := parseHelloRetryRequest(body)
 		if err != nil {
 			result.Error = err.Error()
+		}
+		if hrr != nil {
+			result.SelectedGroup = hrr.selectedGroup
+			result.SelectedGroupName = keyShareGroupName(hrr.selectedGroup)
 		}
 		return readResult{result: result, hrr: hrr}
 	}
@@ -486,6 +553,20 @@ func parseServerHello(body []byte, result Result) readResult {
 	offset += sessionIDLength
 
 	selectedCipher := binary.BigEndian.Uint16(body[offset : offset+2])
+	offset += 2
+	if offset >= len(body) {
+		result.Status = StatusInconclusive
+		result.Error = "ServerHello compression method is missing"
+		return readResult{result: result}
+	}
+	offset++
+	if offset+2 <= len(body) {
+		selectedGroup, err := parseServerHelloSelectedGroup(body[offset:])
+		if err == nil && selectedGroup != 0 {
+			result.SelectedGroup = selectedGroup
+			result.SelectedGroupName = keyShareGroupName(selectedGroup)
+		}
+	}
 	if selectedCipher == result.CipherSuite {
 		result.Status = StatusSupported
 		return readResult{result: result}
@@ -546,7 +627,82 @@ func parseHelloRetryRequest(body []byte) (*helloRetryRequest, error) {
 }
 
 func isSupportedKeyShareGroup(group uint16) bool {
-	return group == groupX25519 || group == groupP256
+	switch group {
+	case GroupX25519, GroupP256, GroupP384, GroupP521:
+		return true
+	default:
+		return false
+	}
+}
+
+func isAllowedKeyShareGroup(group uint16, groups []uint16) bool {
+	for _, allowed := range groups {
+		if group == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultKeyShareGroups() []uint16 {
+	return []uint16{GroupX25519, GroupP256, GroupP384, GroupP521}
+}
+
+func normalizedKeyShareGroups(opts Options) []uint16 {
+	if len(opts.KeyShareGroups) == 0 {
+		return defaultKeyShareGroups()
+	}
+	return append([]uint16(nil), opts.KeyShareGroups...)
+}
+
+func keyShareGroupName(group uint16) string {
+	switch group {
+	case GroupX25519:
+		return "X25519"
+	case GroupP256:
+		return "P-256"
+	case GroupP384:
+		return "P-384"
+	case GroupP521:
+		return "P-521"
+	case 0:
+		return ""
+	default:
+		return fmt.Sprintf("0x%04x", group)
+	}
+}
+
+func parseServerHelloSelectedGroup(data []byte) (uint16, error) {
+	if len(data) < 2 {
+		return 0, errors.New("ServerHello extensions are missing")
+	}
+	extensionsLength := int(binary.BigEndian.Uint16(data[0:2]))
+	data = data[2:]
+	if extensionsLength > len(data) {
+		return 0, errors.New("ServerHello extensions are truncated")
+	}
+	extensions := data[:extensionsLength]
+	for len(extensions) > 0 {
+		if len(extensions) < 4 {
+			return 0, errors.New("ServerHello extension header is truncated")
+		}
+		extensionType := binary.BigEndian.Uint16(extensions[0:2])
+		extensionLength := int(binary.BigEndian.Uint16(extensions[2:4]))
+		extensions = extensions[4:]
+		if extensionLength > len(extensions) {
+			return 0, errors.New("ServerHello extension data is truncated")
+		}
+		extensionData := extensions[:extensionLength]
+		extensions = extensions[extensionLength:]
+		if extensionType != extensionKeyShare {
+			continue
+		}
+		if len(extensionData) < 2 {
+			return 0, errors.New("ServerHello key_share extension is malformed")
+		}
+		return binary.BigEndian.Uint16(extensionData[0:2]), nil
+	}
+	return 0, nil
 }
 
 func statusForNetworkError(err error) Status {
@@ -589,6 +745,13 @@ func describeAlert(payload []byte) string {
 		return "malformed alert"
 	}
 	return fmt.Sprintf("%s/%s", alertLevelName(payload[0]), alertDescriptionName(payload[1]))
+}
+
+func alertCodes(payload []byte) (uint8, uint8) {
+	if len(payload) < 2 {
+		return 0, 0
+	}
+	return payload[0], payload[1]
 }
 
 func alertLevelName(level byte) string {

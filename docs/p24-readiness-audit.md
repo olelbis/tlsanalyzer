@@ -30,8 +30,8 @@ compatibility promise.
   Go can force TLS 1.3 cipher suites through `crypto/tls`.
 - The raw probe has a small public surface: `Options`, `Result`, `Status`,
   `ConfigError`,
-  `ProbeTLS13CipherSuite`, `ProbeTLS13CipherSuites`, `SupportedTLS13CipherSuites`
-  and `ValidateOptions`.
+  `ProbeTLS13CipherSuite`, `ProbeTLS13CipherSuites`, `SupportedTLS13CipherSuites`,
+  `SupportedKeyShareGroups` and `ValidateOptions`.
 
 ## P22 Decisions
 
@@ -43,16 +43,16 @@ P22 resolved the first public shape as follows:
 - Status values: public string constants are the automation contract.
 - Result errors: human-readable diagnostics, not a stable parsing contract.
 - Probe limits: TLS 1.3 only, ClientHello-only, no full TLS handshake completion.
-- Key share groups: fixed to the narrow current set for the first preview.
+- Key share groups: configurable inside a conservative supported set.
 
 ## Remaining Library Work
 
 Keep future raw-probe-library work conservative:
 
-- Add fixtures for more legal TLS fragmentation shapes.
-- Decide whether public results should expose selected group, retry count, raw
-  alert level/description and HelloRetryRequest retry metadata.
-- Decide whether supported key share groups should become configurable.
+- Add broader fixtures for legal TLS fragmentation shapes beyond the current
+  ServerHello reassembly coverage.
+- Decide whether public results should expose retry count beyond the current
+  HelloRetryRequest boolean metadata.
 - Consider a standalone module after at least one or two preview releases.
 
 ## Acceptance Criteria For P22

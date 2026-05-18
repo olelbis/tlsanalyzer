@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.24.x Maintenance
+## Current Focus - v0.25.x Maintenance
 
-The feature backlog from P1 through P24 is complete. The `v0.24.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
+The feature backlog from P1 through P25 is complete. The `v0.25.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
 
 ## P1 - Correctness and Trust - Done
 
@@ -661,3 +661,19 @@ Acceptance criteria:
 - Add tests for the tightened raw-probe validation.
 - Make release creation idempotent if duplicate tag-release runs start for the same version.
 - Link the audit from the README.
+
+## P25 - TLS 1.3 Raw Probe Evidence Hardening - Done
+
+### Harden parser and report evidence
+
+Problem: the public raw TLS 1.3 probe was useful, but its evidence could be clearer and the parser needed stronger fixture coverage before any future standalone-library decision.
+
+Status: done.
+
+Acceptance criteria:
+
+- Reassemble fragmented TLS handshake records before classifying ServerHello evidence.
+- Add configurable key share groups while keeping conservative defaults.
+- Expose selected key share group, HelloRetryRequest retry status, raw alert codes and evidence level in probe results.
+- Carry the new evidence into JSON, Markdown and console summaries without claiming full-handshake completion.
+- Cover the new behavior with offline tests.

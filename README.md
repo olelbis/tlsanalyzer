@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in preview maintenance on the `v0.24.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is in preview maintenance on the `v0.25.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
 ## What It Does
 
@@ -134,6 +134,7 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 - JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
 - TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
+- Raw probe reports include ClientHello-only evidence level, selected key share group, HelloRetryRequest retry metadata and TLS alert codes when available.
 - The raw TLS 1.3 probe is available as the preview `tlsprobe` package inside this module.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
 - Custom policy gates can require or forbid TLS versions and ALPN protocols, enforce minimum certificate key size and require a minimum certificate validity window.
@@ -185,7 +186,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.2 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.25.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
