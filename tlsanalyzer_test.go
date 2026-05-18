@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/analyzer"
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -576,13 +577,13 @@ func TestLoadTargetsFileAppliesDefaultSNI(t *testing.T) {
 }
 
 func TestHasTransientScanFailure(t *testing.T) {
-	if !hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusTimeout}}) {
+	if !scan.IsTransientStatus(scan.ScanStatusTimeout) {
 		t.Fatal("timeout should be retryable")
 	}
-	if !hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusNetworkError}}) {
+	if !scan.IsTransientStatus(scan.ScanStatusNetworkError) {
 		t.Fatal("network error should be retryable")
 	}
-	if hasTransientScanFailure([]scan.TLSScanResult{{Status: scan.ScanStatusUnsupported}}) {
+	if scan.IsTransientStatus(scan.ScanStatusUnsupported) {
 		t.Fatal("unsupported protocol should not be retryable")
 	}
 }
@@ -593,13 +594,13 @@ func TestExecuteScanRunReturnsStructuredResults(t *testing.T) {
 
 	var started []string
 	supportedHookCalled := false
-	result, err := executeScanRun(scanRunOptions{
+	result, err := analyzer.Run(analyzer.Options{
 		Host:       host,
 		Port:       port,
 		Timeout:    time.Second,
 		MinVersion: tls.VersionTLS12,
 		SkipVerify: true,
-	}, scanRunHooks{
+	}, analyzer.Hooks{
 		VersionStart: func(versionName string, _ uint16, _ bool) {
 			started = append(started, versionName)
 		},
@@ -615,7 +616,7 @@ func TestExecuteScanRunReturnsStructuredResults(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("executeScanRun() error = %v", err)
+		t.Fatalf("analyzer.Run() error = %v", err)
 	}
 	if len(started) != 2 || started[0] != "TLS 1.2" || started[1] != "TLS 1.3" {
 		t.Fatalf("started versions = %v, want TLS 1.2 and TLS 1.3", started)

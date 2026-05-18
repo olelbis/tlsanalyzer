@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/analyzer"
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -300,11 +301,11 @@ func executeBatch(targets []targetSpec, settings batchSettings) []batchTargetRes
 
 func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetResult {
 	attempts := 0
-	var last scanRunResult
+	var last analyzer.Result
 	var lastErr error
 	for attempt := 0; attempt <= settings.retries; attempt++ {
 		attempts++
-		last, lastErr = executeScanRun(scanRunOptions{
+		last, lastErr = analyzer.Run(analyzer.Options{
 			Host:         target.Host,
 			Port:         target.Port,
 			ServerName:   target.SNI,
@@ -313,7 +314,7 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 			ForceCiphers: settings.forceCiphers,
 			SkipVerify:   settings.skipVerify,
 			PolicyConfig: settings.policyConfig,
-		}, scanRunHooks{})
+		}, analyzer.Hooks{})
 		if lastErr != nil || !hasTransientScanFailure(last.Results) || attempt == settings.retries {
 			break
 		}
@@ -336,7 +337,7 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 
 func hasTransientScanFailure(results []scan.TLSScanResult) bool {
 	for _, result := range results {
-		if result.Status == scan.ScanStatusNetworkError || result.Status == scan.ScanStatusTimeout {
+		if scan.IsTransientStatus(result.Status) {
 			return true
 		}
 	}
@@ -354,7 +355,7 @@ func exitCodeForTarget(result batchTargetResult) int {
 	if result.Error != "" {
 		return 1
 	}
-	if scanRunFailed(result.Results) {
+	if analyzer.RunFailed(result.Results) {
 		return 1
 	}
 	if result.Policy.Enabled && !result.Policy.Passed {

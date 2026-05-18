@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/olelbis/tlsanalyzer/analyzer"
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/certs"
 	"github.com/olelbis/tlsanalyzer/output"
@@ -149,7 +151,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", h, port)
 	}
 
-	runResult, err := executeScanRun(scanRunOptions{
+	runResult, err := analyzer.Run(analyzer.Options{
 		Host:         h,
 		Port:         port,
 		ServerName:   serverName,
@@ -158,7 +160,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		ForceCiphers: cfg.forceCiphers,
 		SkipVerify:   cfg.skipVerify,
 		PolicyConfig: policyConfig,
-	}, scanRunHooks{
+	}, analyzer.Hooks{
 		VersionStart: func(name string, version uint16, probeCiphers bool) {
 			if verboseOutput {
 				fmt.Fprintf(stdout, "\n👉 Trying TLS version %s\n", name)
@@ -266,7 +268,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		fmt.Fprintln(stdout, string(jsonReport))
 	}
-	if scanRunFailed(results) {
+	if analyzer.RunFailed(results) {
 		return 1
 	}
 	if policyResult.Enabled && !policyResult.Passed {
@@ -428,4 +430,12 @@ func validatePort(port string) error {
 		return fmt.Errorf("port must be in range 1..65535")
 	}
 	return nil
+}
+
+func isPreTLS13(version uint16) bool {
+	return version <= tls.VersionTLS12
+}
+
+func isTLS13(version uint16) bool {
+	return version == tls.VersionTLS13
 }

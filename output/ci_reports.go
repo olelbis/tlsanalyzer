@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -107,7 +108,7 @@ type junitFailure struct {
 	Text    string `xml:",chardata"`
 }
 
-// WriteSARIFReportToFile writes SARIF v2.1.0 output for policy findings.
+// WriteSARIFReportToFile writes SARIF v2.1.0 output for policy and scan findings.
 func WriteSARIFReportToFile(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, outputPath string, policyResult *policy.Result) error {
 	report, err := BuildSARIFReport(host, port, serverName, scannerVersion, results, policyResult)
 	if err != nil {
@@ -119,7 +120,7 @@ func WriteSARIFReportToFile(host, port, serverName, scannerVersion string, resul
 	return os.WriteFile(outputPath, report, 0640)
 }
 
-// BuildSARIFReport builds a SARIF v2.1.0 report from enabled policy failures.
+// BuildSARIFReport builds a SARIF v2.1.0 report from policy failures and scan errors.
 func BuildSARIFReport(host, port, serverName, scannerVersion string, results []scan.TLSScanResult, policyResult *policy.Result) ([]byte, error) {
 	return BuildSARIFBatchReport([]TargetReport{{
 		Host:           host,
@@ -232,7 +233,7 @@ func buildJUnitSuite(report TargetReport) junitTestSuite {
 			Name:      result.Version,
 			Time:      junitSeconds(result.DurationMillis),
 		}
-		if isScanExecutionError(result.Status) {
+		if scan.IsExecutionStatus(result.Status) {
 			testCase.Error = &junitFailure{
 				Message: valueOrDefault(result.ErrorMessage, result.Status),
 				Type:    result.Status,
@@ -388,7 +389,7 @@ func sarifResultsForScanErrors(host, port, serverName string, scanErrors []scan.
 func scanExecutionErrors(results []scan.TLSScanResult) []scan.TLSScanResult {
 	scanErrors := make([]scan.TLSScanResult, 0)
 	for _, result := range results {
-		if isScanExecutionError(result.Status) {
+		if scan.IsExecutionStatus(result.Status) {
 			scanErrors = append(scanErrors, result)
 		}
 	}
@@ -408,7 +409,7 @@ func scanErrorSnippet(result scan.TLSScanResult) string {
 
 func targetURI(host, port, serverName string) string {
 	label := targetLabel(host, port, serverName)
-	return "tlsanalyzer://" + strings.ReplaceAll(label, " ", "%20")
+	return "tlsanalyzer://" + url.PathEscape(label)
 }
 
 func targetLabel(host, port, serverName string) string {
@@ -420,15 +421,6 @@ func targetLabel(host, port, serverName string) string {
 		label += " sni=" + serverName
 	}
 	return label
-}
-
-func isScanExecutionError(status string) bool {
-	switch status {
-	case scan.ScanStatusNetworkError, scan.ScanStatusTimeout, scan.ScanStatusHandshake:
-		return true
-	default:
-		return false
-	}
 }
 
 func totalDurationMillis(results []scan.TLSScanResult) int64 {

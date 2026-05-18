@@ -2,6 +2,19 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.21.0 - 2026-05-18
+
+### Changed
+
+- Extracted scan orchestration and policy evaluation into the new `analyzer` package as the first public core boundary toward a future library API.
+- Centralized scan execution and transient-status predicates in the `scan` package to avoid duplicated status logic across CLI and reports.
+- Split JSON report generation into a dedicated output file while preserving the existing report API and JSON schema.
+- Hardened SARIF target URIs with URL path escaping and refreshed SARIF comments to include scan execution findings.
+
+### Tests
+
+- Added analyzer and scan status predicate coverage, then reran the full test suite and vet checks.
+
 ## v0.20.1 - 2026-05-18
 
 ### Fixed

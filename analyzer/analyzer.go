@@ -1,7 +1,6 @@
-package main
+package analyzer
 
 import (
-	"crypto/tls"
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -9,7 +8,8 @@ import (
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
-type scanRunOptions struct {
+// Options configures one TLS analysis run for a single target.
+type Options struct {
 	Host         string
 	Port         string
 	ServerName   string
@@ -21,18 +21,21 @@ type scanRunOptions struct {
 	Now          time.Time
 }
 
-type scanRunResult struct {
+// Result contains scan evidence and the evaluated policy result.
+type Result struct {
 	Results []scan.TLSScanResult
 	Policy  policy.Result
 }
 
-type scanRunHooks struct {
+// Hooks lets callers observe scan progress without coupling core analysis to UI output.
+type Hooks struct {
 	VersionStart func(versionName string, version uint16, probeCiphers bool)
 	Unsupported  func(result scan.TLSScanResult)
 	Supported    func(result scan.TLSScanResult, negotiatedCipher string) error
 }
 
-func executeScanRun(opts scanRunOptions, hooks scanRunHooks) (scanRunResult, error) {
+// Run executes the TLS scan matrix and evaluates the configured policy.
+func Run(opts Options, hooks Hooks) (Result, error) {
 	probeCiphers := opts.ForceCiphers || policy.RequiresCipherProbe(opts.PolicyConfig)
 	scanOptions := scan.Options{
 		Host:         opts.Host,
@@ -77,7 +80,7 @@ func executeScanRun(opts scanRunOptions, hooks scanRunHooks) (scanRunResult, err
 
 		if hooks.Supported != nil {
 			if err := hooks.Supported(result, negotiatedCipher); err != nil {
-				return scanRunResult{Results: results}, err
+				return Result{Results: results}, err
 			}
 		}
 		results = append(results, result)
@@ -88,37 +91,21 @@ func executeScanRun(opts scanRunOptions, hooks scanRunHooks) (scanRunResult, err
 		now = time.Now()
 	}
 
-	return scanRunResult{
+	return Result{
 		Results: results,
 		Policy:  policy.Evaluate(results, opts.PolicyConfig, now),
 	}, nil
 }
 
-func scanRunFailed(results []scan.TLSScanResult) bool {
+// RunFailed reports whether the run produced only operational scan errors.
+func RunFailed(results []scan.TLSScanResult) bool {
 	if len(results) == 0 {
 		return true
 	}
 	for _, result := range results {
-		if !isScanExecutionStatus(result.Status) {
+		if !scan.IsExecutionStatus(result.Status) {
 			return false
 		}
 	}
 	return true
-}
-
-func isScanExecutionStatus(status string) bool {
-	switch status {
-	case scan.ScanStatusNetworkError, scan.ScanStatusTimeout, scan.ScanStatusHandshake:
-		return true
-	default:
-		return false
-	}
-}
-
-func isPreTLS13(version uint16) bool {
-	return version <= tls.VersionTLS12
-}
-
-func isTLS13(version uint16) bool {
-	return version == tls.VersionTLS13
 }
