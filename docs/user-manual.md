@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.21.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.22.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -55,6 +55,20 @@ gh attestation verify tlsanalyzer-linux-amd64 --repo olelbis/tlsanalyzer
 ```
 
 Container provenance is attached to the GHCR image by the release workflow.
+
+## Go Package Usage
+
+The CLI is backed by the reusable `analyzer` package:
+
+```go
+opts := analyzer.DefaultOptions("example.com")
+opts.MinVersion = tls.VersionTLS12
+opts.PolicyConfig = policy.Config{Name: policy.NameModern}
+
+result, err := analyzer.Run(opts, analyzer.Hooks{})
+```
+
+Use `analyzer.DefaultOptions` for CLI-like defaults, then override host, SNI, timeout, minimum TLS version and policy settings as needed. Operational target failures are represented in `result.Results` with scan statuses such as `network_error`, `timeout` and `handshake_error`; `Run` returns an error only for caller hook failures, wrapped as `*analyzer.HookError`.
 
 ## Basic Usage
 

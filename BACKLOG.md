@@ -623,3 +623,19 @@ Acceptance criteria:
 - Decide whether the library should live as a public package in this module or as a separate Go module.
 - Define semantic versioning and compatibility expectations for the library API.
 - Publish package documentation suitable for Go users.
+
+## P23 - Public Analyzer API - Done
+
+### Make the scan orchestration package usable by Go callers
+
+Problem: the scan orchestration was extracted into `analyzer`, but library callers still needed clearer defaults, examples and error semantics.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add CLI-like default options for package callers.
+- Document the analyzer API in Go package docs, README and user manual.
+- Return typed hook errors while keeping operational target failures as structured scan results.
+- Add examples suitable for `go doc`.
+- Add tests for defaults and hook error wrapping.

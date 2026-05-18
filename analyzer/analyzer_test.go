@@ -2,12 +2,26 @@ package analyzer
 
 import (
 	"crypto/tls"
+	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
 )
+
+func TestDefaultOptions(t *testing.T) {
+	opts := DefaultOptions("example.com")
+	if opts.Host != "example.com" {
+		t.Fatalf("Host = %q", opts.Host)
+	}
+	if opts.Port != DefaultPort || opts.Timeout != DefaultTimeout || opts.MinVersion != DefaultMinVersion {
+		t.Fatalf("defaults = port %q timeout %s min %x", opts.Port, opts.Timeout, opts.MinVersion)
+	}
+}
 
 func TestRunFailed(t *testing.T) {
 	tests := []struct {
@@ -31,6 +45,46 @@ func TestRunFailed(t *testing.T) {
 	}
 }
 
+func TestRunWrapsSupportedHookError(t *testing.T) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{MinVersion: tls.VersionTLS12, MaxVersion: tls.VersionTLS12}
+	server.StartTLS()
+	defer server.Close()
+
+	host, port, err := netSplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("split address: %v", err)
+	}
+
+	sentinel := errors.New("stop")
+	_, err = Run(Options{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		MinVersion: tls.VersionTLS12,
+		SkipVerify: true,
+	}, Hooks{
+		Supported: func(scan.TLSScanResult, string) error {
+			return sentinel
+		},
+	})
+	if err == nil {
+		t.Fatal("Run() error = nil")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("Run() error does not wrap sentinel: %v", err)
+	}
+	var hookErr *HookError
+	if !errors.As(err, &hookErr) {
+		t.Fatalf("Run() error type = %T, want *HookError", err)
+	}
+	if hookErr.Stage != HookStageSupported || hookErr.Version != "TLS 1.2" {
+		t.Fatalf("hook error = %+v", hookErr)
+	}
+}
+
 func TestRunEvaluatesPolicyWithInjectedClock(t *testing.T) {
 	result, err := Run(Options{
 		Host:       "127.0.0.1",
@@ -51,4 +105,12 @@ func TestRunEvaluatesPolicyWithInjectedClock(t *testing.T) {
 	if !result.Policy.Enabled {
 		t.Fatal("policy should be enabled")
 	}
+}
+
+func netSplitHostPort(address string) (string, string, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", "", err
+	}
+	return host, port, nil
 }

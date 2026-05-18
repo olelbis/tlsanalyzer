@@ -68,6 +68,26 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [Changelog](CHANGELOG.md): release history.
 - [Backlog](BACKLOG.md): prioritized future work.
 
+## Use As A Go Package
+
+The `analyzer` package exposes the same single-target scan orchestration used by the CLI:
+
+```go
+opts := analyzer.DefaultOptions("example.com")
+opts.MinVersion = tls.VersionTLS12
+opts.PolicyConfig = policy.Config{Name: policy.NameModern}
+
+result, err := analyzer.Run(opts, analyzer.Hooks{})
+if err != nil {
+	var hookErr *analyzer.HookError
+	if errors.As(err, &hookErr) {
+		// A caller-provided hook failed.
+	}
+}
+```
+
+Operational scan failures are returned as structured `scan.TLSScanResult` statuses such as `network_error`, `timeout` and `handshake_error`. `analyzer.Run` returns an error only when caller-provided hooks fail.
+
 ## Build From Source
 
 Requirements:
@@ -147,7 +167,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.21.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.22.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

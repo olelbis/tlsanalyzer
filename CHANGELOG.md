@@ -2,6 +2,19 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.22.0 - 2026-05-18
+
+### Added
+
+- Added `analyzer.DefaultOptions` and documented analyzer defaults for library callers.
+- Added `analyzer.HookError` with unwrap support so callers can distinguish hook failures from operational scan evidence.
+- Added analyzer package examples for Go documentation.
+- Documented package usage in the README and user manual.
+
+### Tests
+
+- Added coverage for analyzer defaults and hook error wrapping.
+
 ## v0.21.0 - 2026-05-18
 
 ### Changed
