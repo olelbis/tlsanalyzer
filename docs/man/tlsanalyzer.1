@@ -43,7 +43,8 @@ array of target objects or an object with a
 array.
 .TP
 .BR --concurrency " " \fIn\fR
-Maximum number of targets scanned concurrently in batch mode. Defaults to 4.
+Maximum number of targets scanned concurrently in batch mode. Defaults to 4
+and is capped at 64.
 .TP
 .BR --retries " " \fIn\fR
 Retry count for transient network failures in batch mode.
@@ -128,7 +129,8 @@ Scan completed and enabled policy checks passed.
 .TP
 .B 1
 Invalid input, scan setup failure, report write failure or certificate output
-failure.
+failure. Also returned when every attempted TLS version for a target ends in a
+scan execution error such as network_error, timeout or handshake_error.
 .TP
 .B 2
 CLI flag parsing failed.

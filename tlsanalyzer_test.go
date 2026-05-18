@@ -181,6 +181,31 @@ func TestRunRejectsInvalidSNI(t *testing.T) {
 	}
 }
 
+func TestRunUnreachableTargetReturnsRuntimeError(t *testing.T) {
+	host, port := closedLocalTCPAddress(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{
+		"--host", host,
+		"--port", port,
+		"--min-version", "1.3",
+		"--timeout", "1",
+		"--json",
+	}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report output.JSONReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, stdout.String())
+	}
+	if len(report.Results) != 1 || report.Results[0].Status != scan.ScanStatusNetworkError {
+		t.Fatalf("unexpected scan result: %+v", report.Results)
+	}
+}
+
 func TestParseCLIArgsUsesIndependentFlagSets(t *testing.T) {
 	var stderr bytes.Buffer
 
@@ -456,6 +481,34 @@ func TestRunBatchWritesJSONReport(t *testing.T) {
 	}
 }
 
+func TestRunBatchUnreachableTargetReturnsRuntimeError(t *testing.T) {
+	host, port := closedLocalTCPAddress(t)
+	targetsPath := filepath.Join(t.TempDir(), "targets.json")
+	if err := os.WriteFile(targetsPath, []byte(`[{"host":"`+host+`","port":"`+port+`"}]`), 0640); err != nil {
+		t.Fatalf("write targets: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{
+		"--targets-file", targetsPath,
+		"--min-version", "1.3",
+		"--timeout", "1",
+		"--json",
+	}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report output.JSONBatchReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, stdout.String())
+	}
+	if len(report.Targets) != 1 || report.Targets[0].ExitCode != 1 {
+		t.Fatalf("unexpected batch target evidence: %+v", report.Targets)
+	}
+}
+
 func TestLoadTargetsFileObjectAppliesDefaultPort(t *testing.T) {
 	targetsPath := filepath.Join(t.TempDir(), "targets.json")
 	if err := os.WriteFile(targetsPath, []byte(`{"targets":[{"host":"example.com","sni":"service.example.com"}]}`), 0640); err != nil {
@@ -471,6 +524,36 @@ func TestLoadTargetsFileObjectAppliesDefaultPort(t *testing.T) {
 	}
 	if targets[0].Host != "example.com" || targets[0].Port != "443" || targets[0].SNI != "service.example.com" {
 		t.Fatalf("target = %+v", targets[0])
+	}
+}
+
+func TestLoadTargetsFileRejectsUnknownFields(t *testing.T) {
+	targetsPath := filepath.Join(t.TempDir(), "targets.json")
+	if err := os.WriteFile(targetsPath, []byte(`[{"host":"example.com","server_name":"example.com"}]`), 0640); err != nil {
+		t.Fatalf("write targets: %v", err)
+	}
+
+	_, err := loadTargetsFile(targetsPath, "443", "")
+	if err == nil {
+		t.Fatal("loadTargetsFile() error = nil, want unknown field error")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("error = %v, want unknown field", err)
+	}
+}
+
+func TestBuildBatchSettingsRejectsExcessiveConcurrency(t *testing.T) {
+	_, err := buildBatchSettings(cliConfig{
+		port:          "443",
+		timeout:       5,
+		concurrency:   maxBatchConcurrency + 1,
+		minVersionStr: "1.2",
+	})
+	if err == nil {
+		t.Fatal("buildBatchSettings() error = nil, want concurrency error")
+	}
+	if !strings.Contains(err.Error(), "--concurrency cannot exceed") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
@@ -599,4 +682,22 @@ func newMainLocalTLSServer(t *testing.T, minVersion, maxVersion uint16) (*httpte
 		t.Fatalf("split server address: %v", err)
 	}
 	return server, host, port
+}
+
+func closedLocalTCPAddress(t *testing.T) (string, string) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen on local TCP address: %v", err)
+	}
+	addr := listener.Addr().String()
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close local TCP listener: %v", err)
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatalf("SplitHostPort(%q): %v", addr, err)
+	}
+	return host, port
 }

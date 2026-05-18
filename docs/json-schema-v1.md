@@ -4,7 +4,9 @@ This document describes the `schema_version: "1.1"` JSON output contract.
 
 `tlsanalyzer --json` writes one JSON object to stdout. PEM certificate chains are never mixed into JSON stdout; `--json --cert` requires `--output`.
 
-## Top-Level Object
+Single-target scans and batch scans share the same schema version but use different top-level shapes. Batch target entries embed the single-target object in their `report` field.
+
+## Single-Target Top-Level Object
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -16,6 +18,39 @@ This document describes the `schema_version: "1.1"` JSON output contract.
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
 | `policy` | object | no | Policy result when `--policy` or `--fail-on` is used. |
 | `results` | array | yes | Per-TLS-version scan results. |
+
+## Batch Top-Level Object
+
+`tlsanalyzer --targets-file targets.json --json` writes a batch object:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
+| `scanner_version` | string | yes | Scanner version embedded at build time. |
+| `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
+| `batch` | object | yes | Batch run metadata. |
+| `targets` | array | yes | Per-target batch results. |
+
+## Batch Metadata Object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `target_count` | number | yes | Number of targets loaded from the target file. |
+| `concurrency` | number | yes | Maximum concurrent target workers used by the run. |
+| `retries` | number | yes | Retry count configured for transient network failures. |
+| `retry_backoff` | string | yes | Linear retry backoff duration, for example `1s`. |
+
+## Batch Target Object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `host` | string | yes | TCP host or IP address scanned. |
+| `port` | string | yes | TCP port scanned. |
+| `server_name` | string | no | TLS SNI and certificate validation name when set. |
+| `attempts` | number | yes | Full target scan attempts, including retries. |
+| `exit_code` | number | yes | Per-target exit evidence: `0`, `1` or `3`. |
+| `error` | string | no | Target-level setup or execution error when available. |
+| `report` | object | yes | Embedded single-target JSON report for this target. |
 
 ## Result Object
 

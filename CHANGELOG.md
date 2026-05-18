@@ -2,6 +2,20 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.20.1 - 2026-05-18
+
+### Fixed
+
+- Return exit code `1` when a target cannot be scanned because all attempted TLS versions end in scan execution errors.
+- Reject unknown fields in batch target files so typos such as `server_name` do not silently drop SNI settings.
+- Limit batch concurrency to a documented maximum of 64 workers.
+- Include scan execution errors such as `network_error`, `timeout` and `handshake_error` in SARIF output.
+- Document the batch JSON shape alongside the single-target JSON contract.
+
+### Tests
+
+- Added coverage for unreachable single-target and batch runs, strict batch target parsing, excessive concurrency rejection and SARIF scan-error output.
+
 ## v0.20.0 - 2026-05-18
 
 ### Added

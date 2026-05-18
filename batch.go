@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"github.com/olelbis/tlsanalyzer/scan"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
+
+const maxBatchConcurrency = 64
 
 type targetSpec struct {
 	Host string `json:"host"`
@@ -159,6 +162,9 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 	if cfg.concurrency < 1 {
 		return batchSettings{}, fmt.Errorf("--concurrency must be at least 1")
 	}
+	if cfg.concurrency > maxBatchConcurrency {
+		return batchSettings{}, fmt.Errorf("--concurrency cannot exceed %d", maxBatchConcurrency)
+	}
 	if cfg.retries < 0 {
 		return batchSettings{}, fmt.Errorf("--retries cannot be negative")
 	}
@@ -203,16 +209,38 @@ func loadTargetsFile(path, defaultPort, defaultSNI string) ([]targetSpec, error)
 		return nil, fmt.Errorf("load targets file %q: %w", path, err)
 	}
 
-	var direct []targetSpec
-	if err := json.Unmarshal(data, &direct); err == nil {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("parse targets file %q: file is empty", path)
+	}
+	switch trimmed[0] {
+	case '[':
+		var direct []targetSpec
+		if err := decodeStrictJSON(trimmed, &direct); err != nil {
+			return nil, fmt.Errorf("parse targets file %q: %w", path, err)
+		}
 		return normalizeTargets(direct, defaultPort, defaultSNI), nil
+	case '{':
+		var wrapped targetsFile
+		if err := decodeStrictJSON(trimmed, &wrapped); err != nil {
+			return nil, fmt.Errorf("parse targets file %q: %w", path, err)
+		}
+		return normalizeTargets(wrapped.Targets, defaultPort, defaultSNI), nil
+	default:
+		return nil, fmt.Errorf("parse targets file %q: expected JSON array or object", path)
 	}
+}
 
-	var wrapped targetsFile
-	if err := json.Unmarshal(data, &wrapped); err != nil {
-		return nil, fmt.Errorf("parse targets file %q: %w", path, err)
+func decodeStrictJSON(data []byte, dst interface{}) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		return err
 	}
-	return normalizeTargets(wrapped.Targets, defaultPort, defaultSNI), nil
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("targets file must contain a single JSON value")
+	}
+	return nil
 }
 
 func normalizeTargets(targets []targetSpec, defaultPort, defaultSNI string) []targetSpec {
@@ -324,6 +352,9 @@ func policyResultPointer(result policy.Result) *policy.Result {
 
 func exitCodeForTarget(result batchTargetResult) int {
 	if result.Error != "" {
+		return 1
+	}
+	if scanRunFailed(result.Results) {
 		return 1
 	}
 	if result.Policy.Enabled && !result.Policy.Passed {

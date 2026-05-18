@@ -316,6 +316,33 @@ func TestBuildSARIFReportWithoutPolicyHasNoResults(t *testing.T) {
 	}
 }
 
+func TestBuildSARIFReportIncludesScanErrors(t *testing.T) {
+	data, err := BuildSARIFReport("example.com", "443", "", "vtest", []scan.TLSScanResult{{
+		Version:      "TLS 1.3",
+		Supported:    false,
+		Status:       scan.ScanStatusNetworkError,
+		ErrorMessage: "connection refused",
+	}}, nil)
+	if err != nil {
+		t.Fatalf("BuildSARIFReport() error = %v", err)
+	}
+
+	var report sarifLog
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, string(data))
+	}
+	if len(report.Runs) != 1 || len(report.Runs[0].Results) != 1 {
+		t.Fatalf("unexpected SARIF runs/results: %+v", report)
+	}
+	result := report.Runs[0].Results[0]
+	if result.RuleID != "scan-network-error" {
+		t.Fatalf("RuleID = %q, want scan-network-error", result.RuleID)
+	}
+	if !strings.Contains(result.Message.Text, "connection refused") {
+		t.Fatalf("message = %q, want connection error", result.Message.Text)
+	}
+}
+
 func TestBuildJUnitReportIncludesScanErrorsAndPolicyFailures(t *testing.T) {
 	data, err := BuildJUnitReport("example.com", "443", "", "vtest", []scan.TLSScanResult{
 		{

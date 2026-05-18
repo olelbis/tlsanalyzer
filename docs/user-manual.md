@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.20.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.20.1 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -104,7 +104,7 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
   --targets-file string
         JSON file with targets to scan in batch mode
   --concurrency int
-        Maximum concurrent targets in batch mode (default 4)
+        Maximum concurrent targets in batch mode, capped at 64 (default 4)
   --retries int
         Retry count for transient network failures
   --retry-backoff int
@@ -268,6 +268,8 @@ Retries are only applied when a target produces transient `network_error` or `ti
 
 If a target omits `port`, the global `--port` value is used. If a target omits `sni`, the global `--sni` value is used when present.
 
+Unknown fields in target files are rejected so typos fail early. Batch concurrency is capped at 64 workers to keep local resource usage predictable.
+
 `--cert` and `--markdown` are currently single-target features and are rejected together with `--targets-file`.
 
 ### CI report formats
@@ -278,7 +280,7 @@ Write SARIF output for security dashboards:
 tlsanalyzer --host example.com --policy modern --sarif tlsanalyzer.sarif
 ```
 
-SARIF output uses version 2.1.0 and reports enabled policy failures as SARIF results. A passing policy still produces a valid SARIF file with no results.
+SARIF output uses version 2.1.0 and reports enabled policy failures and scan execution errors as SARIF results. A passing policy with no scan execution errors still produces a valid SARIF file with no results.
 
 Write JUnit XML output for CI test report views:
 
@@ -469,11 +471,13 @@ Certificate validation is reported separately:
 | Code | Meaning |
 | ---: | --- |
 | 0 | Scan completed successfully and enabled policy checks passed. |
-| 1 | Invalid input, scan setup failure, report write failure or certificate output failure. |
+| 1 | Invalid input, scan setup failure, report write failure, certificate output failure or target-level scan execution failure. |
 | 2 | CLI flag parsing failed. |
 | 3 | Scan completed but enabled policy checks failed. |
 
 Unsupported TLS versions are scan results, not CLI failures.
+
+A target-level scan execution failure means every attempted TLS version ended with `network_error`, `timeout` or `handshake_error`. Mixed results are still reported as scan evidence; use policy gates when a specific TLS posture must fail the run.
 
 ## Operational Notes
 

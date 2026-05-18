@@ -266,6 +266,9 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		fmt.Fprintln(stdout, string(jsonReport))
 	}
+	if scanRunFailed(results) {
+		return 1
+	}
 	if policyResult.Enabled && !policyResult.Passed {
 		return 3
 	}

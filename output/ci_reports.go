@@ -135,6 +135,7 @@ func BuildSARIFReport(host, port, serverName, scannerVersion string, results []s
 func BuildSARIFBatchReport(reports []TargetReport) ([]byte, error) {
 	var failures []policy.Failure
 	var results []sarifResult
+	var scanErrors []scan.TLSScanResult
 	scannerVersion := ""
 	for _, report := range reports {
 		if scannerVersion == "" {
@@ -143,6 +144,9 @@ func BuildSARIFBatchReport(reports []TargetReport) ([]byte, error) {
 		targetFailures := policyFailures(report.Policy)
 		failures = append(failures, targetFailures...)
 		results = append(results, sarifResultsForFailures(report.Host, report.Port, report.ServerName, report.Results, targetFailures)...)
+		targetScanErrors := scanExecutionErrors(report.Results)
+		scanErrors = append(scanErrors, targetScanErrors...)
+		results = append(results, sarifResultsForScanErrors(report.Host, report.Port, report.ServerName, targetScanErrors)...)
 	}
 
 	log := sarifLog{
@@ -153,7 +157,7 @@ func BuildSARIFBatchReport(reports []TargetReport) ([]byte, error) {
 				Name:           "tlsanalyzer",
 				InformationURI: "https://github.com/olelbis/tlsanalyzer",
 				Version:        scannerVersion,
-				Rules:          sarifRulesForFailures(failures),
+				Rules:          sarifRules(failures, scanErrors),
 			}},
 			Results: results,
 		}},
@@ -296,7 +300,7 @@ func policyFailures(result *policy.Result) []policy.Failure {
 	return result.Failures
 }
 
-func sarifRulesForFailures(failures []policy.Failure) []sarifRule {
+func sarifRules(failures []policy.Failure, scanErrors []scan.TLSScanResult) []sarifRule {
 	seen := make(map[string]bool)
 	rules := make([]sarifRule, 0)
 	for _, failure := range failures {
@@ -310,6 +314,20 @@ func sarifRulesForFailures(failures []policy.Failure) []sarifRule {
 			ShortDescription: sarifText{Text: "tlsanalyzer policy check " + failure.Check},
 			HelpURI:          "https://github.com/olelbis/tlsanalyzer/blob/main/docs/user-manual.md#policy-mode",
 			Properties:       sarifRuleProperty{Tags: []string{"tls", "policy"}},
+		})
+	}
+	for _, result := range scanErrors {
+		id := scanErrorRuleID(result.Status)
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		rules = append(rules, sarifRule{
+			ID:               id,
+			Name:             id,
+			ShortDescription: sarifText{Text: "tlsanalyzer scan execution error " + result.Status},
+			HelpURI:          "https://github.com/olelbis/tlsanalyzer/blob/main/docs/user-manual.md#interpreting-scan-status",
+			Properties:       sarifRuleProperty{Tags: []string{"tls", "scan-error"}},
 		})
 	}
 	return rules
@@ -343,6 +361,49 @@ func sarifSnippet(failure policy.Failure, results []scan.TLSScanResult) string {
 		return failure.Version
 	}
 	return "target"
+}
+
+func sarifResultsForScanErrors(host, port, serverName string, scanErrors []scan.TLSScanResult) []sarifResult {
+	results := make([]sarifResult, 0, len(scanErrors))
+	for _, scanError := range scanErrors {
+		message := fmt.Sprintf("%s scan ended with %s", scanError.Version, scanError.Status)
+		if scanError.ErrorMessage != "" {
+			message += ": " + scanError.ErrorMessage
+		}
+		results = append(results, sarifResult{
+			RuleID:  scanErrorRuleID(scanError.Status),
+			Level:   "error",
+			Message: sarifText{Text: message},
+			Locations: []sarifLocation{{
+				PhysicalLocation: sarifPhysicalLocation{
+					ArtifactLocation: sarifArtifactLocation{URI: targetURI(host, port, serverName)},
+					Region:           sarifRegion{Snippet: sarifText{Text: scanErrorSnippet(scanError)}},
+				},
+			}},
+		})
+	}
+	return results
+}
+
+func scanExecutionErrors(results []scan.TLSScanResult) []scan.TLSScanResult {
+	scanErrors := make([]scan.TLSScanResult, 0)
+	for _, result := range results {
+		if isScanExecutionError(result.Status) {
+			scanErrors = append(scanErrors, result)
+		}
+	}
+	return scanErrors
+}
+
+func scanErrorRuleID(status string) string {
+	if status == "" {
+		return "scan-error"
+	}
+	return "scan-" + strings.ReplaceAll(status, "_", "-")
+}
+
+func scanErrorSnippet(result scan.TLSScanResult) string {
+	return fmt.Sprintf("%s status=%s supported=%t error=%s", result.Version, result.Status, result.Supported, valueOrDash(result.ErrorMessage))
 }
 
 func targetURI(host, port, serverName string) string {

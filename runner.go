@@ -94,6 +94,27 @@ func executeScanRun(opts scanRunOptions, hooks scanRunHooks) (scanRunResult, err
 	}, nil
 }
 
+func scanRunFailed(results []scan.TLSScanResult) bool {
+	if len(results) == 0 {
+		return true
+	}
+	for _, result := range results {
+		if !isScanExecutionStatus(result.Status) {
+			return false
+		}
+	}
+	return true
+}
+
+func isScanExecutionStatus(status string) bool {
+	switch status {
+	case scan.ScanStatusNetworkError, scan.ScanStatusTimeout, scan.ScanStatusHandshake:
+		return true
+	default:
+		return false
+	}
+}
+
 func isPreTLS13(version uint16) bool {
 	return version <= tls.VersionTLS12
 }
