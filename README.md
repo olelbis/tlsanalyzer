@@ -15,6 +15,10 @@
 
 It is built for environments where the scanner should be easy to carry, easy to audit and able to run without installing extra packages or fetching runtime dependencies.
 
+## Project Status
+
+`tlsanalyzer` is in preview maintenance on the `v0.24.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+
 ## What It Does
 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
@@ -181,7 +185,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.1 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

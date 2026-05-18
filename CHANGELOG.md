@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.24.1 - 2026-05-19
+
+### Changed
+
+- Documented the `v0.24.x` maintenance focus: bug fixes, documentation updates and compatibility-preserving hardening only while beta/v1 planning is deferred.
+
 ## v0.24.0 - 2026-05-19
 
 ### Added

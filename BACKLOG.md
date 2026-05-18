@@ -2,6 +2,10 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
+## Current Focus - v0.24.x Maintenance
+
+The feature backlog from P1 through P24 is complete. The `v0.24.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
+
 ## P1 - Correctness and Trust - Done
 
 ### Separate TLS support from certificate validation
