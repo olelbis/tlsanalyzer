@@ -654,4 +654,5 @@ Acceptance criteria:
 - Document the P22 blockers before exposing the raw probe publicly.
 - Tighten raw-probe option validation for malformed TCP addresses and invalid timeouts.
 - Add tests for the tightened raw-probe validation.
+- Make release creation idempotent if duplicate tag-release runs start for the same version.
 - Link the audit from the README.

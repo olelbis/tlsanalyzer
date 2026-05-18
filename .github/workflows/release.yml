@@ -110,6 +110,7 @@ jobs:
            name: tlsanalyzer release ${{ github.ref_name }}
            prerelease: false
            bodyFile: RELEASE_NOTES.md
+           skipIfReleaseExists: true
 
   container_image:
     needs: release

@@ -2,6 +2,12 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.23.1 - 2026-05-19
+
+### Fixed
+
+- Made release creation idempotent when GitHub starts duplicate tag-release runs for the same version.
+
 ## v0.23.0 - 2026-05-19
 
 ### Added
