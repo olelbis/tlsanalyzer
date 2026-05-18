@@ -15,18 +15,31 @@ import (
 	"time"
 )
 
+// Status describes the outcome of a raw TLS 1.3 cipher probe.
 type Status string
 
 const (
-	StatusSupported         Status = "supported"
-	StatusRejected          Status = "rejected"
+	// StatusSupported means the server selected the offered TLS 1.3 cipher suite.
+	StatusSupported Status = "supported"
+	// StatusRejected means the server replied with ServerHello but selected another cipher suite.
+	StatusRejected Status = "rejected"
+	// StatusHelloRetryRequest means the server sent HelloRetryRequest and the probe could not complete a retry.
 	StatusHelloRetryRequest Status = "hello-retry-request"
-	StatusAlert             Status = "alert"
-	StatusTimeout           Status = "timeout"
-	StatusClosed            Status = "closed"
-	StatusInconclusive      Status = "inconclusive"
+	// StatusAlert means the server rejected the probe with a TLS alert.
+	StatusAlert Status = "alert"
+	// StatusTimeout means the TCP connection, write or read timed out.
+	StatusTimeout Status = "timeout"
+	// StatusClosed means the peer closed the connection before a supported/rejected decision.
+	StatusClosed Status = "closed"
+	// StatusInconclusive means the probe could not classify the response deterministically.
+	StatusInconclusive Status = "inconclusive"
 )
 
+// Options configures raw TLS 1.3 ClientHello probing.
+//
+// Address is required and must be a host:port TCP address. ServerName is used
+// for SNI when set. Timeout applies to connect, write and read operations.
+// ALPN values are advertised as-is after empty values are ignored.
 type Options struct {
 	Address    string
 	ServerName string
@@ -34,6 +47,10 @@ type Options struct {
 	ALPN       []string
 }
 
+// Result contains evidence from one raw TLS 1.3 cipher probe.
+//
+// The probe stops after enough handshake evidence is observed to classify the
+// offered cipher suite. It does not complete a full TLS handshake.
 type Result struct {
 	CipherSuite uint16
 	Name        string
@@ -81,7 +98,15 @@ type readResult struct {
 	hrr    *helloRetryRequest
 }
 
+// ProbeTLS13CipherSuites probes each TLS 1.3 cipher suite independently.
+//
+// Results are returned in the same order as cipherSuites. Configuration errors
+// stop probing and are returned as errors; network and protocol outcomes are
+// represented in each Result.
 func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []uint16) ([]Result, error) {
+	if err := ValidateOptions(opts); err != nil {
+		return nil, err
+	}
 	if len(cipherSuites) == 0 {
 		return nil, nil
 	}
@@ -97,6 +122,11 @@ func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []ui
 	return results, nil
 }
 
+// ProbeTLS13CipherSuite sends a minimal TLS 1.3 ClientHello offering one cipher suite.
+//
+// This function is intentionally a probe, not a TLS implementation. It parses
+// ServerHello, HelloRetryRequest, alerts, connection close and timeout outcomes
+// and then returns the observed classification.
 func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16) (Result, error) {
 	result := Result{
 		CipherSuite: cipherSuite,
@@ -104,8 +134,8 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		Status:      StatusInconclusive,
 	}
 
-	if opts.Address == "" {
-		return result, errors.New("tlsprobe: address is required")
+	if err := ValidateOptions(opts); err != nil {
+		return result, err
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -171,6 +201,28 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 	}
 
 	return readProbeResult(conn, read.result)
+}
+
+// SupportedTLS13CipherSuites returns the TLS 1.3 cipher suites understood by the probe.
+func SupportedTLS13CipherSuites() []uint16 {
+	return []uint16{
+		tls.TLS_AES_128_GCM_SHA256,
+		tls.TLS_AES_256_GCM_SHA384,
+		tls.TLS_CHACHA20_POLY1305_SHA256,
+	}
+}
+
+// ValidateOptions checks probe configuration without opening a network connection.
+func ValidateOptions(opts Options) error {
+	if opts.Address == "" {
+		return errors.New("tlsprobe: address is required")
+	}
+	for _, protocol := range opts.ALPN {
+		if len(protocol) > 255 {
+			return fmt.Errorf("tlsprobe: ALPN protocol %q is longer than 255 bytes", protocol)
+		}
+	}
+	return nil
 }
 
 func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, hrr *helloRetryRequest) ([]byte, error) {

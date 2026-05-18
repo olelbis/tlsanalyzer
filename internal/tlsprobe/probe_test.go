@@ -156,6 +156,38 @@ func TestProbeTLS13CipherSuitesReturnsOneResultPerCipher(t *testing.T) {
 	}
 }
 
+func TestProbeTLS13CipherSuitesReturnsConfigurationErrorBeforeDialing(t *testing.T) {
+	results, err := ProbeTLS13CipherSuites(context.Background(), Options{}, []uint16{tls.TLS_AES_128_GCM_SHA256})
+	if err == nil {
+		t.Fatal("ProbeTLS13CipherSuites() error = nil, want address validation error")
+	}
+	if results != nil {
+		t.Fatalf("results = %+v, want nil", results)
+	}
+}
+
+func TestValidateOptionsRejectsOverlongALPNProtocol(t *testing.T) {
+	err := ValidateOptions(Options{
+		Address: "127.0.0.1:443",
+		ALPN:    []string{string(bytesOf(256, 'a'))},
+	})
+	if err == nil {
+		t.Fatal("ValidateOptions() error = nil, want ALPN length error")
+	}
+}
+
+func TestSupportedTLS13CipherSuitesReturnsIndependentCopy(t *testing.T) {
+	first := SupportedTLS13CipherSuites()
+	second := SupportedTLS13CipherSuites()
+	if len(first) != 3 {
+		t.Fatalf("len(SupportedTLS13CipherSuites()) = %d, want 3", len(first))
+	}
+	first[0] = 0
+	if second[0] == 0 {
+		t.Fatal("SupportedTLS13CipherSuites() returned shared mutable storage")
+	}
+}
+
 func TestParseServerHelloFixtureSupported(t *testing.T) {
 	sessionID := []byte("fixture-session")
 	body := serverHelloBody(bytesOf(32, 0x42), sessionID, tls.TLS_AES_128_GCM_SHA256, nil)

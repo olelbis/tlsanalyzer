@@ -283,7 +283,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 }
 
 func probeTLS13CipherSuites(opts Options) CipherProbeResult {
-	cipherIDs := tls13CipherSuiteIDs()
+	cipherIDs := tlsprobe.SupportedTLS13CipherSuites()
 	probeResults, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
 		Address:    net.JoinHostPort(opts.Host, opts.Port),
 		ServerName: opts.tlsServerName(),
@@ -314,23 +314,13 @@ func probeTLS13CipherSuites(opts Options) CipherProbeResult {
 			result.CipherSuites = append(result.CipherSuites, probeResult.Name)
 		}
 		if probeResult.Status == tlsprobe.StatusHelloRetryRequest {
-			result.Warnings = append(result.Warnings, probeResult.Name+" returned HelloRetryRequest; this MVP does not retry after HRR.")
+			result.Warnings = append(result.Warnings, probeResult.Name+" returned HelloRetryRequest; the raw probe could not complete the retry.")
 		}
 	}
 
 	result.CipherSuites = utils.UniqueStrings(result.CipherSuites)
 	sort.Strings(result.CipherSuites)
 	return result
-}
-
-func tls13CipherSuiteIDs() []uint16 {
-	var cipherIDs []uint16
-	for _, cipher := range utils.AllCipherSuites {
-		if utils.IsCipherSuiteCompatibleWith(tls.VersionTLS13, cipher.ID) {
-			cipherIDs = append(cipherIDs, cipher.ID)
-		}
-	}
-	return cipherIDs
 }
 
 func classifyScanError(err error) (string, string) {

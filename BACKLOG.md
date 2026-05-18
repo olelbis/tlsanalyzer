@@ -528,13 +528,13 @@ Acceptance criteria:
 - Evaluate publishing a container image for CI usage.
 - Keep release provenance, checksums and SBOM expectations consistent across channels.
 
-## P17 - Raw Probe Library Extraction - Planned
+## P17 - Raw Probe Library Extraction - Done
 
 ### Prepare the TLS 1.3 raw probe for reuse
 
 Problem: the raw TLS 1.3 probe is useful inside `tlsanalyzer`, but it may become valuable as a standalone library.
 
-Status: planned.
+Status: done, kept internal while the API matures.
 
 Acceptance criteria:
 

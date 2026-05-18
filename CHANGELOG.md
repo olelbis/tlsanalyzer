@@ -2,6 +2,18 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.17.0 - 2026-05-18
+
+### Added
+
+- Added package-level documentation and examples for the internal TLS 1.3 raw probe package.
+- Added explicit TLS probe option validation and a reusable supported TLS 1.3 cipher suite list.
+
+### Changed
+
+- Kept the raw TLS 1.3 probe internal while tightening its small exported API for future extraction.
+- Updated the scanner integration to use the probe package's supported cipher list directly.
+
 ## v0.16.0 - 2026-05-18
 
 ### Added
