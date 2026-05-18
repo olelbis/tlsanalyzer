@@ -2,6 +2,13 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.25.1 - 2026-05-19
+
+### Changed
+
+- Switched GitHub Pages publishing from legacy branch-based builds to an explicit Pages workflow using current Pages actions and Node 24 opt-in.
+- Updated the release-alignment workflow to use `actions/checkout@v6`.
+
 ## v0.25.0 - 2026-05-19
 
 ### Added
