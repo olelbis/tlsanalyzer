@@ -2,6 +2,25 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.24.0 - 2026-05-19
+
+### Added
+
+- Promoted the raw TLS 1.3 probe to the public preview `tlsprobe` Go package.
+- Added `tlsprobe.ConfigError` for typed probe option validation failures.
+- Added dedicated `tlsprobe` package documentation with status semantics, limits and usage guidance.
+- Added offline Go documentation examples for `tlsprobe`.
+
+### Changed
+
+- Updated the scanner to consume the public `tlsprobe` package instead of the previous internal package.
+- Documented that `tlsprobe` remains ClientHello-only preview API while the module is under `v0.x`.
+- Marked P22 complete and refreshed the P24 audit decisions.
+
+### Tests
+
+- Added raw-probe fixtures for rejected ServerHello, closed connections, timeout classification, incomplete handshakes, unexpected record types, malformed HelloRetryRequest data and malformed alerts.
+
 ## v0.23.1 - 2026-05-19
 
 ### Fixed

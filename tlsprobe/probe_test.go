@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -132,6 +133,58 @@ func TestProbeTLS13CipherSuiteKeepsHelloRetryRequestForUnsupportedGroup(t *testi
 	}
 }
 
+func TestProbeTLS13CipherSuiteReportsRejectedServerHello(t *testing.T) {
+	address, closeServer := newServerHelloFixtureServer(t, tls.TLS_AES_256_GCM_SHA384)
+	defer closeServer()
+
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address: address,
+		Timeout: time.Second,
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err != nil {
+		t.Fatalf("ProbeTLS13CipherSuite() error = %v", err)
+	}
+
+	if result.Status != StatusRejected {
+		t.Fatalf("Status = %q, want %q; alert %q error %q", result.Status, StatusRejected, result.Alert, result.Error)
+	}
+	if result.Error == "" {
+		t.Fatal("Error should describe the selected cipher")
+	}
+}
+
+func TestProbeTLS13CipherSuiteReportsClosedConnection(t *testing.T) {
+	address, closeServer := newCloseOnlyFixtureServer(t)
+	defer closeServer()
+
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address: address,
+		Timeout: time.Second,
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err != nil {
+		t.Fatalf("ProbeTLS13CipherSuite() error = %v", err)
+	}
+	if result.Status != StatusClosed {
+		t.Fatalf("Status = %q, want %q; error %q", result.Status, StatusClosed, result.Error)
+	}
+}
+
+func TestProbeTLS13CipherSuiteReportsTimeout(t *testing.T) {
+	address, closeServer := newIdleFixtureServer(t)
+	defer closeServer()
+
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address: address,
+		Timeout: 20 * time.Millisecond,
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err != nil {
+		t.Fatalf("ProbeTLS13CipherSuite() error = %v", err)
+	}
+	if result.Status != StatusTimeout {
+		t.Fatalf("Status = %q, want %q; error %q", result.Status, StatusTimeout, result.Error)
+	}
+}
+
 func TestProbeTLS13CipherSuitesReturnsOneResultPerCipher(t *testing.T) {
 	server := newTLS13TestServer(&tls.Config{
 		MinVersion: tls.VersionTLS13,
@@ -214,8 +267,13 @@ func TestValidateOptionsRejectsInvalidAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateOptions(tt.opts); err == nil {
+			err := ValidateOptions(tt.opts)
+			if err == nil {
 				t.Fatal("ValidateOptions() error = nil, want validation error")
+			}
+			var configErr *ConfigError
+			if !errors.As(err, &configErr) {
+				t.Fatalf("ValidateOptions() error = %T, want *ConfigError", err)
 			}
 		})
 	}
@@ -257,6 +315,19 @@ func TestParseServerHelloFixtureSupported(t *testing.T) {
 	}
 }
 
+func TestParseServerHelloFixtureRejected(t *testing.T) {
+	body := serverHelloBody(bytesOf(32, 0x42), []byte("fixture-session"), tls.TLS_AES_256_GCM_SHA384, nil)
+
+	read := parseServerHello(body, Result{CipherSuite: tls.TLS_AES_128_GCM_SHA256})
+
+	if read.result.Status != StatusRejected {
+		t.Fatalf("Status = %q, want %q; error %q", read.result.Status, StatusRejected, read.result.Error)
+	}
+	if read.result.Error == "" {
+		t.Fatal("Error should describe the selected cipher")
+	}
+}
+
 func TestParseServerHelloFixtureHelloRetryRequest(t *testing.T) {
 	extensions := appendExtension(nil, extensionKeyShare, []byte{byte(groupP256 >> 8), byte(groupP256)})
 	body := serverHelloBody(helloRetryRequestRandom, []byte("fixture-session"), tls.TLS_AES_128_GCM_SHA256, extensions)
@@ -274,18 +345,80 @@ func TestParseServerHelloFixtureHelloRetryRequest(t *testing.T) {
 	}
 }
 
+func TestParseHandshakePayloadFixtureIncomplete(t *testing.T) {
+	read := parseHandshakePayload([]byte{2, 0, 0, 8, 1, 2}, Result{})
+	if read.result.Status != StatusInconclusive {
+		t.Fatalf("Status = %q, want %q", read.result.Status, StatusInconclusive)
+	}
+	if read.result.Error != "incomplete handshake message" {
+		t.Fatalf("Error = %q, want incomplete handshake message", read.result.Error)
+	}
+}
+
+func TestReadProbeRecordFixtureUnexpectedRecordType(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer server.Close()
+		_, _ = server.Write([]byte{23, 3, 3, 0, 1, 0})
+	}()
+
+	read, err := readProbeRecord(client, Result{})
+	if err != nil {
+		t.Fatalf("readProbeRecord() error = %v", err)
+	}
+	if read.result.Status != StatusInconclusive {
+		t.Fatalf("Status = %q, want %q", read.result.Status, StatusInconclusive)
+	}
+	if read.result.Error != "unexpected TLS record type 23" {
+		t.Fatalf("Error = %q, want unexpected TLS record type 23", read.result.Error)
+	}
+	<-done
+}
+
+func TestParseHelloRetryRequestFixtureMalformedExtension(t *testing.T) {
+	extensions := []byte{byte(extensionKeyShare >> 8), byte(extensionKeyShare), 0, 3, 0, byte(groupP256 >> 8), byte(groupP256)}
+	body := serverHelloBody(helloRetryRequestRandom, []byte("fixture-session"), tls.TLS_AES_128_GCM_SHA256, extensions)
+
+	hrr, err := parseHelloRetryRequest(body)
+	if err == nil {
+		t.Fatal("parseHelloRetryRequest() error = nil, want malformed extension error")
+	}
+	if hrr == nil {
+		t.Fatal("parseHelloRetryRequest() hrr = nil, want partial result")
+	}
+}
+
 func TestDescribeAlertFixture(t *testing.T) {
 	if got := describeAlert([]byte{2, 40}); got != "fatal/handshake_failure" {
 		t.Fatalf("describeAlert() = %q, want fatal/handshake_failure", got)
 	}
 }
 
+func TestDescribeAlertFixtureMalformed(t *testing.T) {
+	if got := describeAlert([]byte{2}); got != "malformed alert" {
+		t.Fatalf("describeAlert() = %q, want malformed alert", got)
+	}
+}
+
 func newTLS13TestServer(config *tls.Config) *httptest.Server {
-	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	server.TLS = config
-	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	server := &httptest.Server{
+		Listener: listener,
+		TLS:      config,
+		Config: &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			}),
+			ErrorLog: log.New(io.Discard, "", 0),
+		},
+	}
 	server.StartTLS()
 	return server
 }
@@ -386,6 +519,89 @@ func newHelloRetryRequestOnlyFixtureServer(t *testing.T, cipherSuite uint16, sel
 		if err := writeHandshakeRecord(conn, hrr); err != nil {
 			t.Errorf("write HelloRetryRequest: %v", err)
 		}
+	}()
+
+	return listener.Addr().String(), func() {
+		_ = listener.Close()
+		<-done
+	}
+}
+
+func newServerHelloFixtureServer(t *testing.T, cipherSuite uint16) (string, func()) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		if _, err := readTLSRecord(conn); err != nil {
+			t.Errorf("read ClientHello: %v", err)
+			return
+		}
+		serverHello := serverHelloBody(bytesOf(32, 0x44), nil, cipherSuite, nil)
+		if err := writeHandshakeRecord(conn, serverHello); err != nil {
+			t.Errorf("write ServerHello: %v", err)
+		}
+	}()
+
+	return listener.Addr().String(), func() {
+		_ = listener.Close()
+		<-done
+	}
+}
+
+func newCloseOnlyFixtureServer(t *testing.T) (string, func()) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		_ = conn.Close()
+	}()
+
+	return listener.Addr().String(), func() {
+		_ = listener.Close()
+		<-done
+	}
+}
+
+func newIdleFixtureServer(t *testing.T) (string, func()) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, _ = readTLSRecord(conn)
+		time.Sleep(200 * time.Millisecond)
 	}()
 
 	return listener.Addr().String(), func() {

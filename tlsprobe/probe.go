@@ -60,6 +60,24 @@ type Result struct {
 	Error       string
 }
 
+// ConfigError describes an invalid probe option.
+type ConfigError struct {
+	Field   string
+	Message string
+	Err     error
+}
+
+func (e *ConfigError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("tlsprobe: invalid %s: %s: %v", e.Field, e.Message, e.Err)
+	}
+	return fmt.Sprintf("tlsprobe: invalid %s: %s", e.Field, e.Message)
+}
+
+func (e *ConfigError) Unwrap() error {
+	return e.Err
+}
+
 var helloRetryRequestRandom = []byte{
 	0xcf, 0x21, 0xad, 0x74, 0xe5, 0x9a, 0x61, 0x11,
 	0xbe, 0x1d, 0x8c, 0x02, 0x1e, 0x65, 0xb8, 0x91,
@@ -216,31 +234,39 @@ func SupportedTLS13CipherSuites() []uint16 {
 // ValidateOptions checks probe configuration without opening a network connection.
 func ValidateOptions(opts Options) error {
 	if opts.Address == "" {
-		return errors.New("tlsprobe: address is required")
+		return configError("address", "is required", nil)
 	}
 	if opts.Address != strings.TrimSpace(opts.Address) {
-		return errors.New("tlsprobe: address must not contain leading or trailing whitespace")
+		return configError("address", "must not contain leading or trailing whitespace", nil)
 	}
 	host, port, err := net.SplitHostPort(opts.Address)
 	if err != nil {
-		return fmt.Errorf("tlsprobe: address must be a host:port TCP address: %w", err)
+		return configError("address", "must be a host:port TCP address", err)
 	}
 	if host == "" {
-		return errors.New("tlsprobe: address host is required")
+		return configError("address", "host is required", nil)
 	}
 	portNumber, err := strconv.Atoi(port)
 	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return fmt.Errorf("tlsprobe: address port %q must be a TCP port in range 1..65535", port)
+		return configError("address", fmt.Sprintf("port %q must be a TCP port in range 1..65535", port), err)
 	}
 	if opts.Timeout < 0 {
-		return errors.New("tlsprobe: timeout must not be negative")
+		return configError("timeout", "must not be negative", nil)
 	}
 	for _, protocol := range opts.ALPN {
 		if len(protocol) > 255 {
-			return fmt.Errorf("tlsprobe: ALPN protocol %q is longer than 255 bytes", protocol)
+			return configError("alpn", fmt.Sprintf("protocol %q is longer than 255 bytes", protocol), nil)
 		}
 	}
 	return nil
+}
+
+func configError(field, message string, err error) error {
+	return &ConfigError{
+		Field:   field,
+		Message: message,
+		Err:     err,
+	}
 }
 
 func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, hrr *helloRetryRequest) ([]byte, error) {
@@ -530,6 +556,11 @@ func statusForNetworkError(err error) Status {
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
 		return StatusTimeout
+	}
+	message := strings.ToLower(err.Error())
+	if strings.Contains(message, "connection reset by peer") ||
+		strings.Contains(message, "use of closed network connection") {
+		return StatusClosed
 	}
 	return StatusInconclusive
 }

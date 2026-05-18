@@ -608,21 +608,22 @@ Acceptance criteria:
 - Keep terminal output readable for both single-target and batch modes.
 - Document operational limits, timeout behavior and recommended CI defaults.
 
-## P22 - Public Raw Probe Library - Future
+## P22 - Public Raw Probe Library - Done
 
 ### Extract the TLS 1.3 raw probe when the API is stable
 
 Problem: the raw TLS 1.3 probe has standalone value, but publishing it too early would freeze an API that is still maturing inside `tlsanalyzer`.
 
-Status: future.
+Status: done as a preview public package in this module.
 
 Acceptance criteria:
 
-- Keep improving `internal/tlsprobe` inside `tlsanalyzer` until its API, fixtures and edge-case behavior are stable.
-- Add enough tests, fixtures and examples to support external users.
-- Decide whether the library should live as a public package in this module or as a separate Go module.
-- Define semantic versioning and compatibility expectations for the library API.
-- Publish package documentation suitable for Go users.
+- Move `internal/tlsprobe` to the public `tlsprobe` package.
+- Keep the package in this module for the first public preview; defer a separate module until the API has user feedback.
+- Add typed `ConfigError` values for invalid probe options.
+- Add offline examples and package documentation suitable for `go doc`.
+- Add fixture coverage for rejected ServerHello, malformed handshakes, malformed HelloRetryRequest data, unexpected record types, closed connections and timeout classification.
+- Document preview compatibility expectations, status semantics and current limits.
 
 ## P23 - Public Analyzer API - Done
 

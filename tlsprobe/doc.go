@@ -5,7 +5,7 @@
 // structured probe evidence. It is not a general TLS stack and it does not
 // complete full TLS handshakes.
 //
-// This package is internal while the API matures, but its exported surface is
-// kept small enough to make future extraction into a standalone module
-// practical.
+// The API is public but still preview-level while edge-case fixtures and user
+// feedback settle. Callers should treat status values as the stable integration
+// point and avoid depending on unstructured Result.Error text.
 package tlsprobe

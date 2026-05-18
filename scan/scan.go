@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/olelbis/tlsanalyzer/internal/tlsprobe"
+	"github.com/olelbis/tlsanalyzer/tlsprobe"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 

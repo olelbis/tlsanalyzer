@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.23.1 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -69,6 +69,18 @@ result, err := analyzer.Run(opts, analyzer.Hooks{})
 ```
 
 Use `analyzer.DefaultOptions` for CLI-like defaults, then override host, SNI, timeout, minimum TLS version and policy settings as needed. Operational target failures are represented in `result.Results` with scan statuses such as `network_error`, `timeout` and `handshake_error`; `Run` returns an error only for caller hook failures, wrapped as `*analyzer.HookError`.
+
+The preview `tlsprobe` package exposes the raw TLS 1.3 cipher probe:
+
+```go
+results, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
+	Address:    net.JoinHostPort("example.com", "443"),
+	ServerName: "example.com",
+	Timeout:    5 * time.Second,
+}, tlsprobe.SupportedTLS13CipherSuites())
+```
+
+`tlsprobe` sends ClientHello-only probes and classifies the first useful server response. It does not complete full TLS handshakes. See [TLS probe Go package](tlsprobe-package.md) for status values and current limits.
 
 ## Basic Usage
 

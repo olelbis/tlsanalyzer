@@ -64,6 +64,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
 - [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
+- [TLS probe Go package](docs/tlsprobe-package.md): preview API for raw TLS 1.3 cipher probing.
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
 - [P24 readiness audit](docs/p24-readiness-audit.md): beta/v1 and raw-probe-library readiness notes.
 - [Changelog](CHANGELOG.md): release history.
@@ -88,6 +89,18 @@ if err != nil {
 ```
 
 Operational scan failures are returned as structured `scan.TLSScanResult` statuses such as `network_error`, `timeout` and `handshake_error`. `analyzer.Run` returns an error only when caller-provided hooks fail.
+
+The `tlsprobe` package exposes the preview raw TLS 1.3 cipher probe used by the scanner:
+
+```go
+results, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
+	Address:    net.JoinHostPort("example.com", "443"),
+	ServerName: "example.com",
+	Timeout:    5 * time.Second,
+}, tlsprobe.SupportedTLS13CipherSuites())
+```
+
+`tlsprobe` is ClientHello-only evidence and does not complete full TLS handshakes. See the [TLS probe package documentation](docs/tlsprobe-package.md) for status semantics and current limits.
 
 ## Build From Source
 
@@ -168,7 +181,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.23.1 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
