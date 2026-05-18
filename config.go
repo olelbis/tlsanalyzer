@@ -17,6 +17,8 @@ type fileConfig struct {
 	Output         *string                      `json:"output,omitempty"`
 	MinVersion     *string                      `json:"min_version,omitempty"`
 	Markdown       *string                      `json:"markdown,omitempty"`
+	SARIF          *string                      `json:"sarif,omitempty"`
+	JUnit          *string                      `json:"junit,omitempty"`
 	ForceCiphers   *bool                        `json:"force_ciphers,omitempty"`
 	SkipVerify     *bool                        `json:"skip_verify,omitempty"`
 	JSON           *bool                        `json:"json,omitempty"`
@@ -126,6 +128,8 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyString(&cfg.outputFile, file.Output)
 	applyString(&cfg.minVersionStr, file.MinVersion)
 	applyString(&cfg.outputMarkdown, file.Markdown)
+	applyString(&cfg.outputSARIF, file.SARIF)
+	applyString(&cfg.outputJUnit, file.JUnit)
 	applyBool(&cfg.forceCiphers, file.ForceCiphers)
 	applyBool(&cfg.skipVerify, file.SkipVerify)
 	applyBool(&cfg.outputJSON, file.JSON)
@@ -185,6 +189,12 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["markdown"] {
 		dst.outputMarkdown = src.outputMarkdown
+	}
+	if explicit["sarif"] {
+		dst.outputSARIF = src.outputSARIF
+	}
+	if explicit["junit"] {
+		dst.outputJUnit = src.outputJUnit
 	}
 	if explicit["force-ciphers"] {
 		dst.forceCiphers = src.forceCiphers

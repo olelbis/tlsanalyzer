@@ -247,6 +247,25 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 }
 
+func TestParseCLIArgsCIReportFlags(t *testing.T) {
+	var stderr bytes.Buffer
+
+	cfg, err := parseCLIArgs([]string{
+		"--host", "example.com",
+		"--sarif", "tls.sarif",
+		"--junit", "tls.xml",
+	}, &stderr)
+	if err != nil {
+		t.Fatalf("parseCLIArgs() error = %v", err)
+	}
+	if cfg.outputSARIF != "tls.sarif" {
+		t.Fatalf("outputSARIF = %q, want tls.sarif", cfg.outputSARIF)
+	}
+	if cfg.outputJUnit != "tls.xml" {
+		t.Fatalf("outputJUnit = %q, want tls.xml", cfg.outputJUnit)
+	}
+}
+
 func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
 	config := `{
@@ -254,6 +273,8 @@ func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) 
   "profile": "ci",
   "json": true,
   "no_clear": true,
+  "sarif": "config.sarif",
+  "junit": "config.xml",
   "targets": {
     "example": {
       "host": "config.example.com",
@@ -293,6 +314,9 @@ func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) 
 	if !cfg.outputJSON || !cfg.noClear {
 		t.Fatalf("json/noClear = %v/%v, want true/true", cfg.outputJSON, cfg.noClear)
 	}
+	if cfg.outputSARIF != "config.sarif" || cfg.outputJUnit != "config.xml" {
+		t.Fatalf("report outputs = sarif %q junit %q", cfg.outputSARIF, cfg.outputJUnit)
+	}
 	if cfg.policy != "modern" || cfg.requireTLS != "1.3" || cfg.forbidTLS != "1.0,1.1" {
 		t.Fatalf("profile values = policy %q require %q forbid %q", cfg.policy, cfg.requireTLS, cfg.forbidTLS)
 	}
@@ -319,6 +343,43 @@ func TestRunRejectsUnknownConfigField(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "unknown field") {
 		t.Fatalf("stderr does not contain unknown field error:\n%s", stderr.String())
+	}
+}
+
+func TestRunWritesCIReports(t *testing.T) {
+	server, host, port := newMainLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
+	defer server.Close()
+
+	dir := t.TempDir()
+	sarifPath := filepath.Join(dir, "tls")
+	junitPath := filepath.Join(dir, "tls-report")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{
+		"--host", host,
+		"--port", port,
+		"--min-version", "1.3",
+		"--skip-verify",
+		"--no-clear",
+		"--sarif", sarifPath,
+		"--junit", junitPath,
+	}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("run() exit code = %d, want 0\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(sarifPath + ".sarif"); err != nil {
+		t.Fatalf("SARIF report was not written: %v", err)
+	}
+	if _, err := os.Stat(junitPath + ".xml"); err != nil {
+		t.Fatalf("JUnit report was not written: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "SARIF report saved") {
+		t.Fatalf("stdout does not mention SARIF report:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "JUnit report saved") {
+		t.Fatalf("stdout does not mention JUnit report:\n%s", stdout.String())
 	}
 }
 

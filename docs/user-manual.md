@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.18.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.19.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -141,6 +141,10 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         Minimum number of days before certificate expiry
   --markdown string
         Write scan result to a Markdown file
+  --sarif string
+        Write policy findings to a SARIF file
+  --junit string
+        Write scan and policy results to a JUnit XML file
 ```
 
 ## Common Workflows
@@ -174,6 +178,8 @@ tlsanalyzer --host example.com --compact
   "timeout": 5,
   "min_version": "1.2",
   "json": true,
+  "sarif": "tlsanalyzer.sarif",
+  "junit": "tlsanalyzer.xml",
   "no_clear": true,
   "targets": {
     "production": {
@@ -212,6 +218,24 @@ tlsanalyzer --config tlsanalyzer.json --target production --host override.exampl
 ```
 
 Unknown JSON fields are rejected so configuration typos fail early.
+
+### CI report formats
+
+Write SARIF output for security dashboards:
+
+```bash
+tlsanalyzer --host example.com --policy modern --sarif tlsanalyzer.sarif
+```
+
+SARIF output uses version 2.1.0 and reports enabled policy failures as SARIF results. A passing policy still produces a valid SARIF file with no results.
+
+Write JUnit XML output for CI test report views:
+
+```bash
+tlsanalyzer --host example.com --policy modern --junit tlsanalyzer.xml
+```
+
+JUnit output includes one testcase per scanned TLS version. Network, timeout and handshake execution errors are reported as JUnit errors, while policy failures are reported as JUnit failures.
 
 ### Markdown report
 

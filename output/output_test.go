@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/xml"
 	"math/big"
 	"strings"
 	"testing"
@@ -250,6 +251,115 @@ func TestBuildJSONReportIncludesPolicyWhenProvided(t *testing.T) {
 	}
 	if len(report.Policy.Failures) != 1 {
 		t.Fatalf("policy failures = %d, want 1", len(report.Policy.Failures))
+	}
+}
+
+func TestBuildSARIFReportIncludesPolicyFailures(t *testing.T) {
+	data, err := BuildSARIFReport("example.com", "443", "service.example.com", "vtest", []scan.TLSScanResult{{
+		Version:              "TLS 1.0",
+		VersionID:            0x0301,
+		Supported:            true,
+		Status:               scan.ScanStatusSupported,
+		CipherDiscovery:      scan.CipherDiscoveryNegotiated,
+		CertValidationStatus: scan.CertValidationValid,
+	}}, &policy.Result{
+		Enabled: true,
+		Name:    policy.NameModern,
+		Passed:  false,
+		Failures: []policy.Failure{{
+			Check:   policy.CheckLegacyTLS,
+			Version: "TLS 1.0",
+			Message: "TLS 1.0 is supported; modern policy requires TLS 1.2 or newer",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("BuildSARIFReport() error = %v", err)
+	}
+
+	var report sarifLog
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, string(data))
+	}
+	if report.Version != "2.1.0" {
+		t.Fatalf("SARIF version = %q, want 2.1.0", report.Version)
+	}
+	if len(report.Runs) != 1 || len(report.Runs[0].Results) != 1 {
+		t.Fatalf("unexpected SARIF runs/results: %+v", report)
+	}
+	result := report.Runs[0].Results[0]
+	if result.RuleID != policy.CheckLegacyTLS || result.Level != "error" {
+		t.Fatalf("unexpected SARIF result: %+v", result)
+	}
+	if result.Message.Text == "" || !strings.Contains(result.Message.Text, "TLS 1.0 is supported") {
+		t.Fatalf("unexpected SARIF message: %+v", result.Message)
+	}
+	if got := result.Locations[0].PhysicalLocation.ArtifactLocation.URI; got != "tlsanalyzer://example.com:443%20sni=service.example.com" {
+		t.Fatalf("SARIF target URI = %q", got)
+	}
+}
+
+func TestBuildSARIFReportWithoutPolicyHasNoResults(t *testing.T) {
+	data, err := BuildSARIFReport("example.com", "443", "", "vtest", nil, nil)
+	if err != nil {
+		t.Fatalf("BuildSARIFReport() error = %v", err)
+	}
+
+	var report sarifLog
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v\n%s", err, string(data))
+	}
+	if len(report.Runs) != 1 {
+		t.Fatalf("SARIF runs = %d, want 1", len(report.Runs))
+	}
+	if len(report.Runs[0].Results) != 0 {
+		t.Fatalf("SARIF results = %d, want 0", len(report.Runs[0].Results))
+	}
+}
+
+func TestBuildJUnitReportIncludesScanErrorsAndPolicyFailures(t *testing.T) {
+	data, err := BuildJUnitReport("example.com", "443", "", "vtest", []scan.TLSScanResult{
+		{
+			Version:        "TLS 1.2",
+			Supported:      true,
+			Status:         scan.ScanStatusSupported,
+			DurationMillis: 15,
+		},
+		{
+			Version:        "TLS 1.3",
+			Supported:      false,
+			Status:         scan.ScanStatusTimeout,
+			ErrorMessage:   "handshake timed out",
+			DurationMillis: 1000,
+		},
+	}, &policy.Result{
+		Enabled: true,
+		Name:    policy.NameModern,
+		Passed:  false,
+		Failures: []policy.Failure{{
+			Check:   policy.CheckRequiredTLS,
+			Version: "TLS 1.3",
+			Message: "TLS 1.3 is required by policy but was not supported",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("BuildJUnitReport() error = %v", err)
+	}
+
+	var report junitTestSuites
+	if err := xml.Unmarshal(data, &report); err != nil {
+		t.Fatalf("xml.Unmarshal() error = %v\n%s", err, string(data))
+	}
+	if report.Tests != 3 || report.Failures != 1 || report.Errors != 1 {
+		t.Fatalf("JUnit counts = tests %d failures %d errors %d", report.Tests, report.Failures, report.Errors)
+	}
+	if len(report.Suites) != 1 || len(report.Suites[0].TestCases) != 3 {
+		t.Fatalf("unexpected JUnit suites/cases: %+v", report)
+	}
+	if report.Suites[0].TestCases[1].Error == nil {
+		t.Fatalf("expected scan timeout as JUnit error:\n%s", string(data))
+	}
+	if report.Suites[0].TestCases[2].Failure == nil {
+		t.Fatalf("expected policy failure as JUnit failure:\n%s", string(data))
 	}
 }
 

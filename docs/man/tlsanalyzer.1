@@ -13,7 +13,8 @@ tlsanalyzer \- analyze TLS protocol, cipher, certificate and policy posture
 is a dependency-free TLS scanner that tests protocol support from TLS 1.0
 through TLS 1.3, reports negotiated and probed cipher evidence, validates
 certificates separately from protocol support, and can emit Markdown or JSON
-reports for operational checks and CI workflows.
+reports for operational checks and CI workflows. It can also write SARIF and
+JUnit XML reports for downstream security and CI tools.
 .SH OPTIONS
 .TP
 .BR --config " " \fIfile\fR
@@ -57,6 +58,12 @@ Print days until certificate expiration in human-readable output.
 .TP
 .BR --markdown " " \fIfile\fR
 Write a Markdown scan report.
+.TP
+.BR --sarif " " \fIfile\fR
+Write enabled policy findings as SARIF v2.1.0.
+.TP
+.BR --junit " " \fIfile\fR
+Write scan status and policy results as JUnit XML.
 .TP
 .BR --json
 Write the scan result as JSON to standard output.
@@ -123,6 +130,9 @@ Analyze a host with SNI and JSON output:
 .TP
 Run a modern TLS policy gate:
 .B tlsanalyzer --host example.com --policy modern --no-clear
+.TP
+Write CI reports:
+.B tlsanalyzer --host example.com --policy modern --sarif tls.sarif --junit tls.xml
 .TP
 Run a custom TLS 1.3 policy gate:
 .B tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30

@@ -2,6 +2,23 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.19.0 - 2026-05-18
+
+### Added
+
+- Added `--sarif` to write SARIF v2.1.0 policy finding reports for security dashboards.
+- Added `--junit` to write JUnit XML scan and policy reports for CI systems.
+- Added JSON config support for SARIF and JUnit report paths.
+
+### Changed
+
+- Marked report-format work complete for SARIF and JUnit XML while deferring self-contained HTML reports.
+- Updated README, user manual and man page examples for CI report output.
+
+### Tests
+
+- Added tests for SARIF report generation, empty SARIF output, JUnit scan errors and policy failures, and CLI report flags.
+
 ## v0.18.0 - 2026-05-18
 
 ### Added

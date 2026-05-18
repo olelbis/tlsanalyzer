@@ -36,6 +36,8 @@ type cliConfig struct {
 	outputFile      string
 	minVersionStr   string
 	outputMarkdown  string
+	outputSARIF     string
+	outputJUnit     string
 	forceCiphers    bool
 	skipVerify      bool
 	outputJSON      bool
@@ -226,6 +228,28 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 	}
 
+	if cfg.outputSARIF != "" {
+		err := output.WriteSARIFReportToFile(h, port, serverName, build.Version, results, cfg.outputSARIF, reportPolicy)
+		if err != nil {
+			fmt.Fprintf(stderr, "❌ Failed to write SARIF report: %v\n", err)
+			return 1
+		}
+		if humanOutput {
+			fmt.Fprintf(stdout, "✅ SARIF report saved to %s\n", cfg.outputSARIF)
+		}
+	}
+
+	if cfg.outputJUnit != "" {
+		err := output.WriteJUnitReportToFile(h, port, serverName, build.Version, results, cfg.outputJUnit, reportPolicy)
+		if err != nil {
+			fmt.Fprintf(stderr, "❌ Failed to write JUnit report: %v\n", err)
+			return 1
+		}
+		if humanOutput {
+			fmt.Fprintf(stdout, "✅ JUnit report saved to %s\n", cfg.outputJUnit)
+		}
+	}
+
 	if cfg.outputJSON {
 		jsonReport, err := output.BuildJSONReport(h, port, serverName, build.Version, time.Now(), results, reportPolicy)
 		if err != nil {
@@ -300,6 +324,8 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.StringVar(&cfg.outputFile, "output", "", "Output file for PEM (only with --cert)")
 	fs.StringVar(&cfg.minVersionStr, "min-version", "1.0", "Minimum TLS version to test (1.0, 1.1, 1.2, 1.3)")
 	fs.StringVar(&cfg.outputMarkdown, "markdown", "", "Write scan result to markdown file")
+	fs.StringVar(&cfg.outputSARIF, "sarif", "", "Write policy findings to a SARIF file")
+	fs.StringVar(&cfg.outputJUnit, "junit", "", "Write scan and policy results to a JUnit XML file")
 	fs.BoolVar(&cfg.forceCiphers, "force-ciphers", false, "Force all cipher suites during version scan")
 	fs.BoolVar(&cfg.skipVerify, "skip-verify", false, "Skip certificate validation and report TLS handshake support only")
 	fs.BoolVar(&cfg.outputJSON, "json", false, "Write scan result as JSON to stdout")

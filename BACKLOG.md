@@ -576,19 +576,19 @@ Acceptance criteria:
 - Document the config schema and include a minimal example.
 - Do not introduce YAML, TOML or third-party config dependencies.
 
-## P20 - Report Formats - Planned
+## P20 - Report Formats - Done
 
 ### Add integrations for downstream tools
 
 Problem: Markdown and JSON cover humans and scripts, but CI/security platforms often consume specialized formats.
 
-Status: planned.
+Status: done for SARIF and JUnit XML; self-contained HTML remains deferred.
 
 Acceptance criteria:
 
-- Evaluate SARIF output for security dashboards.
-- Evaluate JUnit-style output for CI test reports.
-- Evaluate a self-contained HTML report.
+- Add SARIF output for security dashboards.
+- Add JUnit-style output for CI test reports.
+- Defer a self-contained HTML report until there is a clearer use case.
 - Keep JSON as the canonical machine-readable contract.
 
 ## P21 - Operational Hardening - Planned
