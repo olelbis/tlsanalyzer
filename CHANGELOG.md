@@ -2,6 +2,15 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.16.0 - 2026-05-18
+
+### Added
+
+- Added a minimal runtime container image build for `linux/amd64` and `linux/arm64`.
+- Added GitHub Container Registry publishing on release tags with version, semver and `latest` tags.
+- Added container SBOM and provenance attestations through the release workflow.
+- Documented container usage and installation channel evaluation.
+
 ## v0.15.1 - 2026-05-18
 
 ### Fixed

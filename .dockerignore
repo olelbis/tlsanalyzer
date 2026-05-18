@@ -1,0 +1,12 @@
+.git
+.github
+dist
+packages
+packaging/root
+*.deb
+*.rpm
+tlsanalyzer
+tlsanalyzer-*
+*.md
+!README.md
+!CHANGELOG.md

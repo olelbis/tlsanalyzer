@@ -14,6 +14,17 @@ sudo rpm -i tlsanalyzer-*.rpm
 man tlsanalyzer
 ```
 
+Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
+
+```bash
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.16.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
+```
+
+The image supports `linux/amd64` and `linux/arm64`, includes CA certificates for normal certificate validation and is published with registry SBOM and provenance attestations.
+
+Homebrew and Windows package-manager support are not published yet. For now, macOS users should use the release binaries or the container image, and Windows users should use the release `.exe` assets. A dedicated Homebrew tap and Scoop or WinGet manifests are the next installation-channel candidates.
+
 You can also build from source:
 
 ```bash
@@ -42,6 +53,8 @@ Verify provenance attestations with the GitHub CLI:
 ```bash
 gh attestation verify tlsanalyzer-linux-amd64 --repo olelbis/tlsanalyzer
 ```
+
+Container provenance is attached to the GHCR image by the release workflow.
 
 ## Basic Usage
 

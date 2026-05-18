@@ -513,13 +513,13 @@ Acceptance criteria:
 - Add configurable certificate expiry thresholds.
 - Keep defaults conservative and avoid surprising users who only enable `--policy modern`.
 
-## P16 - Installation Channels - Planned
+## P16 - Installation Channels - Done
 
 ### Expand distribution beyond GitHub release assets
 
 Problem: release binaries and Linux packages are available, but users still need to manually download assets from GitHub.
 
-Status: planned.
+Status: done for container publishing and documented package-manager evaluation.
 
 Acceptance criteria:
 

@@ -134,3 +134,14 @@ sudo dpkg -i tlsanalyzer_*.deb
 sudo rpm -i tlsanalyzer-*.rpm
 man tlsanalyzer
 ```
+
+## Container Image
+
+Release tags publish a minimal multi-arch image to GitHub Container Registry:
+
+```bash
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.16.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
+```
+
+Images are published for `linux/amd64` and `linux/arm64` with registry SBOM and provenance attestations.
