@@ -16,8 +16,18 @@ certificates separately from protocol support, and can emit Markdown or JSON
 reports for operational checks and CI workflows.
 .SH OPTIONS
 .TP
+.BR --config " " \fIfile\fR
+Read scan options, named targets and policy profiles from a JSON config file.
+.TP
+.BR --target " " \fIname\fR
+Use a named target from the JSON config file.
+.TP
+.BR --profile " " \fIname\fR
+Use a named policy profile from the JSON config file.
+.TP
 .BR --host " " \fIhost\fR
-Hostname or server IP to scan. This option is required.
+Hostname or server IP to scan. This option is required unless provided by the
+JSON config file.
 .TP
 .BR --port " " \fIport\fR
 TCP port to scan. Defaults to 443.
@@ -116,6 +126,9 @@ Run a modern TLS policy gate:
 .TP
 Run a custom TLS 1.3 policy gate:
 .B tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
+.TP
+Run with a JSON config target and profile:
+.B tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
 .TP
 Print version information:
 .B tlsanalyzer --version

@@ -2,6 +2,23 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.18.0 - 2026-05-18
+
+### Added
+
+- Added `--config` for dependency-free JSON configuration files.
+- Added `--target` for selecting reusable targets from a JSON config file.
+- Added `--profile` for selecting reusable policy profiles from a JSON config file.
+
+### Changed
+
+- Refactored scan orchestration into a small runner layer so CLI parsing and scan execution are easier to test independently.
+- Updated container documentation examples to the current release tag.
+
+### Tests
+
+- Added coverage for JSON config loading, CLI override behavior and runner execution against a local TLS server.
+
 ## v0.17.0 - 2026-05-18
 
 ### Added

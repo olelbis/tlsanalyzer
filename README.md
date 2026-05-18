@@ -26,6 +26,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 - Prints certificate summaries and optional PEM certificate chains.
 - Exports human-readable Markdown reports.
 - Emits JSON for scripts and automation.
+- Reads dependency-free JSON config files for repeatable scans.
 - Evaluates configurable TLS policy checks for CI workflows.
 - Prints a concise summary for supported TLS versions, certificate validation and cipher findings.
 - Builds multi-platform release binaries, Linux packages and verifiable release metadata with GitHub Actions.
@@ -45,6 +46,7 @@ tlsanalyzer --host example.com --min-version 1.2
 tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
 tlsanalyzer --host example.com --policy modern
+tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
 tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
 tlsanalyzer --host example.com --compact
 tlsanalyzer --host example.com --cert --output example.pem
@@ -141,7 +143,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.16.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.18.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

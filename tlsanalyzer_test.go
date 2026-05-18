@@ -3,11 +3,20 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/policy"
+	"github.com/olelbis/tlsanalyzer/scan"
 )
 
 func TestValidateHost(t *testing.T) {
@@ -238,6 +247,128 @@ func TestParseCLIArgsPolicyFlags(t *testing.T) {
 	}
 }
 
+func TestParseCLIArgsLoadsJSONConfigWithTargetProfileAndOverrides(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
+	config := `{
+  "target": "example",
+  "profile": "ci",
+  "json": true,
+  "no_clear": true,
+  "targets": {
+    "example": {
+      "host": "config.example.com",
+      "port": "8443",
+      "sni": "service.example.com"
+    }
+  },
+  "profiles": {
+    "ci": {
+      "policy": "modern",
+      "require_tls": "1.3",
+      "forbid_tls": "1.0,1.1",
+      "min_cert_days": 30
+    }
+  }
+}`
+	if err := os.WriteFile(configPath, []byte(config), 0640); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	cfg, err := parseCLIArgs([]string{
+		"--config", configPath,
+		"--host", "override.example.com",
+		"--min-cert-days", "45",
+	}, &stderr)
+	if err != nil {
+		t.Fatalf("parseCLIArgs() error = %v", err)
+	}
+
+	if cfg.host != "override.example.com" {
+		t.Fatalf("host = %q, want CLI override", cfg.host)
+	}
+	if cfg.port != "8443" || cfg.sni != "service.example.com" {
+		t.Fatalf("target values = port %q sni %q", cfg.port, cfg.sni)
+	}
+	if !cfg.outputJSON || !cfg.noClear {
+		t.Fatalf("json/noClear = %v/%v, want true/true", cfg.outputJSON, cfg.noClear)
+	}
+	if cfg.policy != "modern" || cfg.requireTLS != "1.3" || cfg.forbidTLS != "1.0,1.1" {
+		t.Fatalf("profile values = policy %q require %q forbid %q", cfg.policy, cfg.requireTLS, cfg.forbidTLS)
+	}
+	if cfg.minCertDays != 45 {
+		t.Fatalf("minCertDays = %d, want CLI override 45", cfg.minCertDays)
+	}
+}
+
+func TestRunRejectsUnknownConfigField(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
+	if err := os.WriteFile(configPath, []byte(`{"unknown": true}`), 0640); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"--config", configPath}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "unknown field") {
+		t.Fatalf("stderr does not contain unknown field error:\n%s", stderr.String())
+	}
+}
+
+func TestExecuteScanRunReturnsStructuredResults(t *testing.T) {
+	server, host, port := newMainLocalTLSServer(t, tls.VersionTLS12, tls.VersionTLS12)
+	defer server.Close()
+
+	var started []string
+	supportedHookCalled := false
+	result, err := executeScanRun(scanRunOptions{
+		Host:       host,
+		Port:       port,
+		Timeout:    time.Second,
+		MinVersion: tls.VersionTLS12,
+		SkipVerify: true,
+	}, scanRunHooks{
+		VersionStart: func(versionName string, _ uint16, _ bool) {
+			started = append(started, versionName)
+		},
+		Supported: func(result scan.TLSScanResult, negotiatedCipher string) error {
+			supportedHookCalled = true
+			if result.Certificate == nil {
+				t.Fatal("supported hook result should include certificate")
+			}
+			if negotiatedCipher == "" {
+				t.Fatal("negotiatedCipher should be passed to supported hook")
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("executeScanRun() error = %v", err)
+	}
+	if len(started) != 2 || started[0] != "TLS 1.2" || started[1] != "TLS 1.3" {
+		t.Fatalf("started versions = %v, want TLS 1.2 and TLS 1.3", started)
+	}
+	if !supportedHookCalled {
+		t.Fatal("supported hook was not called")
+	}
+	if len(result.Results) != 2 {
+		t.Fatalf("Results = %d, want 2", len(result.Results))
+	}
+	if !result.Results[0].Supported {
+		t.Fatalf("first result should be supported: %+v", result.Results[0])
+	}
+	if result.Policy.Enabled {
+		t.Fatal("policy should be disabled when no policy config is set")
+	}
+}
+
 func TestBuildPolicyConfigRejectsInvalidTLSVersion(t *testing.T) {
 	_, err := buildPolicyConfig(cliConfig{requireTLS: "1.4"})
 	if err == nil {
@@ -265,4 +396,25 @@ func TestPolicyModernRequiresCipherProbe(t *testing.T) {
 	if !policy.RequiresCipherProbe(cfg) {
 		t.Fatal("modern policy should require cipher probing")
 	}
+}
+
+func newMainLocalTLSServer(t *testing.T, minVersion, maxVersion uint16) (*httptest.Server, string, string) {
+	t.Helper()
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{
+		MinVersion: minVersion,
+		MaxVersion: maxVersion,
+	}
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.StartTLS()
+
+	host, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		server.Close()
+		t.Fatalf("split server address: %v", err)
+	}
+	return server, host, port
 }

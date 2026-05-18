@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.16.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.18.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -80,11 +80,23 @@ Start from TLS 1.2:
 tlsanalyzer --host example.com --min-version 1.2
 ```
 
+Use a JSON config file:
+
+```bash
+tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
+```
+
 ## Flags
 
 ```text
+  --config string
+        JSON config file
+  --target string
+        Named target from --config
+  --profile string
+        Named policy profile from --config
   --host string
-        Hostname or server IP to scan (required)
+        Hostname or server IP to scan (required unless provided by --config)
   --port string
         TLS server port (default "443")
   --sni string
@@ -150,6 +162,56 @@ tlsanalyzer --host example.com --compact
 ```
 
 `tlsanalyzer` offers `h2` and `http/1.1` through ALPN to observe the negotiated TLS application protocol. It does not send HTTP requests or evaluate non-TLS HTTP behavior.
+
+### JSON config file
+
+`tlsanalyzer` can read repeatable scan settings from a JSON file without adding runtime dependencies:
+
+```json
+{
+  "target": "production",
+  "profile": "modern-ci",
+  "timeout": 5,
+  "min_version": "1.2",
+  "json": true,
+  "no_clear": true,
+  "targets": {
+    "production": {
+      "host": "example.com",
+      "port": "443",
+      "sni": "example.com"
+    }
+  },
+  "profiles": {
+    "modern-ci": {
+      "policy": "modern",
+      "require_tls": "1.3",
+      "forbid_tls": "1.0,1.1",
+      "min_cert_days": 30
+    }
+  }
+}
+```
+
+Run it with:
+
+```bash
+tlsanalyzer --config tlsanalyzer.json
+```
+
+Use `--target` or `--profile` to select a different named entry from the same file:
+
+```bash
+tlsanalyzer --config tlsanalyzer.json --target staging --profile baseline
+```
+
+CLI flags override values loaded from the config file:
+
+```bash
+tlsanalyzer --config tlsanalyzer.json --target production --host override.example.com
+```
+
+Unknown JSON fields are rejected so configuration typos fail early.
 
 ### Markdown report
 

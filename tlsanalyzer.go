@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -24,6 +24,9 @@ func main() {
 }
 
 type cliConfig struct {
+	configPath      string
+	targetName      string
+	profileName     string
 	host            string
 	port            string
 	sni             string
@@ -59,6 +62,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	cfg, err := parseCLIArgs(args, stderr)
 	if err != nil {
+		var inputErr cliInputError
+		if errors.As(err, &inputErr) {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
 		return 2
 	}
 
@@ -114,7 +122,6 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	probeCiphers := cfg.forceCiphers || policy.RequiresCipherProbe(policyConfig)
 	humanOutput := !cfg.outputJSON
 	verboseOutput := humanOutput && !cfg.compact
 
@@ -128,8 +135,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "Using SNI/certificate name %s\n", serverName)
 		}
 	}
-	keys := utils.FilterTLSVersions(minVersion)
-	opts := scan.Options{
+	if verboseOutput {
+		fmt.Fprintf(stdout, "\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", h, port)
+	}
+
+	runResult, err := executeScanRun(scanRunOptions{
 		Host:         h,
 		Port:         port,
 		ServerName:   serverName,
@@ -137,78 +147,58 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		MinVersion:   minVersion,
 		ForceCiphers: cfg.forceCiphers,
 		SkipVerify:   cfg.skipVerify,
-	}
-
-	if verboseOutput {
-		fmt.Fprintf(stdout, "\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", opts.Host, opts.Port)
-	}
-	var results []scan.TLSScanResult
-
-	for _, version := range keys {
-		name := utils.TLSVersions[version]
-		if verboseOutput {
-			fmt.Fprintf(stdout, "\n👉 Trying TLS version %s\n", name)
-			if probeCiphers && version <= tls.VersionTLS12 {
-				fmt.Fprintf(stdout, "🔧 Probing cipher suites for %s\n", name)
-			}
-			if probeCiphers && version == tls.VersionTLS13 {
-				fmt.Fprintf(stdout, "🔧 Inspecting TLS 1.3 cipher suites for %s\n", name)
-			}
-		}
-
-		result := scan.ScanTLSVersion(opts, version)
-		if !result.Supported {
+		PolicyConfig: policyConfig,
+	}, scanRunHooks{
+		VersionStart: func(name string, version uint16, probeCiphers bool) {
 			if verboseOutput {
-				fmt.Fprintf(stdout, "\n🚫 %s: %s\n", name, result.Status)
+				fmt.Fprintf(stdout, "\n👉 Trying TLS version %s\n", name)
+				if probeCiphers && isPreTLS13(version) {
+					fmt.Fprintf(stdout, "🔧 Probing cipher suites for %s\n", name)
+				}
+				if probeCiphers && isTLS13(version) {
+					fmt.Fprintf(stdout, "🔧 Inspecting TLS 1.3 cipher suites for %s\n", name)
+				}
+			}
+		},
+		Unsupported: func(result scan.TLSScanResult) {
+			if verboseOutput {
+				fmt.Fprintf(stdout, "\n🚫 %s: %s\n", result.Version, result.Status)
 				if result.ErrorMessage != "" {
 					fmt.Fprintf(stdout, "   %s\n", result.ErrorMessage)
 				}
 			}
-			results = append(results, result)
-			continue
-		}
-
-		negotiatedCipher := ""
-		if len(result.CipherSuites) > 0 {
-			negotiatedCipher = result.CipherSuites[0]
-		}
-		if probeCiphers {
-			probe := scan.ProbeCipherSuitesForVersion(opts, version)
-			result.CipherSuites = probe.CipherSuites
-			result.CipherDiscovery = probe.Discovery
-			result.CipherSuitesObserved = probe.ObservedOnly
-			result.CipherProbeDurationMillis = probe.DurationMillis
-			result.CipherProbeResults = probe.Statuses
-			result.HandshakeAttempts += probe.Attempts
-			result.Warnings = append(result.Warnings, probe.Warnings...)
-		}
-		results = append(results, result)
-
-		if result.Certificate != nil {
+		},
+		Supported: func(result scan.TLSScanResult, negotiatedCipher string) error {
+			if result.Certificate == nil {
+				return nil
+			}
 			if verboseOutput {
-				output.PrintCertSummary(stdout, result.Certificate, negotiatedCipher, name, cfg.checkCertExpiry, scan.CertValidation{
+				output.PrintCertSummary(stdout, result.Certificate, negotiatedCipher, result.Version, cfg.checkCertExpiry, scan.CertValidation{
 					Status:  result.CertValidationStatus,
 					Message: result.CertValidationMessage,
 				})
 				output.PrintTLSPosture(stdout, result)
 				output.PrintCipherSuites(stdout, result.CipherSuites, result.CipherDiscovery)
 			}
-			if cfg.certChain {
-				prefix := strings.ReplaceAll(name, " ", "")
-				if cfg.outputJSON {
-					if _, err := certs.SaveCertChainToFile(prefix, result.CertInfos, cfg.outputFile); err != nil {
-						fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
-						return 1
-					}
-				} else if err := certs.SaveOrPrintCertToFile(stdout, prefix, result.CertInfos, cfg.outputFile); err != nil {
-					fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
-					return 1
-				}
+			if !cfg.certChain {
+				return nil
 			}
-		}
+
+			prefix := strings.ReplaceAll(result.Version, " ", "")
+			if cfg.outputJSON {
+				_, err := certs.SaveCertChainToFile(prefix, result.CertInfos, cfg.outputFile)
+				return err
+			}
+			return certs.SaveOrPrintCertToFile(stdout, prefix, result.CertInfos, cfg.outputFile)
+		},
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
+		return 1
 	}
 
-	policyResult := policy.Evaluate(results, policyConfig, time.Now())
+	results := runResult.Results
+	policyResult := runResult.Policy
 	if humanOutput {
 		if cfg.compact {
 			output.PrintCompactScanResults(stdout, results)
@@ -271,13 +261,37 @@ func parseCLIArgs(args []string, stderr io.Writer) (cliConfig, error) {
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
-	return cfg, nil
+
+	explicit := make(map[string]bool)
+	fs.Visit(func(flag *flag.Flag) {
+		explicit[flag.Name] = true
+	})
+
+	if cfg.configPath == "" {
+		return cfg, nil
+	}
+
+	file, err := loadFileConfig(cfg.configPath)
+	if err != nil {
+		return cfg, cliInputError{err: fmt.Errorf("load config %q: %w", cfg.configPath, err)}
+	}
+
+	merged := defaultCLIConfig(stderr)
+	merged.configPath = cfg.configPath
+	if err := applyFileConfig(&merged, file, cfg.targetName, cfg.profileName); err != nil {
+		return cfg, cliInputError{err: err}
+	}
+	overlayExplicitCLIValues(&merged, cfg, explicit)
+	return merged, nil
 }
 
 func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs := flag.NewFlagSet("tlsanalyzer", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fs.StringVar(&cfg.host, "host", "", "Hostname or server IP (mandatory)")
+	fs.StringVar(&cfg.configPath, "config", "", "JSON config file")
+	fs.StringVar(&cfg.targetName, "target", "", "Named target from --config")
+	fs.StringVar(&cfg.profileName, "profile", "", "Named policy profile from --config")
+	fs.StringVar(&cfg.host, "host", "", "Hostname or server IP")
 	fs.StringVar(&cfg.port, "port", "443", "TLS server port")
 	fs.StringVar(&cfg.sni, "sni", "", "TLS Server Name Indication and certificate validation name")
 	fs.BoolVar(&cfg.certChain, "cert", false, "Print certificate chain")

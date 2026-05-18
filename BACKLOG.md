@@ -543,7 +543,40 @@ Acceptance criteria:
 - Add package-level documentation and examples.
 - Decide whether to keep it internal or publish it as a separate Go module.
 
-## P18 - Report Formats - Planned
+## P18 - CLI Runner Refactor - Done
+
+### Separate orchestration from CLI parsing
+
+Problem: `tlsanalyzer.go` currently owns CLI parsing, validation, scan orchestration, policy evaluation, output rendering and exit code mapping, which makes the main flow harder to test and extend.
+
+Status: done.
+
+Acceptance criteria:
+
+- Introduce a small runner layer that accepts validated options and returns structured execution results.
+- Keep `main` focused on argument parsing, I/O wiring and process exit codes.
+- Preserve existing CLI behavior, output and exit codes.
+- Add tests for runner behavior without relying only on full CLI invocations.
+- Keep the refactor mechanical and dependency-free.
+
+## P19 - Config File and Profiles - Done
+
+### Support repeatable scan configuration
+
+Problem: repeated scans currently require long CLI invocations, which is awkward for teams and CI templates.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add a JSON config file for common scan options using only the Go standard library.
+- Support named policy profiles.
+- Support reusable target definitions.
+- Keep CLI flags able to override config file values explicitly.
+- Document the config schema and include a minimal example.
+- Do not introduce YAML, TOML or third-party config dependencies.
+
+## P20 - Report Formats - Planned
 
 ### Add integrations for downstream tools
 
@@ -558,17 +591,35 @@ Acceptance criteria:
 - Evaluate a self-contained HTML report.
 - Keep JSON as the canonical machine-readable contract.
 
-## P19 - Config File and Profiles - Planned
+## P21 - Operational Hardening - Planned
 
-### Support repeatable scan configuration
+### Improve CI and batch-scan reliability
 
-Problem: repeated scans currently require long CLI invocations, which is awkward for teams and CI templates.
+Problem: `tlsanalyzer` is useful for one target at a time, but operational use often needs predictable behavior across many endpoints and occasionally unreliable networks.
 
 Status: planned.
 
 Acceptance criteria:
 
-- Add a YAML or TOML config file for common scan options.
-- Support named policy profiles.
-- Support reusable target definitions.
-- Keep CLI flags able to override config file values explicitly.
+- Add support for scanning multiple targets from a file.
+- Add bounded parallel scanning with a configurable concurrency limit.
+- Add retry/backoff controls for transient network failures.
+- Preserve per-target exit evidence in JSON and future CI-oriented report formats.
+- Keep terminal output readable for both single-target and batch modes.
+- Document operational limits, timeout behavior and recommended CI defaults.
+
+## P22 - Public Raw Probe Library - Future
+
+### Extract the TLS 1.3 raw probe when the API is stable
+
+Problem: the raw TLS 1.3 probe has standalone value, but publishing it too early would freeze an API that is still maturing inside `tlsanalyzer`.
+
+Status: future.
+
+Acceptance criteria:
+
+- Keep improving `internal/tlsprobe` inside `tlsanalyzer` until its API, fixtures and edge-case behavior are stable.
+- Add enough tests, fixtures and examples to support external users.
+- Decide whether the library should live as a public package in this module or as a separate Go module.
+- Define semantic versioning and compatibility expectations for the library API.
+- Publish package documentation suitable for Go users.
