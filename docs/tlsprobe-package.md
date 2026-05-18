@@ -1,7 +1,7 @@
 # TLS Probe Go Package
 
 `github.com/olelbis/tlsanalyzer/tlsprobe` exposes the raw TLS 1.3 cipher probe
-used internally by `tlsanalyzer`.
+used by `tlsanalyzer`.
 
 The package is intentionally small and preview-level. It sends minimal TLS 1.3
 ClientHello messages, offers one cipher suite at a time and classifies the first
@@ -11,7 +11,7 @@ full TLS handshakes.
 ## Install
 
 ```bash
-go get github.com/olelbis/tlsanalyzer@v0.24.1
+go get github.com/olelbis/tlsanalyzer@v0.24.2
 ```
 
 ## Example

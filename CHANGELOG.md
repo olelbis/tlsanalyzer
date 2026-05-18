@@ -2,6 +2,14 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.24.2 - 2026-05-19
+
+### Changed
+
+- Reviewed and tightened README and documentation wording for the `v0.24.x` maintenance phase.
+- Added a GitHub Pages documentation home under `docs/`.
+- Updated documentation examples to reference `v0.24.2`.
+
 ## v0.24.1 - 2026-05-19
 
 ### Changed

@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.1 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.2 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -414,7 +414,7 @@ For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to pr
 
 By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
 
-Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its internal raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads the ServerHello, alert or another probe outcome and records per-cipher status without completing the full TLS handshake.
+Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its preview `tlsprobe` raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads the ServerHello, alert or another probe outcome and records per-cipher status without completing the full TLS handshake.
 
 If the raw probe cannot confirm support, `tlsanalyzer` falls back to observed handshakes so the report still includes the negotiated TLS 1.3 evidence.
 
@@ -422,7 +422,7 @@ JSON and Markdown output distinguish:
 
 - `negotiated`: the cipher selected by the first successful handshake.
 - `probed`: cipher suites accepted when forcing individual TLS 1.0, 1.1 or 1.2 suites.
-- `raw-probed`: TLS 1.3 cipher suites accepted by the internal raw ClientHello probe.
+- `raw-probed`: TLS 1.3 cipher suites accepted by the raw ClientHello probe.
 - `observed`: TLS 1.3 cipher suites seen across repeated handshakes when raw probing is inconclusive.
 
 ### Policy mode

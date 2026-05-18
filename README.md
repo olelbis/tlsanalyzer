@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml"><img src="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/olelbis/tlsanalyzer/releases/latest"><img src="https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver" alt="Latest release"></a>
+  <a href="https://olelbis.github.io/tlsanalyzer/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-222222?logo=githubpages&logoColor=white" alt="Documentation"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white" alt="Go 1.26.3"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT license"></a>
 </p>
@@ -66,6 +67,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 
 ## Documentation
 
+- [Documentation site](https://olelbis.github.io/tlsanalyzer/): GitHub Pages entry point for the project documentation.
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
 - [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
 - [TLS probe Go package](docs/tlsprobe-package.md): preview API for raw TLS 1.3 cipher probing.
@@ -123,18 +125,16 @@ Or use the build script:
 ./scripts/build.sh --all
 ```
 
-## Project Status
+## Stability & Guarantees
 
 `tlsanalyzer` is preview software. The core workflow is covered by unit tests, local TLS integration tests, CI and automated release builds, and the JSON v1 output contract is documented for automation consumers.
 
 The scanner is suitable for controlled operational checks and CI policy gates, but findings should still be validated before using them as the sole basis for compliance, audit or production security decisions.
 
-## Stability & Guarantees
-
 - JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
 - TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
-- The raw TLS 1.3 probe remains an internal package, with a small documented API and examples kept ready for possible future extraction.
+- The raw TLS 1.3 probe is available as the preview `tlsprobe` package inside this module.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
 - Custom policy gates can require or forbid TLS versions and ALPN protocols, enforce minimum certificate key size and require a minimum certificate validity window.
 - The project remains dependency-free at runtime and uses only the Go standard library.
@@ -185,7 +185,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.1 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.24.2 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

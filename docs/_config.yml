@@ -1,0 +1,10 @@
+title: tlsanalyzer
+description: Dependency-free TLS inspection CLI for protocols, ciphers, certificates, reports and CI policy checks.
+theme: jekyll-theme-cayman
+
+plugins:
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: true
