@@ -639,3 +639,19 @@ Acceptance criteria:
 - Return typed hook errors while keeping operational target failures as structured scan results.
 - Add examples suitable for `go doc`.
 - Add tests for defaults and hook error wrapping.
+
+## P24 - Beta and Library Readiness Audit - Done
+
+### Freeze feature growth before public raw-probe extraction
+
+Problem: the project is feature-complete for preview use, but the next major step exposes library API that should not be published without a compatibility review.
+
+Status: done.
+
+Acceptance criteria:
+
+- Audit CLI, reporting, policy, release and raw-probe-library readiness.
+- Document the P22 blockers before exposing the raw probe publicly.
+- Tighten raw-probe option validation for malformed TCP addresses and invalid timeouts.
+- Add tests for the tightened raw-probe validation.
+- Link the audit from the README.

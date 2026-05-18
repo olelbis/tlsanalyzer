@@ -166,6 +166,61 @@ func TestProbeTLS13CipherSuitesReturnsConfigurationErrorBeforeDialing(t *testing
 	}
 }
 
+func TestProbeTLS13CipherSuiteReturnsConfigurationErrorBeforeDialing(t *testing.T) {
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address: "missing-port.example.test",
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err == nil {
+		t.Fatal("ProbeTLS13CipherSuite() error = nil, want address validation error")
+	}
+	if result.Status != StatusInconclusive {
+		t.Fatalf("Status = %q, want %q", result.Status, StatusInconclusive)
+	}
+}
+
+func TestValidateOptionsRejectsInvalidAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		opts Options
+	}{
+		{
+			name: "missing host",
+			opts: Options{Address: ":443"},
+		},
+		{
+			name: "missing port",
+			opts: Options{Address: "example.com"},
+		},
+		{
+			name: "non numeric port",
+			opts: Options{Address: "example.com:https"},
+		},
+		{
+			name: "port out of range",
+			opts: Options{Address: "example.com:65536"},
+		},
+		{
+			name: "leading whitespace",
+			opts: Options{Address: " example.com:443"},
+		},
+		{
+			name: "negative timeout",
+			opts: Options{
+				Address: "example.com:443",
+				Timeout: -time.Second,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateOptions(tt.opts); err == nil {
+				t.Fatal("ValidateOptions() error = nil, want validation error")
+			}
+		})
+	}
+}
+
 func TestValidateOptionsRejectsOverlongALPNProtocol(t *testing.T) {
 	err := ValidateOptions(Options{
 		Address: "127.0.0.1:443",

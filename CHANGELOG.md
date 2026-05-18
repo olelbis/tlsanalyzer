@@ -2,6 +2,22 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.23.0 - 2026-05-19
+
+### Added
+
+- Added a P24 readiness audit for beta/v1 planning and future raw-probe-library extraction.
+- Linked the readiness audit from the README documentation section.
+
+### Changed
+
+- Tightened raw TLS 1.3 probe option validation for malformed `host:port` addresses, invalid TCP ports, address whitespace and negative timeouts.
+- Marked P24 complete in the backlog with the remaining P22 library extraction blockers documented.
+
+### Tests
+
+- Added raw-probe validation tests for malformed addresses and pre-dial configuration errors.
+
 ## v0.22.0 - 2026-05-18
 
 ### Added

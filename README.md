@@ -65,6 +65,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
 - [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
+- [P24 readiness audit](docs/p24-readiness-audit.md): beta/v1 and raw-probe-library readiness notes.
 - [Changelog](CHANGELOG.md): release history.
 - [Backlog](BACKLOG.md): prioritized future work.
 
@@ -167,7 +168,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.22.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.23.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -216,6 +217,23 @@ func SupportedTLS13CipherSuites() []uint16 {
 func ValidateOptions(opts Options) error {
 	if opts.Address == "" {
 		return errors.New("tlsprobe: address is required")
+	}
+	if opts.Address != strings.TrimSpace(opts.Address) {
+		return errors.New("tlsprobe: address must not contain leading or trailing whitespace")
+	}
+	host, port, err := net.SplitHostPort(opts.Address)
+	if err != nil {
+		return fmt.Errorf("tlsprobe: address must be a host:port TCP address: %w", err)
+	}
+	if host == "" {
+		return errors.New("tlsprobe: address host is required")
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return fmt.Errorf("tlsprobe: address port %q must be a TCP port in range 1..65535", port)
+	}
+	if opts.Timeout < 0 {
+		return errors.New("tlsprobe: timeout must not be negative")
 	}
 	for _, protocol := range opts.ALPN {
 		if len(protocol) > 255 {
