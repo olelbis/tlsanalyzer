@@ -2,6 +2,13 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.25.2 - 2026-05-20
+
+### Changed
+
+- Expanded the GitHub Pages documentation home into a richer project portal with quick-start commands, documentation cards, release artifact notes and TLS 1.3 evidence guidance.
+- Added lightweight custom styling for the published documentation site.
+
 ## v0.25.1 - 2026-05-19
 
 ### Changed
