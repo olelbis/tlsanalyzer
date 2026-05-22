@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.25.x Maintenance
+## Current Focus - v0.26.x Maintenance
 
-The feature backlog from P1 through P25 is complete. The `v0.25.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
+The feature backlog from P1 through P26 is complete. The `v0.26.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
 
 ## P1 - Correctness and Trust - Done
 
@@ -677,3 +677,19 @@ Acceptance criteria:
 - Expose selected key share group, HelloRetryRequest retry status, raw alert codes and evidence level in probe results.
 - Carry the new evidence into JSON, Markdown and console summaries without claiming full-handshake completion.
 - Cover the new behavior with offline tests.
+
+## P26 - Console Output Clarity - Done
+
+### Clarify negotiated and probed cipher evidence
+
+Problem: verbose console output printed the negotiated cipher suite once in the certificate summary and again as a negotiated cipher list, which made a single selected handshake cipher look like an exhaustive support list.
+
+Status: done.
+
+Acceptance criteria:
+
+- Print the negotiated cipher suite once and label it as selected in the current handshake.
+- Suppress duplicate negotiated cipher lists in verbose output.
+- Label probed, observed and raw-probed cipher lists with evidence-specific wording.
+- Preserve TLS 1.3 raw-probe wording as ClientHello-only support evidence.
+- Cover the console wording with focused tests.

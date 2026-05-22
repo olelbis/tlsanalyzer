@@ -2,6 +2,19 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.26.0 - 2026-05-22
+
+### Changed
+
+- Clarified verbose console output so the negotiated cipher suite is labeled as selected in the current handshake.
+- Removed duplicate negotiated cipher lists from verbose console output.
+- Added evidence-specific labels for probed, observed and raw-probed cipher lists.
+- Moved the preview maintenance line forward to `v0.26.x` after P26 console output polish.
+
+### Tests
+
+- Added focused tests for negotiated cipher wording and evidence-specific cipher list labels.
+
 ## v0.25.2 - 2026-05-20
 
 ### Changed

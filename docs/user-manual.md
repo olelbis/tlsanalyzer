@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.25.2 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.26.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -191,7 +191,7 @@ tlsanalyzer --host example.com --no-clear
 
 Use `--no-clear` when running in terminals, logs or CI systems where clearing the screen is unwanted.
 
-The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count and makes clear that the evidence is ClientHello-only ServerHello evidence, not a full TLS handshake. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
+The verbose per-version output prints the negotiated cipher suite once and labels it as the cipher selected in that handshake. Additional cipher lists are shown only when the scanner has probed, raw-probed or observed extra cipher evidence. The console output ends with a compact summary covering supported TLS versions, protocol findings, certificate validation status and cipher findings. Cipher findings include the evidence mode, such as `negotiated`, `probed`, `raw-probed`, `observed` or mixed evidence. When TLS 1.3 raw probe evidence is available, the summary also reports the supported raw-probed cipher count and makes clear that the evidence is ClientHello-only ServerHello evidence, not a full TLS handshake. Cipher severity is version-aware, so CBC cipher suites negotiated on TLS 1.0 or TLS 1.1 are reported as legacy CBC findings.
 
 Use `--compact` for shorter human-readable output while preserving the final summary:
 

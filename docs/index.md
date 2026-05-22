@@ -16,7 +16,7 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> preview maintenance on the <code>v0.25.x</code>
+  <strong>Project status:</strong> preview maintenance on the <code>v0.26.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
   gathers real-world usage before a future beta/v1 decision.
@@ -34,7 +34,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.25.2 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.26.0 --host example.com --no-clear
 ```
 
 ## Documentation Map

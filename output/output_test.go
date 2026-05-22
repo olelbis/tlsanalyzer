@@ -578,6 +578,76 @@ func TestPrintScanSummaryReportsUnknownCipherEvidence(t *testing.T) {
 	}
 }
 
+func TestPrintCertSummaryClarifiesNegotiatedCipherEvidence(t *testing.T) {
+	var buf bytes.Buffer
+	cert := &x509.Certificate{
+		Subject:            pkixName("example.com"),
+		Issuer:             pkixName("Example CA"),
+		NotBefore:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		NotAfter:           time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		PublicKeyAlgorithm: x509.RSA,
+		PublicKey:          testRSAPublicKey(),
+		SignatureAlgorithm: x509.SHA256WithRSA,
+	}
+
+	PrintCertSummary(&buf, cert, "TLS_AES_256_GCM_SHA384", "TLS 1.3", false, scan.CertValidation{
+		Status:  scan.CertValidationValid,
+		Message: "certificate validation passed",
+	})
+
+	out := buf.String()
+	if !strings.Contains(out, "Negotiated cipher suite (selected in this handshake): TLS_AES_256_GCM_SHA384") {
+		t.Fatalf("certificate summary should clarify negotiated cipher evidence:\n%s", out)
+	}
+	if strings.Contains(out, "Negotiated Cipher suite:") {
+		t.Fatalf("certificate summary should not use old ambiguous cipher wording:\n%s", out)
+	}
+}
+
+func TestPrintCipherSuitesDoesNotDuplicateNegotiatedCipher(t *testing.T) {
+	var buf bytes.Buffer
+	PrintCipherSuites(&buf, []string{"TLS_AES_256_GCM_SHA384"}, scan.CipherDiscoveryNegotiated)
+
+	if buf.Len() != 0 {
+		t.Fatalf("negotiated discovery should not print a duplicate cipher list:\n%s", buf.String())
+	}
+}
+
+func TestPrintCipherSuitesClarifiesProbeEvidence(t *testing.T) {
+	tests := []struct {
+		name      string
+		discovery string
+		want      string
+	}{
+		{
+			name:      "raw probed",
+			discovery: scan.CipherDiscoveryRawProbed,
+			want:      "Raw-probed cipher suites (ClientHello-only support evidence):",
+		},
+		{
+			name:      "observed",
+			discovery: scan.CipherDiscoveryObserved,
+			want:      "Observed cipher suites (handshake evidence):",
+		},
+		{
+			name:      "probed",
+			discovery: scan.CipherDiscoveryProbed,
+			want:      "Probed cipher suites (per-cipher handshake evidence):",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			PrintCipherSuites(&buf, []string{"TLS_AES_256_GCM_SHA384"}, tc.discovery)
+
+			if !strings.Contains(buf.String(), tc.want) {
+				t.Fatalf("cipher list should clarify %s evidence:\n%s", tc.discovery, buf.String())
+			}
+		})
+	}
+}
+
 func TestPrintCompactScanResults(t *testing.T) {
 	var buf bytes.Buffer
 	PrintCompactScanResults(&buf, []scan.TLSScanResult{

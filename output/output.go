@@ -433,7 +433,9 @@ func daysUntilCertificateExpiry(cert *x509.Certificate, reference time.Time) int
 
 func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, version string, checkExpiry bool, validation scan.CertValidation) {
 	fmt.Fprintf(w, "✅ \033[1m%s\033[0m: supported\n", version)
-	fmt.Fprintf(w, "   Negotiated Cipher suite: %s\n", cipher)
+	if cipher != "" {
+		fmt.Fprintf(w, "   Negotiated cipher suite (selected in this handshake): %s\n", cipher)
+	}
 	fmt.Fprintf(w, "   CN: %s\n", cert.Subject.CommonName)
 	fmt.Fprintf(w, "   Issuer: %s\n", cert.Issuer.CommonName)
 	if publicKey := certificatePublicKeySummary(cert); publicKey != "" {
@@ -469,13 +471,13 @@ func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {
 	if len(ciphers) > 0 {
 		switch discovery {
 		case scan.CipherDiscoveryRawProbed:
-			fmt.Fprintln(w, "   Raw-probed cipher suites:")
+			fmt.Fprintln(w, "   Raw-probed cipher suites (ClientHello-only support evidence):")
 		case scan.CipherDiscoveryObserved:
-			fmt.Fprintln(w, "   Observed cipher suites:")
+			fmt.Fprintln(w, "   Observed cipher suites (handshake evidence):")
 		case scan.CipherDiscoveryProbed:
-			fmt.Fprintln(w, "   Probed cipher suites:")
+			fmt.Fprintln(w, "   Probed cipher suites (per-cipher handshake evidence):")
 		default:
-			fmt.Fprintln(w, "   Negotiated cipher suite:")
+			return
 		}
 		for _, cs := range ciphers {
 			fmt.Fprintf(w, "     • %s\n", cs)
