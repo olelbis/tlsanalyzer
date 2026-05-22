@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.26.x Maintenance
+## Current Focus - v0.27.x Maintenance
 
-The feature backlog from P1 through P26 is complete. The `v0.26.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
+The feature backlog from P1 through P27 is complete. The `v0.27.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
 
 ## P1 - Correctness and Trust - Done
 
@@ -693,3 +693,19 @@ Acceptance criteria:
 - Label probed, observed and raw-probed cipher lists with evidence-specific wording.
 - Preserve TLS 1.3 raw-probe wording as ClientHello-only support evidence.
 - Cover the console wording with focused tests.
+
+## P27 - Hardening, Examples and Real-world Validation - Done
+
+### Raise preview confidence without adding large features
+
+Problem: the CLI is feature-complete for preview use, but maintainers and users need clearer examples, repeatable manual validation and a small amount of extra config hardening before relying on release evidence.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add curated output examples for console, JSON, Markdown and CI report formats.
+- Add a real-world validation matrix that documents expected drift for public TLS endpoints.
+- Add a manual validation script that exercises version output, TLS 1.3 handshakes, TLS 1.3 raw probes, JSON shape, Markdown output, policy output and invalid-certificate evidence.
+- Harden config parsing tests for nested unknown fields and multiple JSON objects.
+- Link the new validation and example documentation from the README and GitHub Pages docs.

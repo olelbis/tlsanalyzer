@@ -2,6 +2,23 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.27.0 - 2026-05-22
+
+### Added
+
+- Added curated output examples for console, JSON, Markdown and CI report formats.
+- Added a real-world validation matrix for manual release confidence checks.
+- Added `scripts/validate-real-world.sh` to exercise live TLS 1.3, raw-probe, JSON, Markdown, policy and invalid-certificate scenarios without external JSON tools.
+
+### Changed
+
+- Linked the new output examples and validation matrix from the README, user manual and GitHub Pages documentation.
+- Moved the preview maintenance line forward to `v0.27.x` after P27 hardening and validation work.
+
+### Tests
+
+- Added config parser hardening tests for nested unknown fields and multiple JSON objects.
+
 ## v0.26.0 - 2026-05-22
 
 ### Changed

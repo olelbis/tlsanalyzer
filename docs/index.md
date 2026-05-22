@@ -16,7 +16,7 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> preview maintenance on the <code>v0.26.x</code>
+  <strong>Project status:</strong> preview maintenance on the <code>v0.27.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
   gathers real-world usage before a future beta/v1 decision.
@@ -34,7 +34,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.26.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.27.0 --host example.com --no-clear
 ```
 
 ## Documentation Map
@@ -55,6 +55,14 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.26.0 --host example.com --no-clea
   <a class="doc-card" href="example-report.html">
     <span>Sample report</span>
     Human-readable Markdown report with TLS 1.3 raw-probe evidence.
+  </a>
+  <a class="doc-card" href="output-examples.html">
+    <span>Output examples</span>
+    Small console, JSON, Markdown and CI snippets with evidence semantics.
+  </a>
+  <a class="doc-card" href="validation-matrix.html">
+    <span>Validation matrix</span>
+    Manual real-world smoke checks for release confidence.
   </a>
   <a class="doc-card" href="p24-readiness-audit.html">
     <span>Readiness audit</span>

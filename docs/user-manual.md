@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.26.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.27.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -200,6 +200,8 @@ tlsanalyzer --host example.com --compact
 ```
 
 `tlsanalyzer` offers `h2` and `http/1.1` through ALPN to observe the negotiated TLS application protocol. It does not send HTTP requests or evaluate non-TLS HTTP behavior.
+
+See [output-examples.md](output-examples.md) for small examples that explain negotiated, probed, raw-probed and observed evidence.
 
 ### JSON config file
 

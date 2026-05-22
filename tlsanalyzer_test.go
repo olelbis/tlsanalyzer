@@ -401,6 +401,56 @@ func TestRunRejectsUnknownConfigField(t *testing.T) {
 	}
 }
 
+func TestRunRejectsUnknownNestedConfigField(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
+	config := `{
+  "targets": {
+    "production": {
+      "host": "example.com",
+      "unexpected": true
+    }
+  }
+}`
+	if err := os.WriteFile(configPath, []byte(config), 0640); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"--config", configPath}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "unknown field") {
+		t.Fatalf("stderr does not contain unknown nested field error:\n%s", stderr.String())
+	}
+}
+
+func TestRunRejectsMultipleConfigObjects(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "tlsanalyzer.json")
+	if err := os.WriteFile(configPath, []byte(`{"host":"example.com"} {"host":"example.org"}`), 0640); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{"--config", configPath}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "config must contain a single JSON object") {
+		t.Fatalf("stderr does not contain multiple-object error:\n%s", stderr.String())
+	}
+}
+
 func TestRunWritesCIReports(t *testing.T) {
 	server, host, port := newMainLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
 	defer server.Close()
