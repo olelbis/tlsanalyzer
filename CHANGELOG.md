@@ -2,6 +2,22 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.28.0 - 2026-05-24
+
+### Added
+
+- Added a dedicated compatibility policy for preview-stable CLI exit codes, JSON schema v1 behavior, policy semantics and TLS 1.3 evidence labels.
+- Added explicit CLI exit code constants in code to keep the documented automation contract visible to maintainers.
+
+### Changed
+
+- Moved the project status to the `v0.28.x` preview stabilization line.
+- Linked the compatibility policy from the README, user manual and GitHub Pages documentation home.
+
+### Tests
+
+- Added focused exit-code contract tests for flag parsing and policy-failure behavior.
+
 ## v0.27.0 - 2026-05-22
 
 ### Added

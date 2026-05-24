@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.27.x Maintenance
+## Current Focus - v0.28.x Preview Stabilization
 
-The feature backlog from P1 through P27 is complete. The `v0.27.x` line is now limited to bug fixes, documentation updates and compatibility-preserving hardening. New feature work is deferred until there is enough real-world usage feedback to run a final beta/v1 readiness pass.
+The feature backlog from P1 through P28 is complete. The `v0.28.x` line is now focused on preview stabilization: bug fixes, documentation updates, compatibility-preserving hardening and final contract audits before a future beta/v1 decision.
 
 ## P1 - Correctness and Trust - Done
 
@@ -709,3 +709,19 @@ Acceptance criteria:
 - Add a manual validation script that exercises version output, TLS 1.3 handshakes, TLS 1.3 raw probes, JSON shape, Markdown output, policy output and invalid-certificate evidence.
 - Harden config parsing tests for nested unknown fields and multiple JSON objects.
 - Link the new validation and example documentation from the README and GitHub Pages docs.
+
+## P28 - Preview Stabilization Contracts - Done
+
+### Make compatibility promises explicit and testable
+
+Problem: the project had stable behavior in practice, but automation users needed a clearer compatibility policy before relying on CLI exit codes, JSON schema v1, policy semantics and TLS 1.3 evidence labels.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add a dedicated compatibility policy document.
+- Link compatibility guidance from the README, user manual and GitHub Pages docs.
+- Replace raw exit-code numbers in the CLI flow with named constants.
+- Add tests that lock the documented exit-code contract.
+- Move project status to the `v0.28.x` preview stabilization line.

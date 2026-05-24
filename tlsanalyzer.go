@@ -73,14 +73,14 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		var inputErr cliInputError
 		if errors.As(err, &inputErr) {
 			fmt.Fprintf(stderr, "Error: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
-		return 2
+		return exitCodeFlagError
 	}
 
 	if cfg.showVersion {
 		fmt.Fprintln(stdout, formatVersion())
-		return 0
+		return exitCodeOK
 	}
 
 	if cfg.targetsFile != "" {
@@ -90,49 +90,49 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	if cfg.host == "" {
 		fmt.Fprintln(stderr, "Error: --host is required")
 		writeUsage(stderr)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 
 	h := strings.TrimSpace(cfg.host)
 	if err := validateHost(h); err != nil {
 		fmt.Fprintf(stderr, "Error: invalid --host '%s': %v\n", cfg.host, err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	serverName := strings.TrimSpace(cfg.sni)
 	if serverName != "" {
 		if err := validateHost(serverName); err != nil {
 			fmt.Fprintf(stderr, "Error: invalid --sni '%s': %v\n", cfg.sni, err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 	}
 
 	port := strings.TrimSpace(cfg.port)
 	if err := validatePort(port); err != nil {
 		fmt.Fprintf(stderr, "Error: invalid --port '%s': %v\n", cfg.port, err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if cfg.timeout < 1 {
 		fmt.Fprintln(stderr, "Error: --timeout must be at least 1 second")
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 
 	minVersion := utils.TLSVersionToUint16(cfg.minVersionStr)
 	if minVersion == 0 {
 		fmt.Fprintf(stderr, "Error: invalid --min-version '%s'. Use 1.0, 1.1, 1.2 or 1.3\n", cfg.minVersionStr)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if err := validateFlagCombination(cfg.outputJSON, cfg.certChain, strings.TrimSpace(cfg.outputFile)); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	policyConfig, err := buildPolicyConfig(cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if err := policy.ValidateConfig(policyConfig); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	humanOutput := !cfg.outputJSON
 	verboseOutput := humanOutput && !cfg.compact
@@ -206,7 +206,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 
 	results := runResult.Results
@@ -230,7 +230,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		err := output.WriteMarkdownReportToFile(h, port, serverName, build.Version, results, cfg.outputMarkdown, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write markdown report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		} else {
 			if humanOutput {
 				fmt.Fprintf(stdout, "✅ Markdown report saved to %s\n", cfg.outputMarkdown)
@@ -242,7 +242,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		err := output.WriteSARIFReportToFile(h, port, serverName, build.Version, results, cfg.outputSARIF, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write SARIF report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		if humanOutput {
 			fmt.Fprintf(stdout, "✅ SARIF report saved to %s\n", cfg.outputSARIF)
@@ -253,7 +253,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		err := output.WriteJUnitReportToFile(h, port, serverName, build.Version, results, cfg.outputJUnit, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write JUnit report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		if humanOutput {
 			fmt.Fprintf(stdout, "✅ JUnit report saved to %s\n", cfg.outputJUnit)
@@ -264,17 +264,17 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		jsonReport, err := output.BuildJSONReport(h, port, serverName, build.Version, time.Now(), results, reportPolicy)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to build JSON report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		fmt.Fprintln(stdout, string(jsonReport))
 	}
 	if analyzer.RunFailed(results) {
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if policyResult.Enabled && !policyResult.Passed {
-		return 3
+		return exitCodePolicyFailure
 	}
-	return 0
+	return exitCodeOK
 }
 
 func printPolicyResult(stdout io.Writer, result policy.Result) {

@@ -94,14 +94,66 @@ func TestValidateFlagCombination(t *testing.T) {
 	}
 }
 
+func TestCLIExitCodeContract(t *testing.T) {
+	if exitCodeOK != 0 {
+		t.Fatalf("exitCodeOK = %d, want 0", exitCodeOK)
+	}
+	if exitCodeInputRuntimeFailure != 1 {
+		t.Fatalf("exitCodeInputRuntimeFailure = %d, want 1", exitCodeInputRuntimeFailure)
+	}
+	if exitCodeFlagError != 2 {
+		t.Fatalf("exitCodeFlagError = %d, want 2", exitCodeFlagError)
+	}
+	if exitCodePolicyFailure != 3 {
+		t.Fatalf("exitCodePolicyFailure = %d, want 3", exitCodePolicyFailure)
+	}
+}
+
+func TestRunFlagParseErrorUsesStableExitCode(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{"--definitely-unknown"}, &stdout, &stderr)
+
+	if code != exitCodeFlagError {
+		t.Fatalf("run() exit code = %d, want %d", code, exitCodeFlagError)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+func TestRunPolicyFailureUsesStableExitCode(t *testing.T) {
+	server, host, port := newMainLocalTLSServer(t, tls.VersionTLS13, tls.VersionTLS13)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := run([]string{
+		"--host", host,
+		"--port", port,
+		"--min-version", "1.3",
+		"--skip-verify",
+		"--require-tls", "1.2",
+		"--no-clear",
+	}, &stdout, &stderr)
+
+	if code != exitCodePolicyFailure {
+		t.Fatalf("run() exit code = %d, want %d\nstdout:\n%s\nstderr:\n%s", code, exitCodePolicyFailure, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Policy custom: failed") {
+		t.Fatalf("stdout does not contain policy failure:\n%s", stdout.String())
+	}
+}
+
 func TestRunMissingHostReturnsErrorWithoutExit(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
 	code := run([]string{"--no-clear"}, &stdout, &stderr)
 
-	if code != 1 {
-		t.Fatalf("run() exit code = %d, want 1", code)
+	if code != exitCodeInputRuntimeFailure {
+		t.Fatalf("run() exit code = %d, want %d", code, exitCodeInputRuntimeFailure)
 	}
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
@@ -120,8 +172,8 @@ func TestRunRejectsJSONCertWithoutOutputBeforeScan(t *testing.T) {
 
 	code := run([]string{"--host", "example.com", "--json", "--cert"}, &stdout, &stderr)
 
-	if code != 1 {
-		t.Fatalf("run() exit code = %d, want 1", code)
+	if code != exitCodeInputRuntimeFailure {
+		t.Fatalf("run() exit code = %d, want %d", code, exitCodeInputRuntimeFailure)
 	}
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
@@ -137,8 +189,8 @@ func TestRunVersionDoesNotRequireHost(t *testing.T) {
 
 	code := run([]string{"--version"}, &stdout, &stderr)
 
-	if code != 0 {
-		t.Fatalf("run() exit code = %d, want 0", code)
+	if code != exitCodeOK {
+		t.Fatalf("run() exit code = %d, want %d", code, exitCodeOK)
 	}
 	if stderr.String() != "" {
 		t.Fatalf("stderr = %q, want empty", stderr.String())

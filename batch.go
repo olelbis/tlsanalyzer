@@ -41,32 +41,32 @@ type batchTargetResult struct {
 func runBatch(cfg cliConfig, stdout io.Writer, stderr io.Writer) int {
 	if cfg.certChain {
 		fmt.Fprintln(stderr, "Error: --cert is not supported with --targets-file")
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if cfg.outputMarkdown != "" {
 		fmt.Fprintln(stderr, "Error: --markdown is not supported with --targets-file")
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 
 	settings, err := buildBatchSettings(cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 
 	targets, err := loadTargetsFile(cfg.targetsFile, settings.defaultPort, cfg.sni)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if len(targets) == 0 {
 		fmt.Fprintln(stderr, "Error: --targets-file must contain at least one target")
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	for i := range targets {
 		if err := validateTarget(targets[i]); err != nil {
 			fmt.Fprintf(stderr, "Error: target %d: %v\n", i+1, err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 	}
 
@@ -107,7 +107,7 @@ func runBatch(cfg cliConfig, stdout io.Writer, stderr io.Writer) int {
 	if cfg.outputSARIF != "" {
 		if err := output.WriteSARIFBatchReportToFile(reports, cfg.outputSARIF); err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write SARIF report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		if humanOutput {
 			fmt.Fprintf(stdout, "✅ SARIF report saved to %s\n", cfg.outputSARIF)
@@ -116,7 +116,7 @@ func runBatch(cfg cliConfig, stdout io.Writer, stderr io.Writer) int {
 	if cfg.outputJUnit != "" {
 		if err := output.WriteJUnitBatchReportToFile(reports, cfg.outputJUnit); err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to write JUnit report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		if humanOutput {
 			fmt.Fprintf(stdout, "✅ JUnit report saved to %s\n", cfg.outputJUnit)
@@ -131,17 +131,17 @@ func runBatch(cfg cliConfig, stdout io.Writer, stderr io.Writer) int {
 		})
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to build JSON report: %v\n", err)
-			return 1
+			return exitCodeInputRuntimeFailure
 		}
 		fmt.Fprintln(stdout, string(jsonReport))
 	}
 	if failedRuntime {
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if failedPolicy {
-		return 3
+		return exitCodePolicyFailure
 	}
-	return 0
+	return exitCodeOK
 }
 
 type batchSettings struct {
@@ -353,13 +353,13 @@ func policyResultPointer(result policy.Result) *policy.Result {
 
 func exitCodeForTarget(result batchTargetResult) int {
 	if result.Error != "" {
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if analyzer.RunFailed(result.Results) {
-		return 1
+		return exitCodeInputRuntimeFailure
 	}
 	if result.Policy.Enabled && !result.Policy.Passed {
-		return 3
+		return exitCodePolicyFailure
 	}
-	return 0
+	return exitCodeOK
 }

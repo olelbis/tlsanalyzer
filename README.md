@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in preview maintenance on the `v0.27.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is in preview stabilization on the `v0.28.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
 ## What It Does
 
@@ -70,6 +70,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [Documentation site](https://olelbis.github.io/tlsanalyzer/): GitHub Pages entry point for the project documentation.
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
 - [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
+- [Compatibility policy](docs/compatibility-policy.md): preview stability promises for CLI, JSON, policy and release behavior.
 - [TLS probe Go package](docs/tlsprobe-package.md): preview API for raw TLS 1.3 cipher probing.
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
 - [Output examples](docs/output-examples.md): small console, JSON, Markdown and CI snippets with evidence semantics.
@@ -133,6 +134,7 @@ Or use the build script:
 
 The scanner is suitable for controlled operational checks and CI policy gates, but findings should still be validated before using them as the sole basis for compliance, audit or production security decisions.
 
+- The documented [compatibility policy](docs/compatibility-policy.md) defines stable preview contracts for exit codes, JSON schema v1, policy behavior and TLS 1.3 evidence labels.
 - JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
 - TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
@@ -188,7 +190,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.27.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

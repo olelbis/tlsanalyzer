@@ -16,7 +16,7 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> preview maintenance on the <code>v0.27.x</code>
+  <strong>Project status:</strong> preview stabilization on the <code>v0.28.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
   gathers real-world usage before a future beta/v1 decision.
@@ -34,7 +34,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.27.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clear
 ```
 
 ## Documentation Map
@@ -47,6 +47,10 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.27.0 --host example.com --no-clea
   <a class="doc-card" href="json-schema-v1.html">
     <span>JSON schema v1</span>
     Stable machine-readable output for single-target and batch scans.
+  </a>
+  <a class="doc-card" href="compatibility-policy.html">
+    <span>Compatibility policy</span>
+    Preview stability promises for CLI, JSON, policy and release behavior.
   </a>
   <a class="doc-card" href="tlsprobe-package.html">
     <span>TLS probe package</span>
