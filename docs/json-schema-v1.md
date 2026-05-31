@@ -16,7 +16,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
-| `policy` | object | no | Policy result when `--policy` or `--fail-on` is used. |
+| `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits` or `--min-cert-days`. |
 | `results` | array | yes | Per-TLS-version scan results. |
 
 ## Batch Top-Level Object
@@ -115,6 +115,14 @@ Single-target scans and batch scans share the same schema version but use differ
 | `name` | string | no | Built-in policy name, such as `modern`. Empty custom policies omit this field. |
 | `passed` | boolean | yes | Whether all enabled checks passed. |
 | `failures` | array | no | Policy failure details. |
+
+## Policy Failure Object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits` or `min-cert-days`. |
+| `version` | string | no | TLS version associated with the failure when applicable. |
+| `message` | string | yes | Human-readable failure detail. Message wording is useful for humans, but automation should prefer `check` and `version`. |
 
 ## Compatibility
 

@@ -2,6 +2,21 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## v0.29.0 - 2026-05-31
+
+### Added
+
+- Added package documentation for `output`, `policy` and `scan` to improve Go package discoverability before beta.
+- Added a P29 beta-readiness audit covering CLI flags, exit codes, JSON schema, policy behavior, public Go packages, release assets and validation.
+
+### Changed
+
+- Moved project status to the `v0.29.x` beta-readiness review line.
+- Clarified that JSON `policy` output is emitted for any enabled policy gate, not only `--policy` and `--fail-on`.
+- Documented the JSON policy failure object fields and automation guidance.
+- Added the missing `--timeout` option to the man page.
+- Tightened the real-world validation script to assert the exact expected scanner version.
+
 ## v0.28.0 - 2026-05-24
 
 ### Added

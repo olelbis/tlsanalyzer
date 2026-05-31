@@ -1,4 +1,4 @@
-.TH TLSANALYZER 1 "2026-05-24" "tlsanalyzer" "User Commands"
+.TH TLSANALYZER 1 "2026-05-31" "tlsanalyzer" "User Commands"
 .SH NAME
 tlsanalyzer \- analyze TLS protocol, cipher, certificate and policy posture
 .SH SYNOPSIS
@@ -51,6 +51,9 @@ Retry count for transient network failures in batch mode.
 .TP
 .BR --retry-backoff " " \fIseconds\fR
 Base retry backoff in seconds for batch mode. Backoff is linear.
+.TP
+.BR --timeout " " \fIseconds\fR
+Connection timeout in seconds. Defaults to 5.
 .TP
 .BR --min-version " " \fIversion\fR
 Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3. Defaults to 1.0.

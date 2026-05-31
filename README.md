@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in preview stabilization on the `v0.28.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is in beta-readiness review on the `v0.29.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
 ## What It Does
 
@@ -76,6 +76,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [Output examples](docs/output-examples.md): small console, JSON, Markdown and CI snippets with evidence semantics.
 - [Validation matrix](docs/validation-matrix.md): manual real-world smoke checks for release confidence.
 - [P24 readiness audit](docs/p24-readiness-audit.md): beta/v1 and raw-probe-library readiness notes.
+- [P29 beta-readiness audit](docs/p29-beta-readiness-audit.md): final preview contract review before a beta decision.
 - [Changelog](CHANGELOG.md): release history.
 - [Backlog](BACKLOG.md): prioritized future work.
 
@@ -190,7 +191,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

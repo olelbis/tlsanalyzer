@@ -2,17 +2,20 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOST="${TLSANALYZER_VALIDATION_HOST:-www.example.com}"
 SNI="${TLSANALYZER_VALIDATION_SNI:-example.com}"
 EXPIRED_HOST="${TLSANALYZER_VALIDATION_EXPIRED_HOST:-expired.badssl.com}"
 TIMEOUT="${TLSANALYZER_VALIDATION_TIMEOUT:-8}"
 GO_CACHE="${GOCACHE:-/private/tmp/tlsanalyzer-go-build}"
+EXPECTED_VERSION="${TLSANALYZER_EXPECTED_VERSION:-v$(cat "$REPO_ROOT/VERSION")}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tlsanalyzer-validation.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 run_tlsanalyzer() {
-  env GOCACHE="$GO_CACHE" go run . "$@"
+  (cd "$REPO_ROOT" && env GOCACHE="$GO_CACHE" go run . "$@")
 }
 
 assert_contains() {
@@ -47,6 +50,7 @@ section() {
 section "version"
 run_tlsanalyzer --version > "$TMP_DIR/version.txt"
 assert_contains "$TMP_DIR/version.txt" "tlsanalyzer"
+assert_contains "$TMP_DIR/version.txt" "$EXPECTED_VERSION"
 
 section "TLS 1.3 normal handshake"
 run_tlsanalyzer --host "$HOST" --sni "$SNI" --min-version 1.3 --timeout "$TIMEOUT" --no-clear > "$TMP_DIR/tls13.txt"

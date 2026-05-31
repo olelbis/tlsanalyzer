@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -358,7 +358,7 @@ JSON output is intended for scripts and automation. It includes:
 - Handshake attempts, scan duration and warnings
 - Certificate details, including public key and signature algorithm metadata when available
 - Certificate validation status
-- Policy result, when `--policy` or `--fail-on` is used
+- Policy result, when any policy gate is enabled
 
 The current JSON schema version is `1.1`. See [json-schema-v1.md](json-schema-v1.md) for the field contract. Additive fields may be introduced in later minor releases. Removing or renaming existing fields should be treated as a breaking schema change.
 

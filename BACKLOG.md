@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.28.x Preview Stabilization
+## Current Focus - v0.29.x Beta-Readiness Review
 
-The feature backlog from P1 through P28 is complete. The `v0.28.x` line is now focused on preview stabilization: bug fixes, documentation updates, compatibility-preserving hardening and final contract audits before a future beta/v1 decision.
+The feature backlog from P1 through P29 is complete. The `v0.29.x` line is now focused on beta-readiness review: bug fixes, documentation updates, compatibility-preserving hardening and final contract audits before a future beta/v1 decision.
 
 ## P1 - Correctness and Trust - Done
 
@@ -725,3 +725,22 @@ Acceptance criteria:
 - Replace raw exit-code numbers in the CLI flow with named constants.
 - Add tests that lock the documented exit-code contract.
 - Move project status to the `v0.28.x` preview stabilization line.
+
+## P29 - Beta-Readiness Audit - Done
+
+### Audit public contracts before beta
+
+Problem: after stabilizing preview contracts, the project needed one more pass over documentation, JSON policy semantics, validation confidence and public package documentation before a future beta decision.
+
+Status: done.
+
+Acceptance criteria:
+
+- Verify CLI/docs/man page alignment for public flags and exit codes.
+- Clarify JSON policy output for all enabled policy gates.
+- Document JSON policy failure object fields.
+- Add an explicit P29 audit document.
+- Fix discovered CLI documentation drift.
+- Tighten real-world validation to assert the exact scanner version.
+- Add missing package docs for public Go packages used by consumers.
+- Move project status to the `v0.29.x` beta-readiness review line.

@@ -16,7 +16,7 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> preview stabilization on the <code>v0.28.x</code>
+  <strong>Project status:</strong> beta-readiness review on the <code>v0.29.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
   gathers real-world usage before a future beta/v1 decision.
@@ -34,7 +34,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clear
 ```
 
 ## Documentation Map
@@ -71,6 +71,10 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.28.0 --host example.com --no-clea
   <a class="doc-card" href="p24-readiness-audit.html">
     <span>Readiness audit</span>
     Current beta/v1 posture, known limits and remaining decisions.
+  </a>
+  <a class="doc-card" href="p29-beta-readiness-audit.html">
+    <span>Beta-readiness audit</span>
+    Final preview contract review before a beta decision.
   </a>
 </div>
 
