@@ -16,7 +16,7 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> beta-readiness review on the <code>v0.29.x</code>
+  <strong>Project status:</strong> beta-readiness review on the <code>v0.30.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
   gathers real-world usage before a future beta/v1 decision. Endpoint
@@ -35,7 +35,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.30.0 --host example.com --no-clear
 ```
 
 ## Documentation Map

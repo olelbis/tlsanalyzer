@@ -8,6 +8,7 @@
 // does not complete full TLS handshakes.
 //
 // The API is public but still preview-level while edge-case fixtures and user
-// feedback settle. Callers should treat status values as the stable integration
-// point and avoid depending on unstructured Result.Error text.
+// feedback settle. Callers should treat status values, evidence level,
+// CompletedHandshake and ErrorCode as the stable integration points and avoid
+// depending on unstructured Result.Error text.
 package tlsprobe

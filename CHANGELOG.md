@@ -4,10 +4,19 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.30.0 - 2026-05-31
+
 ### Added
 
 - Added GitHub issue templates for bug reports, endpoint compatibility reports and feature requests.
 - Added feedback guidance for real-world endpoint behavior, automation integration and release verification reports.
+- Added `tlsprobe` API maturation helpers: `EvidenceLevel`, `CompletedHandshake`, `ErrorCode`, `CipherSuiteName`, `Summary` and `Summarize`.
+- Added `Options.DialContext` so embedded callers can provide custom connection behavior for tests, proxies and instrumentation.
+
+### Changed
+
+- Moved project status to the `v0.30.x` tlsprobe API maturation line.
+- Expanded `tlsprobe` package documentation to identify stable integration points beyond unstructured error text.
 
 ## v0.29.0 - 2026-05-31
 

@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.29.x Beta-Readiness Review
+## Current Focus - v0.30.x tlsprobe API Maturation
 
-The feature backlog from P1 through P29 is complete. The `v0.29.x` line is now focused on beta-readiness review: bug fixes, documentation updates, compatibility-preserving hardening and final contract audits before a future beta/v1 decision.
+The feature backlog from P1 through P30 is complete. The `v0.30.x` line is now focused on beta-readiness review, external feedback and compatibility-preserving hardening before a future beta/v1 decision.
 
 Feedback intake is prepared with issue templates and documentation for endpoint compatibility reports, policy feedback, JSON automation issues and release-verification problems.
 
@@ -746,3 +746,23 @@ Acceptance criteria:
 - Tighten real-world validation to assert the exact scanner version.
 - Add missing package docs for public Go packages used by consumers.
 - Move project status to the `v0.29.x` beta-readiness review line.
+
+## P30 - tlsprobe API Maturation - Done
+
+### Add stable integration helpers before extracting tlsprobe
+
+Problem: `tlsprobe` is public and useful, but external callers need a few more
+structured fields and hooks before the API is mature enough to consider a
+standalone module.
+
+Status: done.
+
+Acceptance criteria:
+
+- Add structured evidence fields so callers can distinguish ClientHello-only
+  evidence from full-handshake completion.
+- Add stable error codes for automation while keeping `Result.Error` as
+  diagnostic text.
+- Add a custom dial hook for embedded callers, proxies and deterministic tests.
+- Add small helper APIs for cipher suite names and result summaries.
+- Document the new public API surface and preview compatibility guidance.

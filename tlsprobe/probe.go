@@ -36,19 +36,51 @@ const (
 	StatusInconclusive Status = "inconclusive"
 )
 
+// EvidenceLevel describes how much TLS evidence a probe collected.
+type EvidenceLevel string
+
+const (
+	// EvidenceClientHelloOnly means the probe stopped after ClientHello response evidence.
+	EvidenceClientHelloOnly EvidenceLevel = "clienthello-only"
+)
+
+// ErrorCode is a stable machine-readable diagnostic code for Result.Error.
+type ErrorCode string
+
+const (
+	ErrorCodeBuildClientHelloFailed ErrorCode = "build_client_hello_failed"
+	ErrorCodeConnectFailed          ErrorCode = "connect_failed"
+	ErrorCodeDeadlineFailed         ErrorCode = "deadline_failed"
+	ErrorCodeWriteFailed            ErrorCode = "write_failed"
+	ErrorCodeReadFailed             ErrorCode = "read_failed"
+	ErrorCodeInvalidRecordLength    ErrorCode = "invalid_record_length"
+	ErrorCodeUnexpectedRecordType   ErrorCode = "unexpected_record_type"
+	ErrorCodeNoServerHelloOrAlert   ErrorCode = "no_server_hello_or_alert"
+	ErrorCodeIncompleteHandshake    ErrorCode = "incomplete_handshake"
+	ErrorCodeServerHelloNotFound    ErrorCode = "server_hello_not_found"
+	ErrorCodeServerHelloTooShort    ErrorCode = "server_hello_too_short"
+	ErrorCodeServerHelloTruncated   ErrorCode = "server_hello_truncated"
+	ErrorCodeCompressionMissing     ErrorCode = "server_hello_compression_missing"
+	ErrorCodeRejectedCipher         ErrorCode = "rejected_cipher"
+	ErrorCodeMalformedHRR           ErrorCode = "malformed_hello_retry_request"
+	ErrorCodeUnsupportedHRRGroup    ErrorCode = "unsupported_hello_retry_request_group"
+)
+
 // Options configures raw TLS 1.3 ClientHello probing.
 //
 // Address is required and must be a host:port TCP address. ServerName is used
 // for SNI when set. Timeout applies to connect, write and read operations.
 // ALPN values are advertised as-is after empty values are ignored. KeyShareGroups
 // controls the supported groups advertised by the probe; when empty, a
-// conservative default set is used.
+// conservative default set is used. DialContext can override TCP connection
+// creation for tests, proxies or embedded callers; when nil, net.Dialer is used.
 type Options struct {
 	Address        string
 	ServerName     string
 	Timeout        time.Duration
 	ALPN           []string
 	KeyShareGroups []uint16
+	DialContext    func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 // Result contains evidence from one raw TLS 1.3 cipher probe.
@@ -59,6 +91,8 @@ type Result struct {
 	CipherSuite              uint16
 	Name                     string
 	Status                   Status
+	EvidenceLevel            EvidenceLevel
+	CompletedHandshake       bool
 	Alert                    string
 	AlertLevel               uint8
 	AlertDescription         uint8
@@ -66,7 +100,20 @@ type Result struct {
 	SelectedGroupName        string
 	HelloRetryRequest        bool
 	HelloRetryRequestRetried bool
+	ErrorCode                ErrorCode
 	Error                    string
+}
+
+// Summary counts raw probe outcomes for a result set.
+type Summary struct {
+	Total              int
+	Supported          int
+	Rejected           int
+	Alerts             int
+	Timeouts           int
+	Closed             int
+	HelloRetryRequests int
+	Inconclusive       int
 }
 
 // ConfigError describes an invalid probe option.
@@ -168,9 +215,12 @@ func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []ui
 // and then returns the observed classification.
 func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16) (Result, error) {
 	result := Result{
-		CipherSuite: cipherSuite,
-		Name:        tls.CipherSuiteName(cipherSuite),
-		Status:      StatusInconclusive,
+		CipherSuite:        cipherSuite,
+		Name:               CipherSuiteName(cipherSuite),
+		Status:             StatusInconclusive,
+		EvidenceLevel:      EvidenceClientHelloOnly,
+		ErrorCode:          "",
+		CompletedHandshake: false,
 	}
 
 	if err := ValidateOptions(opts); err != nil {
@@ -188,7 +238,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 	keyShareGroups := normalizedKeyShareGroups(opts)
 	sessionID := make([]byte, 32)
 	if _, err := rand.Read(sessionID); err != nil {
-		result.Error = err.Error()
+		result = withError(result, ErrorCodeBuildClientHelloFailed, err.Error())
 		return result, nil
 	}
 
@@ -199,27 +249,31 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		keyShareGroup: keyShareGroups[0],
 	})
 	if err != nil {
-		result.Error = err.Error()
+		result = withError(result, ErrorCodeBuildClientHelloFailed, err.Error())
 		return result, nil
 	}
 
-	dialer := net.Dialer{Timeout: timeout}
-	conn, err := dialer.DialContext(ctx, "tcp", opts.Address)
+	dialContext := opts.DialContext
+	if dialContext == nil {
+		dialer := net.Dialer{Timeout: timeout}
+		dialContext = dialer.DialContext
+	}
+	conn, err := dialContext(ctx, "tcp", opts.Address)
 	if err != nil {
 		result.Status = statusForNetworkError(err)
-		result.Error = stableNetworkError(err)
+		result = withError(result, ErrorCodeConnectFailed, stableNetworkError(err))
 		return result, nil
 	}
 	defer conn.Close()
 
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
-		result.Error = err.Error()
+		result = withError(result, ErrorCodeDeadlineFailed, err.Error())
 		return result, nil
 	}
 
 	if _, err := conn.Write(clientHello); err != nil {
 		result.Status = statusForNetworkError(err)
-		result.Error = stableNetworkError(err)
+		result = withError(result, ErrorCodeWriteFailed, stableNetworkError(err))
 		return result, nil
 	}
 
@@ -231,17 +285,22 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 	retryHello, retryErr := buildRetryClientHello(opts, cipherSuite, sessionID, read.hrr)
 	if retryErr != nil {
 		read.result.Status = StatusHelloRetryRequest
-		read.result.Error = retryErr.Error()
+		read.result = withError(read.result, hrrErrorCode(retryErr), retryErr.Error())
 		return read.result, nil
 	}
 	read.result.HelloRetryRequestRetried = true
 	if _, err := conn.Write(retryHello); err != nil {
 		read.result.Status = statusForNetworkError(err)
-		read.result.Error = stableNetworkError(err)
+		read.result = withError(read.result, ErrorCodeWriteFailed, stableNetworkError(err))
 		return read.result, nil
 	}
 
 	return readProbeResult(conn, read.result)
+}
+
+// CipherSuiteName returns the Go display name for a TLS cipher suite ID.
+func CipherSuiteName(cipherSuite uint16) string {
+	return tls.CipherSuiteName(cipherSuite)
 }
 
 // SupportedTLS13CipherSuites returns the TLS 1.3 cipher suites understood by the probe.
@@ -251,6 +310,30 @@ func SupportedTLS13CipherSuites() []uint16 {
 		tls.TLS_AES_256_GCM_SHA384,
 		tls.TLS_CHACHA20_POLY1305_SHA256,
 	}
+}
+
+// Summarize counts probe statuses without interpreting human-readable errors.
+func Summarize(results []Result) Summary {
+	summary := Summary{Total: len(results)}
+	for _, result := range results {
+		switch result.Status {
+		case StatusSupported:
+			summary.Supported++
+		case StatusRejected:
+			summary.Rejected++
+		case StatusAlert:
+			summary.Alerts++
+		case StatusTimeout:
+			summary.Timeouts++
+		case StatusClosed:
+			summary.Closed++
+		case StatusHelloRetryRequest:
+			summary.HelloRetryRequests++
+		case StatusInconclusive:
+			summary.Inconclusive++
+		}
+	}
+	return summary
 }
 
 // SupportedKeyShareGroups returns the key share groups understood by the probe.
@@ -438,21 +521,21 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 		header := make([]byte, 5)
 		if _, err := io.ReadFull(conn, header); err != nil {
 			result.Status = statusForNetworkError(err)
-			result.Error = stableNetworkError(err)
+			result = withError(result, ErrorCodeReadFailed, stableNetworkError(err))
 			return readResult{result: result}, nil
 		}
 
 		recordLength := int(binary.BigEndian.Uint16(header[3:5]))
 		if recordLength == 0 || recordLength > 18432 {
 			result.Status = StatusInconclusive
-			result.Error = fmt.Sprintf("invalid TLS record length %d", recordLength)
+			result = withError(result, ErrorCodeInvalidRecordLength, fmt.Sprintf("invalid TLS record length %d", recordLength))
 			return readResult{result: result}, nil
 		}
 
 		payload := make([]byte, recordLength)
 		if _, err := io.ReadFull(conn, payload); err != nil {
 			result.Status = statusForNetworkError(err)
-			result.Error = stableNetworkError(err)
+			result = withError(result, ErrorCodeReadFailed, stableNetworkError(err))
 			return readResult{result: result}, nil
 		}
 
@@ -473,13 +556,13 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 			return read, nil
 		default:
 			result.Status = StatusInconclusive
-			result.Error = fmt.Sprintf("unexpected TLS record type %d", header[0])
+			result = withError(result, ErrorCodeUnexpectedRecordType, fmt.Sprintf("unexpected TLS record type %d", header[0]))
 			return readResult{result: result}, nil
 		}
 	}
 
 	result.Status = StatusInconclusive
-	result.Error = "server did not send a ServerHello or alert"
+	result = withError(result, ErrorCodeNoServerHelloOrAlert, "server did not send a ServerHello or alert")
 	return readResult{result: result}, nil
 }
 
@@ -501,7 +584,7 @@ func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplet
 				return readResult{result: result}, true
 			}
 			result.Status = StatusInconclusive
-			result.Error = "incomplete handshake message"
+			result = withError(result, ErrorCodeIncompleteHandshake, "incomplete handshake message")
 			return readResult{result: result}, false
 		}
 		body := payload[4 : 4+handshakeLength]
@@ -517,14 +600,14 @@ func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplet
 		return readResult{result: result}, true
 	}
 	result.Status = StatusInconclusive
-	result.Error = "ServerHello not found"
+	result = withError(result, ErrorCodeServerHelloNotFound, "ServerHello not found")
 	return readResult{result: result}, false
 }
 
 func parseServerHello(body []byte, result Result) readResult {
 	if len(body) < 38 {
 		result.Status = StatusInconclusive
-		result.Error = "ServerHello is too short"
+		result = withError(result, ErrorCodeServerHelloTooShort, "ServerHello is too short")
 		return readResult{result: result}
 	}
 
@@ -533,7 +616,7 @@ func parseServerHello(body []byte, result Result) readResult {
 		result.HelloRetryRequest = true
 		hrr, err := parseHelloRetryRequest(body)
 		if err != nil {
-			result.Error = err.Error()
+			result = withError(result, ErrorCodeMalformedHRR, err.Error())
 		}
 		if hrr != nil {
 			result.SelectedGroup = hrr.selectedGroup
@@ -547,7 +630,7 @@ func parseServerHello(body []byte, result Result) readResult {
 	offset++
 	if offset+sessionIDLength+3 > len(body) {
 		result.Status = StatusInconclusive
-		result.Error = "ServerHello session ID is truncated"
+		result = withError(result, ErrorCodeServerHelloTruncated, "ServerHello session ID is truncated")
 		return readResult{result: result}
 	}
 	offset += sessionIDLength
@@ -556,7 +639,7 @@ func parseServerHello(body []byte, result Result) readResult {
 	offset += 2
 	if offset >= len(body) {
 		result.Status = StatusInconclusive
-		result.Error = "ServerHello compression method is missing"
+		result = withError(result, ErrorCodeCompressionMissing, "ServerHello compression method is missing")
 		return readResult{result: result}
 	}
 	offset++
@@ -573,8 +656,24 @@ func parseServerHello(body []byte, result Result) readResult {
 	}
 
 	result.Status = StatusRejected
-	result.Error = fmt.Sprintf("server selected %s", tls.CipherSuiteName(selectedCipher))
+	result = withError(result, ErrorCodeRejectedCipher, fmt.Sprintf("server selected %s", CipherSuiteName(selectedCipher)))
 	return readResult{result: result}
+}
+
+func withError(result Result, code ErrorCode, message string) Result {
+	result.ErrorCode = code
+	result.Error = message
+	return result
+}
+
+func hrrErrorCode(err error) ErrorCode {
+	if err == nil {
+		return ""
+	}
+	if strings.Contains(err.Error(), "unsupported group") {
+		return ErrorCodeUnsupportedHRRGroup
+	}
+	return ErrorCodeMalformedHRR
 }
 
 func parseHelloRetryRequest(body []byte) (*helloRetryRequest, error) {

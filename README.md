@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in beta-readiness review on the `v0.29.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is in beta-readiness review on the `v0.30.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
 External feedback is welcome, especially endpoint compatibility reports, policy false positives/negatives, JSON automation issues and installation or release-verification problems. See [Feedback and compatibility reports](docs/feedback.md) for useful commands and what to include.
 
@@ -194,7 +194,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.30.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

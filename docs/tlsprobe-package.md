@@ -11,7 +11,7 @@ full TLS handshakes.
 ## Install
 
 ```bash
-go get github.com/olelbis/tlsanalyzer@v0.29.0
+go get github.com/olelbis/tlsanalyzer@v0.30.0
 ```
 
 ## Example
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	for _, result := range results {
-		fmt.Printf("%s: %s\n", result.Name, result.Status)
+		fmt.Printf("%s: %s (%s)\n", result.Name, result.Status, result.EvidenceLevel)
 	}
 }
 ```
@@ -53,25 +53,42 @@ Public entry points:
 - `Options`
 - `Result`
 - `Status`
+- `EvidenceLevel`
+- `ErrorCode`
+- `Summary`
 - `ConfigError`
 - `ValidateOptions`
+- `CipherSuiteName`
 - `SupportedTLS13CipherSuites`
 - `SupportedKeyShareGroups`
 - `ProbeTLS13CipherSuite`
 - `ProbeTLS13CipherSuites`
+- `Summarize`
 
 Configuration errors are returned as `*tlsprobe.ConfigError`. Network and TLS
 protocol outcomes are normally returned as `Result` values with a `Status`.
 
-Consumers should rely on `Status` values for automation. `Result.Error` is
-human-readable diagnostic detail and may change while the package remains under
-`v0.x`.
+Consumers should rely on `Status`, `EvidenceLevel`, `CompletedHandshake` and
+`ErrorCode` values for automation. `Result.Error` is human-readable diagnostic
+detail and may change while the package remains under `v0.x`.
 
 `Result` also includes optional evidence metadata:
 
+- `EvidenceLevel` is currently `clienthello-only`.
+- `CompletedHandshake` is currently always `false` because the probe stops after
+  enough ServerHello, HelloRetryRequest, alert, timeout or close evidence is
+  observed.
 - `SelectedGroup` and `SelectedGroupName` when ServerHello or HelloRetryRequest exposes a key share group.
 - `HelloRetryRequest` and `HelloRetryRequestRetried` when the server asks the probe to retry with another group.
 - `Alert`, `AlertLevel` and `AlertDescription` when the server returns a TLS alert.
+- `ErrorCode` for stable machine-readable diagnostics when `Error` is populated.
+
+`Options.DialContext` can be set by embedded callers that need custom network
+behavior, tests, proxy integration or connection instrumentation. When it is
+nil, the package uses `net.Dialer`.
+
+`Summarize` returns status counts for a result set so callers do not need to
+duplicate basic aggregation logic.
 
 ## Status Values
 
@@ -84,6 +101,12 @@ human-readable diagnostic detail and may change while the package remains under
 | `timeout` | Connect, write or read exceeded the configured timeout. |
 | `closed` | The peer closed the connection before a supported/rejected decision. |
 | `inconclusive` | The response could not be classified deterministically. |
+
+## Evidence Values
+
+| Evidence level | Meaning |
+| --- | --- |
+| `clienthello-only` | The probe sent a raw ClientHello and classified the first useful server response. It did not complete a full TLS handshake. |
 
 ## Current Limits
 

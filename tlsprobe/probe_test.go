@@ -35,6 +35,12 @@ func TestProbeTLS13CipherSuiteSupported(t *testing.T) {
 	if result.Name != "TLS_AES_128_GCM_SHA256" {
 		t.Fatalf("Name = %q, want TLS_AES_128_GCM_SHA256", result.Name)
 	}
+	if result.EvidenceLevel != EvidenceClientHelloOnly {
+		t.Fatalf("EvidenceLevel = %q, want %q", result.EvidenceLevel, EvidenceClientHelloOnly)
+	}
+	if result.CompletedHandshake {
+		t.Fatal("CompletedHandshake = true, want false")
+	}
 }
 
 func TestProbeTLS13CipherSuiteSendsSNI(t *testing.T) {
@@ -181,6 +187,9 @@ func TestProbeTLS13CipherSuiteReportsRejectedServerHello(t *testing.T) {
 	if result.Status != StatusRejected {
 		t.Fatalf("Status = %q, want %q; alert %q error %q", result.Status, StatusRejected, result.Alert, result.Error)
 	}
+	if result.ErrorCode != ErrorCodeRejectedCipher {
+		t.Fatalf("ErrorCode = %q, want %q", result.ErrorCode, ErrorCodeRejectedCipher)
+	}
 	if result.Error == "" {
 		t.Fatal("Error should describe the selected cipher")
 	}
@@ -216,6 +225,54 @@ func TestProbeTLS13CipherSuiteReportsTimeout(t *testing.T) {
 	if result.Status != StatusTimeout {
 		t.Fatalf("Status = %q, want %q; error %q", result.Status, StatusTimeout, result.Error)
 	}
+	if result.ErrorCode != ErrorCodeReadFailed {
+		t.Fatalf("ErrorCode = %q, want %q", result.ErrorCode, ErrorCodeReadFailed)
+	}
+}
+
+func TestProbeTLS13CipherSuiteUsesDialContext(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+
+	dialed := false
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer server.Close()
+		if _, err := readTLSRecord(server); err != nil {
+			t.Errorf("read ClientHello: %v", err)
+			return
+		}
+		body := serverHelloBody(bytesOf(32, 0x44), nil, tls.TLS_AES_128_GCM_SHA256, nil)
+		if err := writeHandshakeRecord(server, body); err != nil {
+			t.Errorf("write ServerHello: %v", err)
+		}
+	}()
+
+	result, err := ProbeTLS13CipherSuite(context.Background(), Options{
+		Address: "custom.example.test:443",
+		Timeout: time.Second,
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			if network != "tcp" {
+				t.Fatalf("network = %q, want tcp", network)
+			}
+			if address != "custom.example.test:443" {
+				t.Fatalf("address = %q, want custom.example.test:443", address)
+			}
+			dialed = true
+			return client, nil
+		},
+	}, tls.TLS_AES_128_GCM_SHA256)
+	if err != nil {
+		t.Fatalf("ProbeTLS13CipherSuite() error = %v", err)
+	}
+	if result.Status != StatusSupported {
+		t.Fatalf("Status = %q, want %q; error %q", result.Status, StatusSupported, result.Error)
+	}
+	if !dialed {
+		t.Fatal("DialContext was not called")
+	}
+	<-done
 }
 
 func TestProbeTLS13CipherSuitesReturnsOneResultPerCipher(t *testing.T) {
@@ -345,6 +402,36 @@ func TestSupportedTLS13CipherSuitesReturnsIndependentCopy(t *testing.T) {
 	first[0] = 0
 	if second[0] == 0 {
 		t.Fatal("SupportedTLS13CipherSuites() returned shared mutable storage")
+	}
+}
+
+func TestCipherSuiteName(t *testing.T) {
+	if got := CipherSuiteName(tls.TLS_AES_128_GCM_SHA256); got != "TLS_AES_128_GCM_SHA256" {
+		t.Fatalf("CipherSuiteName() = %q, want TLS_AES_128_GCM_SHA256", got)
+	}
+}
+
+func TestSummarize(t *testing.T) {
+	summary := Summarize([]Result{
+		{Status: StatusSupported},
+		{Status: StatusSupported},
+		{Status: StatusRejected},
+		{Status: StatusAlert},
+		{Status: StatusTimeout},
+		{Status: StatusClosed},
+		{Status: StatusHelloRetryRequest},
+		{Status: StatusInconclusive},
+	})
+
+	if summary.Total != 8 ||
+		summary.Supported != 2 ||
+		summary.Rejected != 1 ||
+		summary.Alerts != 1 ||
+		summary.Timeouts != 1 ||
+		summary.Closed != 1 ||
+		summary.HelloRetryRequests != 1 ||
+		summary.Inconclusive != 1 {
+		t.Fatalf("Summary = %+v", summary)
 	}
 }
 
