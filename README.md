@@ -20,6 +20,8 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 `tlsanalyzer` is in beta-readiness review on the `v0.29.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
+External feedback is welcome, especially endpoint compatibility reports, policy false positives/negatives, JSON automation issues and installation or release-verification problems. See [Feedback and compatibility reports](docs/feedback.md) for useful commands and what to include.
+
 ## What It Does
 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
@@ -75,6 +77,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
 - [Output examples](docs/output-examples.md): small console, JSON, Markdown and CI snippets with evidence semantics.
 - [Validation matrix](docs/validation-matrix.md): manual real-world smoke checks for release confidence.
+- [Feedback and compatibility reports](docs/feedback.md): what to report, useful commands and issue guidance for real-world usage.
 - [P24 readiness audit](docs/p24-readiness-audit.md): beta/v1 and raw-probe-library readiness notes.
 - [P29 beta-readiness audit](docs/p29-beta-readiness-audit.md): final preview contract review before a beta decision.
 - [Changelog](CHANGELOG.md): release history.

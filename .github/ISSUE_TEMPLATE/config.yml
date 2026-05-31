@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://olelbis.github.io/tlsanalyzer/
+    about: Read the user manual, compatibility policy and validation guidance.
+  - name: Latest release
+    url: https://github.com/olelbis/tlsanalyzer/releases/latest
+    about: Download release binaries, packages, checksums, SBOM and attestations.

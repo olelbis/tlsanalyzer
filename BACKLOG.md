@@ -6,6 +6,8 @@ This backlog is ordered by implementation priority. The goal is to keep `tlsanal
 
 The feature backlog from P1 through P29 is complete. The `v0.29.x` line is now focused on beta-readiness review: bug fixes, documentation updates, compatibility-preserving hardening and final contract audits before a future beta/v1 decision.
 
+Feedback intake is prepared with issue templates and documentation for endpoint compatibility reports, policy feedback, JSON automation issues and release-verification problems.
+
 ## P1 - Correctness and Trust - Done
 
 ### Separate TLS support from certificate validation

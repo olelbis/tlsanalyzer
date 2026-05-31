@@ -2,6 +2,13 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- Added GitHub issue templates for bug reports, endpoint compatibility reports and feature requests.
+- Added feedback guidance for real-world endpoint behavior, automation integration and release verification reports.
+
 ## v0.29.0 - 2026-05-31
 
 ### Added

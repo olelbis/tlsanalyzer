@@ -19,7 +19,8 @@
   <strong>Project status:</strong> beta-readiness review on the <code>v0.29.x</code>
   line. Feature growth is paused; patch releases are limited to bug fixes,
   documentation updates and compatibility-preserving hardening while the project
-  gathers real-world usage before a future beta/v1 decision.
+  gathers real-world usage before a future beta/v1 decision. Endpoint
+  compatibility reports and automation feedback are welcome.
 </div>
 
 ## Quick Start
@@ -67,6 +68,10 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.29.0 --host example.com --no-clea
   <a class="doc-card" href="validation-matrix.html">
     <span>Validation matrix</span>
     Manual real-world smoke checks for release confidence.
+  </a>
+  <a class="doc-card" href="feedback.html">
+    <span>Feedback reports</span>
+    What to report, useful commands and issue guidance for real-world usage.
   </a>
   <a class="doc-card" href="p24-readiness-audit.html">
     <span>Readiness audit</span>
