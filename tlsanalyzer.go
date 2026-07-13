@@ -93,47 +93,18 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return exitCodeInputRuntimeFailure
 	}
 
-	h := strings.TrimSpace(cfg.host)
-	if err := validateHost(h); err != nil {
-		fmt.Fprintf(stderr, "Error: invalid --host '%s': %v\n", cfg.host, err)
-		return exitCodeInputRuntimeFailure
-	}
-	serverName := strings.TrimSpace(cfg.sni)
-	if serverName != "" {
-		if err := validateHost(serverName); err != nil {
-			fmt.Fprintf(stderr, "Error: invalid --sni '%s': %v\n", cfg.sni, err)
-			return exitCodeInputRuntimeFailure
+	inputs, errs := validateSingleTargetInput(cfg)
+	if len(errs) > 0 {
+		for _, err := range errs {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
 		}
-	}
-
-	port := strings.TrimSpace(cfg.port)
-	if err := validatePort(port); err != nil {
-		fmt.Fprintf(stderr, "Error: invalid --port '%s': %v\n", cfg.port, err)
 		return exitCodeInputRuntimeFailure
 	}
-	if cfg.timeout < 1 {
-		fmt.Fprintln(stderr, "Error: --timeout must be at least 1 second")
-		return exitCodeInputRuntimeFailure
-	}
-
-	minVersion := utils.TLSVersionToUint16(cfg.minVersionStr)
-	if minVersion == 0 {
-		fmt.Fprintf(stderr, "Error: invalid --min-version '%s'. Use 1.0, 1.1, 1.2 or 1.3\n", cfg.minVersionStr)
-		return exitCodeInputRuntimeFailure
-	}
-	if err := validateFlagCombination(cfg.outputJSON, cfg.certChain, strings.TrimSpace(cfg.outputFile)); err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return exitCodeInputRuntimeFailure
-	}
-	policyConfig, err := buildPolicyConfig(cfg)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return exitCodeInputRuntimeFailure
-	}
-	if err := policy.ValidateConfig(policyConfig); err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return exitCodeInputRuntimeFailure
-	}
+	h := inputs.host
+	serverName := inputs.serverName
+	port := inputs.port
+	minVersion := inputs.minVersion
+	policyConfig := inputs.policyConfig
 	humanOutput := !cfg.outputJSON
 	verboseOutput := humanOutput && !cfg.compact
 
@@ -399,6 +370,62 @@ func formatVersion() string {
 func writeUsage(stderr io.Writer) {
 	var cfg cliConfig
 	newFlagSet(&cfg, stderr).Usage()
+}
+
+// singleTargetInput holds the validated and normalized values needed to run a
+// single-target scan.
+type singleTargetInput struct {
+	host         string
+	serverName   string
+	port         string
+	minVersion   uint16
+	policyConfig policy.Config
+}
+
+// validateSingleTargetInput validates every single-target CLI input and
+// returns all problems found, so the user can fix them in one pass instead of
+// discovering them one invocation at a time.
+func validateSingleTargetInput(cfg cliConfig) (singleTargetInput, []error) {
+	var errs []error
+	in := singleTargetInput{
+		host:       strings.TrimSpace(cfg.host),
+		serverName: strings.TrimSpace(cfg.sni),
+		port:       strings.TrimSpace(cfg.port),
+	}
+
+	if err := validateHost(in.host); err != nil {
+		errs = append(errs, fmt.Errorf("invalid --host '%s': %w", cfg.host, err))
+	}
+	if in.serverName != "" {
+		if err := validateHost(in.serverName); err != nil {
+			errs = append(errs, fmt.Errorf("invalid --sni '%s': %w", cfg.sni, err))
+		}
+	}
+	if err := validatePort(in.port); err != nil {
+		errs = append(errs, fmt.Errorf("invalid --port '%s': %w", cfg.port, err))
+	}
+	if cfg.timeout < 1 {
+		errs = append(errs, fmt.Errorf("--timeout must be at least 1 second"))
+	}
+
+	in.minVersion = utils.TLSVersionToUint16(cfg.minVersionStr)
+	if in.minVersion == 0 {
+		errs = append(errs, fmt.Errorf("invalid --min-version '%s'. Use 1.0, 1.1, 1.2 or 1.3", cfg.minVersionStr))
+	}
+	if err := validateFlagCombination(cfg.outputJSON, cfg.certChain, strings.TrimSpace(cfg.outputFile)); err != nil {
+		errs = append(errs, err)
+	}
+
+	policyConfig, err := buildPolicyConfig(cfg)
+	if err != nil {
+		errs = append(errs, err)
+	} else if err := policy.ValidateConfig(policyConfig); err != nil {
+		errs = append(errs, err)
+	} else {
+		in.policyConfig = policyConfig
+	}
+
+	return in, errs
 }
 
 func validateFlagCombination(outputJSON bool, certChain bool, outputFile string) error {

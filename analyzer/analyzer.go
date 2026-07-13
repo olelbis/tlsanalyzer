@@ -16,6 +16,11 @@ const (
 	// DefaultTimeout is used when Options.Timeout is zero.
 	DefaultTimeout = 5 * time.Second
 	// DefaultMinVersion is used when Options.MinVersion is zero.
+	//
+	// TLS 1.0 is intentional: the analyzer is a scanner and must be able to
+	// detect and report legacy protocol support on the target. It does not
+	// mean TLS 1.0 is recommended for clients or servers; use a policy (for
+	// example --policy modern) to fail on legacy versions.
 	DefaultMinVersion = tls.VersionTLS10
 )
 
