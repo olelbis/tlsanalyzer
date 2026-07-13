@@ -261,13 +261,13 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 			wg3.Add(1)
 			go func() {
 				defer wg3.Done()
-				conf := &tls.Config{
-					MinVersion:         tls.VersionTLS13,
-					MaxVersion:         tls.VersionTLS13,
-					InsecureSkipVerify: true,
-					ServerName:         opts.tlsServerName(),
-					NextProtos:         DefaultALPNProtocols(),
-				}
+					conf := &tls.Config{
+						MinVersion:         tls.VersionTLS13,
+						MaxVersion:         tls.VersionTLS13,
+						InsecureSkipVerify: true, // #nosec G402 -- scanner fallback probe, validation done separately
+						ServerName:         opts.tlsServerName(),
+						NextProtos:         DefaultALPNProtocols(),
+					}
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
 				if err == nil {
 					cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)

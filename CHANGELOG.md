@@ -4,6 +4,19 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.31.0 - 2026-07-13
+
+### Added
+
+- Added single-target CLI validation that reports all detected input errors in one run while preserving existing error wording and exit codes.
+- Added a regression test covering multiple simultaneous input validation errors.
+- Added gosec `G402` annotations for intentional TLS scanner handshakes that disable built-in certificate verification while validating peer certificates separately.
+
+### Changed
+
+- Moved project status to the `v0.31.x` input-validation and scanner-suppression hardening line.
+- Documented why the analyzer default minimum TLS version remains TLS 1.0 for scanner visibility while policy gates can fail on legacy protocol support.
+
 ## v0.30.0 - 2026-05-31
 
 ### Added

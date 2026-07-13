@@ -17,7 +17,7 @@ man tlsanalyzer
 Release tags also publish a minimal multi-arch container image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.30.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.31.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 
@@ -511,6 +511,10 @@ Certificate validation is reported separately:
 | 3 | Scan completed but enabled policy checks failed. |
 
 Unsupported TLS versions are scan results, not CLI failures.
+
+For single-target scans, input validation reports all detected input problems in
+one response when possible, while preserving the documented exit codes. The
+special `--host is required` case still prints usage help.
 
 A target-level scan execution failure means every attempted TLS version ended with `network_error`, `timeout` or `handshake_error`. Mixed results are still reported as scan evidence; use policy gates when a specific TLS posture must fail the run.
 

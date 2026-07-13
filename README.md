@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in beta-readiness review on the `v0.30.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is in beta-readiness review on the `v0.31.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
 
 External feedback is welcome, especially endpoint compatibility reports, policy false positives/negatives, JSON automation issues and installation or release-verification problems. See [Feedback and compatibility reports](docs/feedback.md) for useful commands and what to include.
 
@@ -65,7 +65,7 @@ tlsanalyzer --host 203.0.113.10 --sni example.com
 tlsanalyzer --version
 ```
 
-Exit codes are stable for CI: `0` means success, `1` means input/runtime/report failure, `2` means CLI flag parsing failed and `3` means enabled policy checks failed. Certificate policy checks fail when validation is invalid, skipped or unavailable.
+Exit codes are stable for CI: `0` means success, `1` means input/runtime/report failure, `2` means CLI flag parsing failed and `3` means enabled policy checks failed. Single-target input validation reports all detected input errors in one run. Certificate policy checks fail when validation is invalid, skipped or unavailable.
 
 ## Documentation
 
@@ -194,7 +194,7 @@ man tlsanalyzer
 Release tags publish a minimal multi-arch image to GitHub Container Registry:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.30.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.31.0 --host example.com --no-clear
 docker run --rm ghcr.io/olelbis/tlsanalyzer:latest --host example.com --policy modern --no-clear
 ```
 

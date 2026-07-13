@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.30.x tlsprobe API Maturation
+## Current Focus - v0.31.x Input Validation and Scanner Suppression Hardening
 
-The feature backlog from P1 through P30 is complete. The `v0.30.x` line is now focused on beta-readiness review, external feedback and compatibility-preserving hardening before a future beta/v1 decision.
+The feature backlog from P1 through P31 is complete. The `v0.31.x` line is now focused on beta-readiness review, external feedback and compatibility-preserving hardening before a future beta/v1 decision.
 
 Feedback intake is prepared with issue templates and documentation for endpoint compatibility reports, policy feedback, JSON automation issues and release-verification problems.
 
@@ -766,3 +766,22 @@ Acceptance criteria:
 - Add a custom dial hook for embedded callers, proxies and deterministic tests.
 - Add small helper APIs for cipher suite names and result summaries.
 - Document the new public API surface and preview compatibility guidance.
+
+## P31 - CLI Validation and Scanner Suppression Hardening - Done
+
+### Improve input diagnostics and document intentional scanner TLS behavior
+
+Problem: single-target CLI validation reported one invalid input at a time, and
+static security scanners could flag intentional `InsecureSkipVerify` usage
+without seeing that certificate validation is performed separately.
+
+Status: done.
+
+Acceptance criteria:
+
+- Collect all single-target input validation errors and report them together.
+- Preserve existing error strings, usage behavior for missing `--host` and exit codes.
+- Add regression coverage for multiple simultaneous input errors.
+- Annotate intentional TLS scanner handshakes for gosec with clear rationale.
+- Document that TLS 1.0 remains the default minimum for scanner visibility, not
+  as a security recommendation.

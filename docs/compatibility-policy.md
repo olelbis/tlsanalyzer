@@ -20,6 +20,14 @@ releases unless a changelog entry explicitly calls out a breaking change.
 | TLS 1.3 evidence labels | Raw-probed, observed and negotiated evidence remain explicitly labeled. |
 | Runtime dependency model | The released CLI remains dependency-free at runtime. |
 
+Single-target input validation may report multiple input errors in one
+invocation, but the exit code contract remains unchanged.
+
+TLS capability handshakes intentionally disable Go's built-in certificate
+verification so protocol and cipher evidence is not confused with certificate
+trust. Certificate validation is performed and reported separately unless
+`--skip-verify` is explicitly requested.
+
 ## Allowed Preview Changes
 
 Minor `v0.x` releases may:
