@@ -68,6 +68,20 @@ func TestCipherSuiteSeverity(t *testing.T) {
 	}
 }
 
+func TestProbeCipherSuitesExcludeUnsafeClientConfigurations(t *testing.T) {
+	for _, cipherSuite := range ProbeCipherSuites() {
+		switch cipherSuite.ID {
+		case tls.TLS_RSA_WITH_RC4_128_SHA,
+			tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
+			t.Fatalf("ProbeCipherSuites includes unsafe client probe cipher %s", cipherSuite.Name)
+		}
+	}
+}
+
 func TestCipherSuiteSeverityForVersionTreatsLegacyCBCAsWeak(t *testing.T) {
 	cipher := "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"
 	if got := CipherSuiteSeverityForVersion(tls.VersionTLS10, cipher); got != CipherSeverityWeak {

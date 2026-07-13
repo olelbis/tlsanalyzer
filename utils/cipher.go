@@ -49,6 +49,35 @@ var AllCipherSuites = []CipherSuite{
 	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
 }
 
+// ProbeCipherSuites returns the cipher suites used for active TLS 1.0-1.2
+// probing. Some legacy suites remain classified for negotiated evidence and
+// policy output, but are not actively offered because Go and CodeQL treat them
+// as insecure client configurations.
+func ProbeCipherSuites() []CipherSuite {
+	probeSuites := make([]CipherSuite, 0, len(AllCipherSuites))
+	for _, cipherSuite := range AllCipherSuites {
+		if isUnsafeClientProbeCipher(cipherSuite.ID) {
+			continue
+		}
+		probeSuites = append(probeSuites, cipherSuite)
+	}
+	return probeSuites
+}
+
+func isUnsafeClientProbeCipher(id uint16) bool {
+	switch id {
+	case tls.TLS_RSA_WITH_RC4_128_SHA,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
+		return true
+	default:
+		return false
+	}
+}
+
 var CipherClassification = map[string]string{
 	"TLS_RSA_WITH_RC4_128_SHA":                "🔴 INSECURE",
 	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           "🔴 INSECURE",

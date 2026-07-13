@@ -205,7 +205,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	}
 
 	if version != tls.VersionTLS13 {
-		for _, cs := range utils.AllCipherSuites {
+		for _, cs := range utils.ProbeCipherSuites() {
 			if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
 				continue
 			}
@@ -252,36 +252,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 
 		result.Discovery = CipherDiscoveryObserved
 		result.ObservedOnly = true
-		result.Attempts += utils.DefaultTLS13Tries
-		result.Warnings = append(result.Warnings, "TLS 1.3 raw probing did not confirm cipher support; falling back to observed handshakes.")
-		found := make(map[string]bool)
-		var tls13Mutex sync.Mutex
-		var wg3 sync.WaitGroup
-		for i := 0; i < utils.DefaultTLS13Tries; i++ {
-			wg3.Add(1)
-			go func() {
-				defer wg3.Done()
-					conf := &tls.Config{
-						MinVersion:         tls.VersionTLS13,
-						MaxVersion:         tls.VersionTLS13,
-						InsecureSkipVerify: true, // #nosec G402 -- scanner fallback probe, validation done separately
-						ServerName:         opts.tlsServerName(),
-						NextProtos:         DefaultALPNProtocols(),
-					}
-				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
-				if err == nil {
-					cs := tls.CipherSuiteName(conn.ConnectionState().CipherSuite)
-					tls13Mutex.Lock()
-					found[cs] = true
-					tls13Mutex.Unlock()
-					conn.Close()
-				}
-			}()
-		}
-		wg3.Wait()
-		for cs := range found {
-			supported = append(supported, cs)
-		}
+		result.Warnings = append(result.Warnings, "TLS 1.3 raw probing did not confirm cipher support; no observed fallback was attempted.")
 	}
 
 	supported = utils.UniqueStrings(supported)

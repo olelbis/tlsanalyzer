@@ -4,6 +4,14 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.31.1 - 2026-07-13
+
+### Changed
+
+- Stopped actively probing TLS cipher suites that Go and CodeQL treat as insecure client configurations while keeping their negotiated-evidence classification for reports and policy checks.
+- Removed the TLS 1.3 observed fallback probe after raw probing fails, avoiding an extra certificate-verification-bypassing handshake path.
+- Updated documentation examples and packaged version metadata to `v0.31.1`.
+
 ## v0.31.0 - 2026-07-13
 
 ### Added

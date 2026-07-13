@@ -2,11 +2,25 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.31.x Input Validation and Scanner Suppression Hardening
+## Current Focus - v0.31.x Input Validation, Scanner Suppression and CodeQL Hardening
 
-The feature backlog from P1 through P31 is complete. The `v0.31.x` line is now focused on beta-readiness review, external feedback and compatibility-preserving hardening before a future beta/v1 decision.
+The feature backlog from P1 through P31.1 is complete. The `v0.31.x` line is now focused on beta-readiness review, external feedback and compatibility-preserving hardening before a future beta/v1 decision.
 
 Feedback intake is prepared with issue templates and documentation for endpoint compatibility reports, policy feedback, JSON automation issues and release-verification problems.
+
+## P31.1 - CodeQL Scanner-Finding Hardening - Done
+
+Problem: GitHub CodeQL reports scanner-specific TLS findings for intentional
+legacy cipher probing and intentionally separated certificate trust validation.
+
+Acceptance criteria:
+
+- Keep CodeQL security coverage enabled.
+- Stop actively offering cipher suites that Go and CodeQL treat as insecure
+  client configurations.
+- Keep legacy cipher classification for negotiated evidence and policy output.
+- Remove the TLS 1.3 observed fallback probe after raw probing fails.
+- Keep release and Pages examples aligned with the patch version.
 
 ## P1 - Correctness and Trust - Done
 
