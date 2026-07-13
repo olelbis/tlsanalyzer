@@ -1,4 +1,4 @@
-# tlsanalyzer documentation
+<h1 class="doc-title">tlsanalyzer documentation</h1>
 
 <div class="doc-hero">
   <img src="assets/tlsanalyzer-logo.png" alt="tlsanalyzer pixel art logo" width="168">
