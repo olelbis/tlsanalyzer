@@ -205,7 +205,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	}
 
 	if version != tls.VersionTLS13 {
-		for _, cs := range utils.ProbeCipherSuites() {
+		for _, cs := range utils.AllCipherSuites {
 			if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
 				continue
 			}

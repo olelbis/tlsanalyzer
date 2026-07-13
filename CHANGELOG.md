@@ -4,6 +4,13 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.31.2 - 2026-07-13
+
+### Changed
+
+- Removed CodeQL-flagged cipher suite constants from the active TLS 1.0-1.2 probe set while retaining their negotiated-evidence classification for reports and policy checks.
+- Updated documentation examples and packaged version metadata to `v0.31.2`.
+
 ## v0.31.1 - 2026-07-13
 
 ### Changed

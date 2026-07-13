@@ -21,23 +21,21 @@ const (
 	CipherSeverityUnknown    CipherSeverity = "unknown"
 )
 
+// AllCipherSuites contains the cipher suites actively offered by TLS 1.0-1.2
+// probing. Some legacy suites remain classified below for negotiated evidence
+// and policy output, but are not actively offered because Go and CodeQL treat
+// them as insecure client configurations.
 var AllCipherSuites = []CipherSuite{
-	{tls.TLS_RSA_WITH_RC4_128_SHA, "TLS_RSA_WITH_RC4_128_SHA"},
 	{tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, "TLS_RSA_WITH_3DES_EDE_CBC_SHA"},
 	{tls.TLS_RSA_WITH_AES_128_CBC_SHA, "TLS_RSA_WITH_AES_128_CBC_SHA"},
 	{tls.TLS_RSA_WITH_AES_256_CBC_SHA, "TLS_RSA_WITH_AES_256_CBC_SHA"},
-	{tls.TLS_RSA_WITH_AES_128_CBC_SHA256, "TLS_RSA_WITH_AES_128_CBC_SHA256"},
 	{tls.TLS_RSA_WITH_AES_128_GCM_SHA256, "TLS_RSA_WITH_AES_128_GCM_SHA256"},
 	{tls.TLS_RSA_WITH_AES_256_GCM_SHA384, "TLS_RSA_WITH_AES_256_GCM_SHA384"},
-	{tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA, "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA"},
 	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA"},
 	{tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA"},
-	{tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA, "TLS_ECDHE_RSA_WITH_RC4_128_SHA"},
 	{tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA"},
 	{tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA"},
 	{tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA"},
-	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256"},
-	{tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"},
 	{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
 	{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
 	{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
@@ -47,35 +45,6 @@ var AllCipherSuites = []CipherSuite{
 	{tls.TLS_AES_128_GCM_SHA256, "TLS_AES_128_GCM_SHA256"},
 	{tls.TLS_AES_256_GCM_SHA384, "TLS_AES_256_GCM_SHA384"},
 	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
-}
-
-// ProbeCipherSuites returns the cipher suites used for active TLS 1.0-1.2
-// probing. Some legacy suites remain classified for negotiated evidence and
-// policy output, but are not actively offered because Go and CodeQL treat them
-// as insecure client configurations.
-func ProbeCipherSuites() []CipherSuite {
-	probeSuites := make([]CipherSuite, 0, len(AllCipherSuites))
-	for _, cipherSuite := range AllCipherSuites {
-		if isUnsafeClientProbeCipher(cipherSuite.ID) {
-			continue
-		}
-		probeSuites = append(probeSuites, cipherSuite)
-	}
-	return probeSuites
-}
-
-func isUnsafeClientProbeCipher(id uint16) bool {
-	switch id {
-	case tls.TLS_RSA_WITH_RC4_128_SHA,
-		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
-		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
-		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
-		return true
-	default:
-		return false
-	}
 }
 
 var CipherClassification = map[string]string{

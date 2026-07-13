@@ -68,8 +68,8 @@ func TestCipherSuiteSeverity(t *testing.T) {
 	}
 }
 
-func TestProbeCipherSuitesExcludeUnsafeClientConfigurations(t *testing.T) {
-	for _, cipherSuite := range ProbeCipherSuites() {
+func TestAllCipherSuitesExcludeUnsafeClientConfigurations(t *testing.T) {
+	for _, cipherSuite := range AllCipherSuites {
 		switch cipherSuite.ID {
 		case tls.TLS_RSA_WITH_RC4_128_SHA,
 			tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
@@ -77,7 +77,7 @@ func TestProbeCipherSuitesExcludeUnsafeClientConfigurations(t *testing.T) {
 			tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
-			t.Fatalf("ProbeCipherSuites includes unsafe client probe cipher %s", cipherSuite.Name)
+			t.Fatalf("AllCipherSuites includes unsafe client probe cipher %s", cipherSuite.Name)
 		}
 	}
 }
