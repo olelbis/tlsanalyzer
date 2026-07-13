@@ -117,7 +117,7 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		ServerName: serverName,
 		// Certificate validation is performed after the handshake so TLS support
 		// is not confused with certificate trust failures.
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402 -- scanner handshake, validation done by ValidatePeerCertificates
 		MinVersion:         version,
 		MaxVersion:         version,
 		NextProtos:         DefaultALPNProtocols(),
@@ -218,10 +218,13 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 				defer func() { <-sem }()
 
 				conf := &tls.Config{
-					MinVersion:         version,
-					MaxVersion:         version,
-					CipherSuites:       []uint16{cs.ID},
-					InsecureSkipVerify: true,
+					MinVersion:   version,
+					MaxVersion:   version,
+					CipherSuites: []uint16{cs.ID},
+					// Cipher probing only needs the server to accept or reject
+					// the offered suite; certificate trust is evaluated once by
+					// ValidatePeerCertificates, not on every probe connection.
+					InsecureSkipVerify: true, // #nosec G402 -- scanner probe, validation done separately
 					ServerName:         opts.tlsServerName(),
 					NextProtos:         DefaultALPNProtocols(),
 				}

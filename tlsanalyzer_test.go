@@ -804,3 +804,32 @@ func closedLocalTCPAddress(t *testing.T) (string, string) {
 	}
 	return host, port
 }
+
+func TestRunReportsAllInputErrorsAtOnce(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	code := run([]string{
+		"--host", "bad host",
+		"--sni", "bad sni",
+		"--port", "99999",
+		"--timeout", "0",
+		"--min-version", "9.9",
+	}, &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("run() exit code = %d, want 1", code)
+	}
+	out := stderr.String()
+	for _, want := range []string{
+		"invalid --host",
+		"invalid --sni",
+		"invalid --port",
+		"--timeout must be at least 1 second",
+		"invalid --min-version",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stderr missing %q; got:\n%s", want, out)
+		}
+	}
+}
