@@ -30,6 +30,48 @@ creates a temporary output directory and removes it when it exits.
 | Policy pass smoke | `www.example.com` with SNI `example.com` | `--min-version 1.3 --policy modern --json` | Command exits successfully and emits JSON policy evidence. |
 | Certificate validation failure | `expired.badssl.com` | `--min-version 1.2 --json` | JSON reports invalid certificate evidence separately from TLS support. |
 
+## badssl Exit-Code Matrix
+
+A second, larger matrix lives in `scripts/badssl-cases.tsv` and is run by
+`scripts/validate-badssl.sh`. It asserts documented exit codes rather than
+output text: `0` for a clean scan, `3` for a failed policy check, `1` for a
+handshake that cannot complete.
+
+```bash
+./scripts/validate-badssl.sh          # gating cases only
+./scripts/validate-badssl.sh --all    # include observational cases
+./scripts/validate-badssl.sh --only expired,ecc256 --keep-logs
+```
+
+Both validation scripts build the binary with `go build` instead of using
+`go run .`. This is deliberate: `go run` replaces the program's exit code with
+`1`, which makes a failed policy check indistinguishable from a runtime error
+and silently defeats any assertion on exit codes.
+
+Cases marked `gate: no` in the TSV are observational. They are reported but do
+not fail the run, either because the outcome depends on server-side
+configuration (certificate size) or because the case is slow (`rsa8192`).
+
+Two results are worth knowing before reading the output:
+
+- badssl endpoints with an RSA certificate fail `--policy modern` even though
+  the certificate itself validates. They deliberately offer 3DES and
+  static-RSA suites, which the modern policy rejects for lack of forward
+  secrecy. The positive baseline is `ecc256.badssl.com`, which offers only
+  ECDHE_ECDSA suites.
+- `revoked.badssl.com` passes. The scanner performs no OCSP or CRL check, so
+  the certificate validates. This is expected behaviour, not a regression.
+
+Weak-cipher endpoints (`rc4`, `3des`, `null`, `dh480`, `dh512`, `dh1024`) are
+not negotiable by the Go standard library, so they exercise error handling
+rather than cipher classification.
+
+All badssl endpoints are TLS 1.2 only; TLS 1.3 reports `handshake_error`
+there.
+
+Do not run either script in normal CI. badssl.com runs on donated
+infrastructure.
+
 ## Interpreting Drift
 
 Expected drift:

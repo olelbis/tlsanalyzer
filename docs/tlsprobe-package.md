@@ -11,7 +11,7 @@ full TLS handshakes.
 ## Install
 
 ```bash
-go get github.com/olelbis/tlsanalyzer@v0.31.2
+go get github.com/olelbis/tlsanalyzer@v0.31.3
 ```
 
 ## Example

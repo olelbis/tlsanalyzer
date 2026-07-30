@@ -1,7 +1,7 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.31.2
+- **Scanner Version**: v0.31.3
 - **JSON Schema Version**: 1.1
 
 ## Summary

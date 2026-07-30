@@ -4,6 +4,25 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.31.3 - 2026-07-30
+
+### Added
+
+- Added `scripts/validate-badssl.sh` and `scripts/badssl-cases.tsv`, a 30-case exit-code regression matrix against badssl.com covering certificate validation failures, key types and sizes, protocol version gates, SAN parsing limits and weak-cipher error handling.
+- Added exit-code contract checks to `scripts/validate-real-world.sh`, covering the policy exit-code risk previously listed as an uncovered concern in `docs/validation-matrix.md`.
+- Documented the badssl exit-code matrix in `docs/validation-matrix.md`, including the RSA-endpoint policy behaviour and the absence of revocation checking.
+
+### Fixed
+
+- `scripts/validate-real-world.sh` no longer aborts silently under `set -e` when a scan exits non-zero. The exit status is captured and asserted, and the captured output is printed on mismatch.
+- Both validation scripts now build the binary with `go build` instead of invoking `go run .`, which collapsed every non-zero exit code to `1` and made assertions on documented exit codes impossible.
+- Tightened the expired-certificate assertion to match the full `certificate_validation_status` field instead of a bare `"invalid"` substring.
+- Removed the macOS-specific `/private/tmp` default for `GOCACHE` in `scripts/validate-real-world.sh`.
+
+### Changed
+
+- Updated documentation examples and packaged version metadata to `v0.31.3`.
+
 ## v0.31.2 - 2026-07-13
 
 ### Changed
