@@ -3,3 +3,4 @@ tlsanalyzer
 .DS_Store
 .github/*.bak
 .github/*.tmp
+scripts/badssl-logs/

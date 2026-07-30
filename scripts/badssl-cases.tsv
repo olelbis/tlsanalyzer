@@ -1,0 +1,60 @@
+# tlsanalyzer real-world validation cases (badssl.com)
+#
+# Format: id|host|port|extra_args|expected_exit|gate|note
+#
+# expected_exit: exit code atteso dal binario
+#   0 = successo, nessuna policy violata
+#   3 = policy check fallito (atteso nei casi negativi)
+#   1 = errore runtime/rete (usato dove l'handshake non puo riuscire)
+#
+# gate: yes = mismatch fa fallire il run
+#       no  = caso osservativo, stampa il risultato ma non fallisce
+#
+# Riferimento: https://badssl.com/
+
+# --- Certificati non validi: la policy deve fallire ---------------------------
+expired|expired.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Certificato scaduto. Gia presente nella validation matrix.
+wrong-host|wrong.host.badssl.com|443|--min-version 1.2 --policy modern|3|yes|SAN non corrispondente all hostname richiesto.
+self-signed|self-signed.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Self-signed, catena non risolvibile.
+untrusted-root|untrusted-root.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Root non presente nel trust store.
+revoked|revoked.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Nessun controllo OCSP/CRL: il cert risulta valido. Verificato.
+incomplete-chain|incomplete-chain.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Intermedio mancante. Verifica che non venga recuperato via AIA.
+no-common-name|no-common-name.badssl.com|443|--min-version 1.2 --policy modern|3|yes|CN assente. Il verdetto dipende da quanto il tool si appoggia ai SAN.
+no-subject|no-subject.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Subject vuoto. Caso limite per il parsing del summary certificato.
+
+# --- Certificati validi: la policy deve passare -------------------------------
+baseline|badssl.com|443|--min-version 1.2 --policy modern|3|yes|Cert valido ma suite legacy (3DES + RSA statico) offerte: modern deve fallire.
+sha256|sha256.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Come baseline: endpoint RSA con suite legacy offerte.
+rsa2048|rsa2048.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Cert valido, ma la policy modern boccia 3DES e assenza di PFS.
+rsa4096|rsa4096.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Come rsa2048: la dimensione chiave non salva le suite legacy.
+rsa8192|rsa8192.badssl.com|443|--min-version 1.2 --policy modern|3|no|Come sopra. Handshake lento: utile per tarare il timeout.
+ecc256|ecc256.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Baseline positiva: solo suite ECDHE_ECDSA, modern passa. Unico caso a esito 0 con policy.
+ecc384|ecc384.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Chiave P-384.
+
+# --- Stress sul parsing certificato -------------------------------------------
+sans-1000|1000-sans.badssl.com|443|--min-version 1.2 --json|0|no|1000 SAN. Controlla che il JSON resti valido e il report non esploda.
+sans-10000|10000-sans.badssl.com|443|--min-version 1.2 --json|0|no|10000 SAN. Puo fallire l handshake per dimensione: osserva, non gate.
+
+# --- Versioni di protocollo ---------------------------------------------------
+tls10-forbidden|tls-v1-0.badssl.com|1010|--min-version 1.0 --forbid-tls 1.0|3|yes|Go stdlib puo rifiutare TLS 1.0 a monte: in quel caso atteso 1, non 3.
+tls11-forbidden|tls-v1-1.badssl.com|1011|--min-version 1.0 --forbid-tls 1.1|3|yes|Come sopra per TLS 1.1.
+tls12-require13|tls-v1-2.badssl.com|1012|--min-version 1.2 --require-tls 1.3|3|yes|Endpoint solo TLS 1.2: richiedere 1.3 deve fallire la policy.
+tls12-ok|tls-v1-2.badssl.com|1012|--min-version 1.2 --forbid-tls 1.0,1.1|0|yes|Stesso endpoint, policy coerente: deve passare.
+
+# --- Cifrari deboli -----------------------------------------------------------
+# Nota: essendo il tool dependency-free su crypto/tls, questi cifrari non sono
+# implementati dalla stdlib. L attesa realistica e un handshake_error (exit 1),
+# non una classificazione "weak cipher". Servono a validare la gestione errori.
+rc4|rc4.badssl.com|443|--min-version 1.0 --policy modern|1|yes|RC4. Verifica che l errore sia strutturato e non un panic.
+3des|3des.badssl.com|443|--min-version 1.0 --policy modern|1|yes|3DES.
+null|null.badssl.com|443|--min-version 1.0 --policy modern|1|yes|Cifrario NULL.
+dh480|dh480.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 480 bit.
+dh512|dh512.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 512 bit.
+dh1024|dh1024.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 1024 bit.
+
+# --- Scadenza certificato -----------------------------------------------------
+mincertdays|badssl.com|443|--min-version 1.2 --min-cert-days 3650|3|yes|Soglia irrealistica: verifica che il gate sulla validita residua scatti.
+
+# --- SNI esplicito ------------------------------------------------------------
+sni-override|badssl.com|443|--min-version 1.2 --sni badssl.com --policy modern|3|yes|Stesso esito di baseline: verifica solo che --sni non cambi il verdetto.
+sni-mismatch|badssl.com|443|--min-version 1.2 --sni wrong.host.badssl.com|0|yes|SNI divergente: il cert wildcard copre comunque il nome. Verificato.
