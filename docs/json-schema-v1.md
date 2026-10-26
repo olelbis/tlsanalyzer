@@ -14,6 +14,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `port` | string | yes | TCP port scanned. |
 | `server_name` | string | no | TLS SNI and certificate validation name when `--sni` is used. |
 | `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
+| `go_version` | string | no | Go toolchain version the scanner binary was built with, for example `go1.27.3`. Certificate verdicts depend on that toolchain's `crypto/x509`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
 | `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits` or `--min-cert-days`. |
@@ -27,6 +28,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | --- | --- | --- | --- |
 | `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
+| `go_version` | string | no | Go toolchain version the scanner binary was built with. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
 | `batch` | object | yes | Batch run metadata. |
 | `targets` | array | yes | Per-target batch results. |

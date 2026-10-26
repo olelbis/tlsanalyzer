@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ type BatchRunMetadata struct {
 type JSONBatchReport struct {
 	SchemaVersion  string            `json:"schema_version"`
 	ScannerVersion string            `json:"scanner_version"`
+	GoVersion      string            `json:"go_version,omitempty"`
 	GeneratedAt    string            `json:"generated_at"`
 	Batch          BatchRunMetadata  `json:"batch"`
 	Targets        []JSONBatchTarget `json:"targets"`
@@ -58,6 +60,7 @@ func BuildJSONBatchReport(scannerVersion string, generatedAt time.Time, reports 
 	batch := JSONBatchReport{
 		SchemaVersion:  JSONSchemaVersion,
 		ScannerVersion: scannerVersion,
+		GoVersion:      runtime.Version(),
 		GeneratedAt:    generatedAt.UTC().Format(time.RFC3339),
 		Batch:          metadata,
 		Targets:        make([]JSONBatchTarget, 0, len(reports)),
