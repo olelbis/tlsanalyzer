@@ -59,10 +59,11 @@ Two results are worth knowing before reading the output:
   static-RSA suites, which the modern policy rejects for lack of forward
   secrecy. The positive baseline is `ecc256.badssl.com`, which offers only
   ECDHE_ECDSA suites.
-- `revoked.badssl.com` passes. The scanner performs no OCSP or CRL check, so
-  the certificate validates. This is expected behaviour, not a regression.
+- `revoked.badssl.com` is platform dependent. Go's own verifier (Linux) performs no
+  OCSP or CRL check, so the certificate validates (exit 0). On macOS the system
+  verifier reports it as revoked (exit 3). The case is observational.
 
-Weak-cipher endpoints (`rc4`, `3des`, `null`, `dh480`, `dh512`, `dh1024`) are
+Weak-cipher endpoints (`rc4`, `null`, `dh480`, `dh512`, `dh1024`) are
 not negotiable by the Go standard library, so they exercise error handling
 rather than cipher classification.
 
