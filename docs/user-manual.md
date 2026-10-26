@@ -138,7 +138,9 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
   --timeout int
         Connection timeout in seconds (default 5)
   --min-version string
-        Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3 (default "1.0")
+        Minimum TLS version to test: 1.0, 1.1, 1.2 or 1.3 (default "1.0").
+        Explicit --forbid-tls, --require-tls and --fail-on legacy-tls gates
+        that refer to older versions lower the scan range for that run
   --cert
         Print certificate chain
   --output string
@@ -425,7 +427,7 @@ JSON and Markdown output distinguish:
 - `negotiated`: the cipher selected by the first successful handshake.
 - `probed`: cipher suites accepted when forcing individual TLS 1.0, 1.1 or 1.2 suites.
 - `raw-probed`: TLS 1.3 cipher suites accepted by the raw ClientHello probe.
-- `observed`: TLS 1.3 cipher suites seen across repeated handshakes when raw probing is inconclusive.
+- `observed`: the cipher suite negotiated by the version handshake, reported when raw probing is inconclusive.
 
 Raw probe status rows may include:
 

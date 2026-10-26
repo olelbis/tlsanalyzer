@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -69,7 +70,9 @@ const (
 // Options configures raw TLS 1.3 ClientHello probing.
 //
 // Address is required and must be a host:port TCP address. ServerName is used
-// for SNI when set. Timeout applies to connect, write and read operations.
+// for SNI when set and is not an IP literal: RFC 6066 section 3 forbids literal
+// addresses in server_name, and crypto/tls omits SNI for them as well.
+// Timeout applies to connect, write and read operations.
 // ALPN values are advertised as-is after empty values are ignored. KeyShareGroups
 // controls the supported groups advertised by the probe; when empty, a
 // conservative default set is used. DialContext can override TCP connection
@@ -166,12 +169,44 @@ const (
 	groupX25519 = GroupX25519
 )
 
+// clientHelloSignatureAlgorithms lists the signature schemes advertised by the
+// probe. It has to cover the certificate key types servers commonly deploy
+// (RSA, ECDSA P-256/P-384/P-521 and Ed25519): a server that finds no usable
+// scheme aborts with handshake_failure before sending ServerHello, which would
+// hide the cipher suite evidence the probe is looking for.
+var clientHelloSignatureAlgorithms = []uint16{
+	0x0403, // ecdsa_secp256r1_sha256
+	0x0503, // ecdsa_secp384r1_sha384
+	0x0603, // ecdsa_secp521r1_sha512
+	0x0807, // ed25519
+	0x0804, // rsa_pss_rsae_sha256
+	0x0805, // rsa_pss_rsae_sha384
+	0x0806, // rsa_pss_rsae_sha512
+	0x0401, // rsa_pkcs1_sha256
+	0x0501, // rsa_pkcs1_sha384
+}
+
+// isIPLiteral reports whether name is an IPv4 or IPv6 literal, optionally in
+// brackets or with an IPv6 zone.
+func isIPLiteral(name string) bool {
+	name = strings.TrimSuffix(strings.TrimPrefix(name, "["), "]")
+	_, err := netip.ParseAddr(name)
+	return err == nil
+}
+
 type clientHelloSpec struct {
-	opts          Options
-	cipherSuite   uint16
-	sessionID     []byte
+	opts        Options
+	cipherSuite uint16
+	sessionID   []byte
+	// random is the ClientHello.random. RFC 8446 section 4.1.2 requires the
+	// ClientHello sent after a HelloRetryRequest to carry the same value, so
+	// the caller generates it once and reuses it for the retry.
+	random        []byte
 	keyShareGroup uint16
 	cookie        []byte
+	// afterHRR marks the ClientHello sent in response to a HelloRetryRequest.
+	// RFC 8446 section 5.1 requires its record legacy_version to be 0x0303.
+	afterHRR bool
 }
 
 type helloRetryRequest struct {
@@ -188,7 +223,8 @@ type readResult struct {
 //
 // Results are returned in the same order as cipherSuites. Configuration errors
 // stop probing and are returned as errors; network and protocol outcomes are
-// represented in each Result.
+// represented in each Result. If ctx ends between two probes, probing stops and
+// the results collected so far are returned together with ctx.Err().
 func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []uint16) ([]Result, error) {
 	if err := ValidateOptions(opts); err != nil {
 		return nil, err
@@ -196,9 +232,15 @@ func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []ui
 	if len(cipherSuites) == 0 {
 		return nil, nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	results := make([]Result, 0, len(cipherSuites))
 	for _, cipherSuite := range cipherSuites {
+		if err := ctx.Err(); err != nil {
+			return results, err
+		}
 		result, err := ProbeTLS13CipherSuite(ctx, opts, cipherSuite)
 		if err != nil {
 			return results, err
@@ -213,6 +255,9 @@ func ProbeTLS13CipherSuites(ctx context.Context, opts Options, cipherSuites []ui
 // This function is intentionally a probe, not a TLS implementation. It parses
 // ServerHello, HelloRetryRequest, alerts, connection close and timeout outcomes
 // and then returns the observed classification.
+//
+// ctx bounds the whole probe: when it ends, blocked reads and writes are
+// interrupted and the outcome is reported as StatusTimeout.
 func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16) (Result, error) {
 	result := Result{
 		CipherSuite:        cipherSuite,
@@ -237,15 +282,19 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 
 	keyShareGroups := normalizedKeyShareGroups(opts)
 	sessionID := make([]byte, 32)
-	if _, err := rand.Read(sessionID); err != nil {
-		result = withError(result, ErrorCodeBuildClientHelloFailed, err.Error())
-		return result, nil
+	random := make([]byte, 32)
+	for _, buf := range [][]byte{sessionID, random} {
+		if _, err := rand.Read(buf); err != nil {
+			result = withError(result, ErrorCodeBuildClientHelloFailed, err.Error())
+			return result, nil
+		}
 	}
 
 	clientHello, err := buildTLS13ClientHello(clientHelloSpec{
 		opts:          opts,
 		cipherSuite:   cipherSuite,
 		sessionID:     sessionID,
+		random:        random,
 		keyShareGroup: keyShareGroups[0],
 	})
 	if err != nil {
@@ -270,6 +319,10 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		result = withError(result, ErrorCodeDeadlineFailed, err.Error())
 		return result, nil
 	}
+	// Interrupt blocked reads and writes as soon as the caller's context ends.
+	// It is registered after the timeout deadline so it cannot be overridden.
+	stopOnContextDone := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+	defer stopOnContextDone()
 
 	if _, err := conn.Write(clientHello); err != nil {
 		result.Status = statusForNetworkError(err)
@@ -282,7 +335,7 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 		return read.result, err
 	}
 
-	retryHello, retryErr := buildRetryClientHello(opts, cipherSuite, sessionID, read.hrr)
+	retryHello, retryErr := buildRetryClientHello(opts, cipherSuite, sessionID, random, read.hrr)
 	if retryErr != nil {
 		read.result.Status = StatusHelloRetryRequest
 		read.result = withError(read.result, hrrErrorCode(retryErr), retryErr.Error())
@@ -387,7 +440,7 @@ func configError(field, message string, err error) error {
 	}
 }
 
-func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, hrr *helloRetryRequest) ([]byte, error) {
+func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID, random []byte, hrr *helloRetryRequest) ([]byte, error) {
 	if hrr.selectedGroup == 0 {
 		return nil, errors.New("HelloRetryRequest did not include a selected group")
 	}
@@ -399,8 +452,10 @@ func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID []byte, h
 		opts:          opts,
 		cipherSuite:   cipherSuite,
 		sessionID:     sessionID,
+		random:        random,
 		keyShareGroup: hrr.selectedGroup,
 		cookie:        hrr.cookie,
+		afterHRR:      true,
 	})
 }
 
@@ -410,9 +465,15 @@ func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
 		return nil, err
 	}
 
-	randomBytes := make([]byte, 32)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return nil, err
+	randomBytes := spec.random
+	if len(randomBytes) == 0 {
+		randomBytes = make([]byte, 32)
+		if _, err := rand.Read(randomBytes); err != nil {
+			return nil, err
+		}
+	}
+	if len(randomBytes) != 32 {
+		return nil, errors.New("client random must be 32 bytes")
 	}
 	if len(spec.sessionID) > 32 {
 		return nil, errors.New("session ID is too long")
@@ -433,7 +494,16 @@ func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
 	handshake = appendUint24(handshake, len(body))
 	handshake = append(handshake, body...)
 
-	record := []byte{22, 0x03, 0x01}
+	// The initial ClientHello may use legacy_record_version 0x0301 for
+	// compatibility; the one sent after a HelloRetryRequest must use 0x0303
+	// (RFC 8446 section 5.1), otherwise strict servers answer with
+	// protocol_version.
+	recordVersion := uint16(0x0301)
+	if spec.afterHRR {
+		recordVersion = 0x0303
+	}
+	record := []byte{22}
+	record = appendUint16(record, recordVersion)
 	record = appendUint16(record, uint16(len(handshake)))
 	record = append(record, handshake...)
 	return record, nil
@@ -462,7 +532,7 @@ func generateKeyShare(group uint16) ([]byte, error) {
 
 func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 	var extensions []byte
-	if spec.opts.ServerName != "" {
+	if spec.opts.ServerName != "" && !isIPLiteral(spec.opts.ServerName) {
 		var serverName []byte
 		serverName = append(serverName, 0)
 		serverName = appendOpaque16(serverName, []byte(spec.opts.ServerName))
@@ -476,7 +546,7 @@ func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 	extensions = appendExtension(extensions, extensionSupportedGroups, appendOpaque16(nil, supportedGroups))
 
 	var signatureAlgorithms []byte
-	for _, algorithm := range []uint16{0x0403, 0x0804, 0x0805, 0x0806, 0x0401, 0x0501} {
+	for _, algorithm := range clientHelloSignatureAlgorithms {
 		signatureAlgorithms = appendUint16(signatureAlgorithms, algorithm)
 	}
 	extensions = appendExtension(extensions, extensionSignatureAlgorithms, appendOpaque16(nil, signatureAlgorithms))

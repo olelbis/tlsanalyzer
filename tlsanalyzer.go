@@ -117,6 +117,9 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		if serverName != "" {
 			fmt.Fprintf(stdout, "Using SNI/certificate name %s\n", serverName)
 		}
+		if scanMin := policy.MinimumScanVersion(policyConfig, minVersion); scanMin < minVersion {
+			fmt.Fprintf(stdout, "Scanning down to %s because policy gates refer to older TLS versions\n", utils.TLSVersions[scanMin])
+		}
 	}
 	if verboseOutput {
 		fmt.Fprintf(stdout, "\n\033[1mTLS Analysis for:\033[0m [%s:%s]\n", h, port)
@@ -260,6 +263,9 @@ func printPolicyResult(stdout io.Writer, result policy.Result) {
 	fmt.Fprintf(stdout, "\nPolicy %s: %s\n", name, status)
 	for _, failure := range result.Failures {
 		fmt.Fprintf(stdout, "  - [%s] %s\n", failure.Check, failure.Message)
+	}
+	for _, note := range result.Notes {
+		fmt.Fprintf(stdout, "  note: %s\n", note)
 	}
 }
 

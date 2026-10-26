@@ -49,6 +49,9 @@ type Result struct {
 	Name     string    `json:"name,omitempty"`
 	Passed   bool      `json:"passed"`
 	Failures []Failure `json:"failures,omitempty"`
+	// Notes are informational and never change Passed. They flag checks that
+	// could only be evaluated on part of the TLS versions.
+	Notes []string `json:"notes,omitempty"`
 }
 
 type Failure struct {
@@ -115,6 +118,47 @@ func ValidateConfig(config Config) error {
 		return fmt.Errorf("ALPN protocol %q cannot be both required and forbidden", overlap)
 	}
 	return nil
+}
+
+// MinimumScanVersion returns the lowest TLS version that has to be scanned for
+// the explicit version gates of config to be evaluated faithfully.
+//
+// Policy checks only see the versions that were scanned. A --forbid-tls,
+// --require-tls or --fail-on legacy-tls gate that refers to a version below the
+// requested minimum would otherwise pass (or fail) vacuously, so the scan is
+// extended down to that version. The implicit legacy-tls check of the modern
+// policy does not extend the scan: --min-version stays authoritative there and
+// ScanRangeNotes reports the limitation instead.
+func MinimumScanVersion(config Config, requested uint16) uint16 {
+	minimum := requested
+	lower := func(version uint16) {
+		if version != 0 && version < minimum {
+			minimum = version
+		}
+	}
+	for _, version := range config.ForbiddenTLSVersions {
+		lower(version)
+	}
+	for _, version := range config.RequiredTLSVersions {
+		lower(version)
+	}
+	if containsString(config.FailOn, CheckLegacyTLS) {
+		lower(tls.VersionTLS10)
+	}
+	return minimum
+}
+
+// ScanRangeNotes describes policy checks that could not see every TLS version
+// they are about to judge because of the requested minimum scan version.
+func ScanRangeNotes(config Config, requested uint16) []string {
+	if !checksForConfig(config)[CheckLegacyTLS] {
+		return nil
+	}
+	effective := MinimumScanVersion(config, requested)
+	if effective <= tls.VersionTLS10 {
+		return nil
+	}
+	return []string{fmt.Sprintf("%s was evaluated only on TLS versions from %s upwards (--min-version); older versions were not scanned", CheckLegacyTLS, tlsVersionName(effective))}
 }
 
 func RequiresCipherProbe(config Config) bool {

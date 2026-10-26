@@ -17,7 +17,7 @@ expired|expired.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Certifica
 wrong-host|wrong.host.badssl.com|443|--min-version 1.2 --policy modern|3|yes|SAN non corrispondente all hostname richiesto.
 self-signed|self-signed.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Self-signed, catena non risolvibile.
 untrusted-root|untrusted-root.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Root non presente nel trust store.
-revoked|revoked.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Nessun controllo OCSP/CRL: il cert risulta valido. Verificato.
+revoked|revoked.badssl.com|443|--min-version 1.2 --policy modern|0|no|Dipende dalla piattaforma: su Linux Go non controlla la revoca (exit 0), su macOS il verificatore di sistema la rifiuta (exit 3). Osservativo.
 incomplete-chain|incomplete-chain.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Intermedio mancante. Verifica che non venga recuperato via AIA.
 no-common-name|no-common-name.badssl.com|443|--min-version 1.2 --policy modern|3|yes|CN assente. Il verdetto dipende da quanto il tool si appoggia ai SAN.
 no-subject|no-subject.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Subject vuoto. Caso limite per il parsing del summary certificato.
@@ -44,9 +44,9 @@ tls12-ok|tls-v1-2.badssl.com|1012|--min-version 1.2 --forbid-tls 1.0,1.1|0|yes|S
 # --- Cifrari deboli -----------------------------------------------------------
 # Nota: essendo il tool dependency-free su crypto/tls, questi cifrari non sono
 # implementati dalla stdlib. L attesa realistica e un handshake_error (exit 1),
-# non una classificazione "weak cipher". Servono a validare la gestione errori.
+# non una classificazione "weak cipher". Servono a validare la gestione errori. Eccezione: 3des e ora negoziabile (il gate handshake offre le suite legacy) e dà exit 3.
 rc4|rc4.badssl.com|443|--min-version 1.0 --policy modern|1|yes|RC4. Verifica che l errore sia strutturato e non un panic.
-3des|3des.badssl.com|443|--min-version 1.0 --policy modern|1|yes|3DES.
+3des|3des.badssl.com|443|--min-version 1.0 --policy modern|3|yes|3DES offerto: la policy modern fallisce (exit 3) perché il gate handshake propone anche le suite legacy.
 null|null.badssl.com|443|--min-version 1.0 --policy modern|1|yes|Cifrario NULL.
 dh480|dh480.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 480 bit.
 dh512|dh512.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 512 bit.
