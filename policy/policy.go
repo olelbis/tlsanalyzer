@@ -180,6 +180,9 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 	supportedVersions := make(map[uint16]bool)
 	for _, r := range results {
 		if !r.Supported {
+			if note, ok := indeterminateVersionNote(r, config, checks); ok {
+				result.Notes = append(result.Notes, note)
+			}
 			continue
 		}
 		supportedVersions[r.VersionID] = true
@@ -479,4 +482,22 @@ func valueOrNone(value string) string {
 		return "none"
 	}
 	return value
+}
+
+// indeterminateVersionNote reports a TLS version that a gate tries to keep
+// absent (forbid-tls, legacy-tls) but that could not be classified because the
+// probe timed out or hit a network error. Such a version is not counted as
+// supported, so without a note the gate would pass silently. The note is
+// informational and never changes Passed: some endpoints silently drop old
+// protocol versions, which would otherwise turn compliant hosts into failures.
+func indeterminateVersionNote(r scan.TLSScanResult, config Config, checks map[string]bool) (string, bool) {
+	if !scan.IsTransientStatus(r.Status) {
+		return "", false
+	}
+	gated := containsTLSVersion(config.ForbiddenTLSVersions, r.VersionID) ||
+		(checks[CheckLegacyTLS] && r.VersionID < tls.VersionTLS12)
+	if !gated {
+		return "", false
+	}
+	return fmt.Sprintf("%s could not be determined (%s); gates that require it to be absent were not verified for this version", r.Version, r.Status), true
 }
