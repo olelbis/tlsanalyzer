@@ -8,7 +8,7 @@
   <a href="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml"><img src="https://github.com/olelbis/tlsanalyzer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/olelbis/tlsanalyzer/releases/latest"><img src="https://img.shields.io/github/v/release/olelbis/tlsanalyzer?sort=semver" alt="Latest release"></a>
   <a href="https://olelbis.github.io/tlsanalyzer/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-222222?logo=githubpages&logoColor=white" alt="Documentation"></a>
-  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.26.3-00ADD8?logo=go&logoColor=white" alt="Go 1.26.3"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.27.3-00ADD8?logo=go&logoColor=white" alt="Go 1.27.3"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
@@ -119,7 +119,7 @@ results, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.O
 
 Requirements:
 
-- Go 1.26.3 or newer
+- Go 1.27.3 or newer
 
 ```bash
 CGO_ENABLED=0 go build -v -ldflags="-X 'github.com/olelbis/tlsanalyzer/build.Version=$(cat VERSION)' -X 'github.com/olelbis/tlsanalyzer/build.BuildUser=Team tlsanalyzer' -X 'github.com/olelbis/tlsanalyzer/build.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)'" -o tlsanalyzer .
