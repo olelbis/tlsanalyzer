@@ -6,10 +6,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
-  packages: write
+  contents: read
 
 jobs:
   build_and_release:
@@ -63,6 +60,10 @@ jobs:
   release:
     needs: build_and_release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -115,6 +116,9 @@ jobs:
   container_image:
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository }}
     steps:

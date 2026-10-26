@@ -4,6 +4,15 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Added
+
+- `--version`, the JSON report (`go_version`, single-target and batch) and the SPDX SBOM now record the Go toolchain the binary was built with. Certificate verdicts depend on that toolchain's `crypto/x509`.
+- Policy results carry an informational `notes` entry when a TLS version covered by `--forbid-tls` or `legacy-tls` could not be determined (timeout or network error), so a flaky probe no longer looks like a verified absence. Notes never change the exit code.
+
+### Changed
+
+- `release.yml` now defaults to read-only permissions; `contents: write`, `id-token` and `attestations` are granted only to the release job and `packages: write` only to the container image job.
+
 ### Fixed
 
 - The raw TLS 1.3 probe now repeats `ClientHello.random` and uses record version `0x0303` after a HelloRetryRequest (RFC 8446 sections 4.1.2 and 5.1). Servers that only accept a non-X25519 group no longer abort the retry, so TLS 1.3 cipher support is reported for them.

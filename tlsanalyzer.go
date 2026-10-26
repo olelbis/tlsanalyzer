@@ -363,7 +363,7 @@ func buildPolicyConfig(cfg cliConfig) (policy.Config, error) {
 }
 
 func formatVersion() string {
-	parts := []string{"tlsanalyzer", build.Version}
+	parts := []string{"tlsanalyzer", build.Version, "(" + build.GoVersion() + ")"}
 	if build.BuildTime != "" {
 		parts = append(parts, "built "+build.BuildTime)
 	}

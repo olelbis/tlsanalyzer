@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math/big"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -443,6 +444,7 @@ func TestBuildJSONReportGolden(t *testing.T) {
   "port": "443",
   "schema_version": "1.1",
   "scanner_version": "vtest",
+  "go_version": "` + runtime.Version() + `",
   "generated_at": "2026-05-16T20:30:00Z",
   "policy": {
     "enabled": true,

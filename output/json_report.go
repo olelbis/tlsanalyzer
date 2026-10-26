@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/json"
+	"runtime"
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -16,6 +17,7 @@ type JSONReport struct {
 	ServerName     string           `json:"server_name,omitempty"`
 	SchemaVersion  string           `json:"schema_version"`
 	ScannerVersion string           `json:"scanner_version"`
+	GoVersion      string           `json:"go_version,omitempty"`
 	GeneratedAt    string           `json:"generated_at"`
 	Policy         *policy.Result   `json:"policy,omitempty"`
 	Results        []JSONScanResult `json:"results"`
@@ -78,6 +80,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 		ServerName:     serverName,
 		SchemaVersion:  JSONSchemaVersion,
 		ScannerVersion: scannerVersion,
+		GoVersion:      runtime.Version(),
 		GeneratedAt:    generatedAt.UTC().Format(time.RFC3339),
 		Policy:         policyResult,
 		Results:        make([]JSONScanResult, 0, len(results)),
