@@ -4,6 +4,20 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Fixed
+
+- The raw TLS 1.3 probe now repeats `ClientHello.random` and uses record version `0x0303` after a HelloRetryRequest (RFC 8446 sections 4.1.2 and 5.1). Servers that only accept a non-X25519 group no longer abort the retry, so TLS 1.3 cipher support is reported for them.
+- The TLS 1.3 probe advertises ECDSA (P-256, P-384, P-521), Ed25519 and RSA signature schemes, so endpoints with those certificate types are no longer reported as lacking TLS 1.3.
+- The TLS 1.3 probe no longer sends an SNI extension for IP literals (RFC 6066 section 3).
+- The TLS 1.3 probe honours context cancellation instead of waiting for the full timeout.
+- The TLS 1.0 to 1.2 version handshake offers every known suite ordered by preference, so endpoints that only offer static RSA key exchange or 3DES are no longer reported as unsupported.
+- The negotiated cipher suite is kept in the cipher list when the raw probe misses it, and a warning is emitted.
+
+### Changed
+
+- Explicit `--forbid-tls`, `--require-tls` and `--fail-on legacy-tls` gates that refer to versions below `--min-version` now extend the scan for that run, so they are evaluated instead of silently passing. `--policy modern` keeps `--min-version` authoritative and reports an informational `notes` entry in the policy result.
+- Built with Go 1.27.3 (crypto/x509 security fix). CI, release workflow, Dockerfile and README now reference Go 1.27.3.
+
 ## v0.31.3 - 2026-07-30
 
 ### Added

@@ -115,6 +115,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `name` | string | no | Built-in policy name, such as `modern`. Empty custom policies omit this field. |
 | `passed` | boolean | yes | Whether all enabled checks passed. |
 | `failures` | array | no | Policy failure details. |
+| `notes` | array of strings | no | Informational notes that never change `passed`, for example when `legacy-tls` was evaluated only on the TLS versions selected by `--min-version`. |
 
 ## Policy Failure Object
 

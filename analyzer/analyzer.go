@@ -3,6 +3,7 @@ package analyzer
 import (
 	"crypto/tls"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -20,7 +21,9 @@ const (
 	// TLS 1.0 is intentional: the analyzer is a scanner and must be able to
 	// detect and report legacy protocol support on the target. It does not
 	// mean TLS 1.0 is recommended for clients or servers; use a policy (for
-	// example --policy modern) to fail on legacy versions.
+	// example --policy modern) to fail on legacy versions. Explicit version
+	// gates (RequiredTLSVersions, ForbiddenTLSVersions, FailOn legacy-tls)
+	// extend the scan below MinVersion when they refer to older versions.
 	DefaultMinVersion = tls.VersionTLS10
 )
 
@@ -100,8 +103,13 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 		SkipVerify:   opts.SkipVerify,
 	}
 
+	// Explicit policy gates (--forbid-tls, --require-tls, --fail-on legacy-tls)
+	// can only judge the versions that were scanned, so the scan range is
+	// extended down to the versions they refer to.
+	scanMinVersion := policy.MinimumScanVersion(opts.PolicyConfig, opts.MinVersion)
+
 	var results []scan.TLSScanResult
-	for _, version := range utils.FilterTLSVersions(opts.MinVersion) {
+	for _, version := range utils.FilterTLSVersions(scanMinVersion) {
 		name := utils.TLSVersions[version]
 		if hooks.VersionStart != nil {
 			hooks.VersionStart(name, version, probeCiphers)
@@ -122,13 +130,19 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 		}
 		if probeCiphers {
 			probe := scan.ProbeCipherSuitesForVersion(scanOptions, version)
-			result.CipherSuites = probe.CipherSuites
+			suites, probeMissedNegotiated := mergeNegotiatedCipher(probe.CipherSuites, negotiatedCipher)
+			result.CipherSuites = suites
 			result.CipherDiscovery = probe.Discovery
 			result.CipherSuitesObserved = probe.ObservedOnly
 			result.CipherProbeDurationMillis = probe.DurationMillis
 			result.CipherProbeResults = probe.Statuses
 			result.HandshakeAttempts += probe.Attempts
 			result.Warnings = append(result.Warnings, probe.Warnings...)
+			if probeMissedNegotiated && !probe.ObservedOnly {
+				result.Warnings = append(result.Warnings, fmt.Sprintf(
+					"cipher probing did not confirm %s, which the %s handshake negotiated; the endpoint may be rate limiting or unstable and the cipher list may be incomplete.",
+					negotiatedCipher, result.Version))
+			}
 		}
 
 		if hooks.Supported != nil {
@@ -148,10 +162,34 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 		now = time.Now()
 	}
 
+	policyResult := policy.Evaluate(results, opts.PolicyConfig, now)
+	if policyResult.Enabled {
+		policyResult.Notes = append(policyResult.Notes, policy.ScanRangeNotes(opts.PolicyConfig, opts.MinVersion)...)
+	}
+
 	return Result{
 		Results: results,
-		Policy:  policy.Evaluate(results, opts.PolicyConfig, now),
+		Policy:  policyResult,
 	}, nil
+}
+
+// mergeNegotiatedCipher makes sure the cipher suite negotiated by the version
+// handshake is part of the reported list. A successful handshake is proof of
+// support, so a cipher probe that did not see it (rate limiting, a flaky
+// endpoint, a probe limitation) must not erase it. The boolean reports whether
+// the suite had to be added.
+func mergeNegotiatedCipher(suites []string, negotiated string) ([]string, bool) {
+	if negotiated == "" {
+		return suites, false
+	}
+	for _, suite := range suites {
+		if suite == negotiated {
+			return suites, false
+		}
+	}
+	merged := append(append([]string(nil), suites...), negotiated)
+	sort.Strings(merged)
+	return merged, true
 }
 
 func normalizeOptions(opts Options) Options {
