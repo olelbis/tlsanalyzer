@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/tls"
+	"sort"
 	"strings"
 )
 
@@ -148,6 +149,44 @@ func IsLegacyCBCForVersion(version uint16, name string) bool {
 
 func isCBCCipherSuite(name string) bool {
 	return strings.Contains(name, "_CBC_")
+}
+
+// CipherSuiteIDsForVersion returns the IDs of the actively probed cipher suites
+// (AllCipherSuites) that can be negotiated with the given TLS version.
+//
+// The list is ordered from most to least preferable (forward-secret AEAD
+// first, static RSA and 3DES last), so a server that honours the client's
+// preference still reports a sensible negotiated suite.
+func CipherSuiteIDsForVersion(version uint16) []uint16 {
+	suites := make([]CipherSuite, 0, len(AllCipherSuites))
+	for _, cs := range AllCipherSuites {
+		if IsCipherSuiteCompatibleWith(version, cs.ID) {
+			suites = append(suites, cs)
+		}
+	}
+	sort.SliceStable(suites, func(i, j int) bool {
+		return cipherPreferenceRank(suites[i].Name) < cipherPreferenceRank(suites[j].Name)
+	})
+	ids := make([]uint16, len(suites))
+	for i, cs := range suites {
+		ids[i] = cs.ID
+	}
+	return ids
+}
+
+func cipherPreferenceRank(name string) int {
+	switch {
+	case strings.Contains(name, "3DES"):
+		return 4
+	case strings.HasPrefix(name, "TLS_RSA_") && isCBCCipherSuite(name):
+		return 3
+	case strings.HasPrefix(name, "TLS_RSA_"):
+		return 2
+	case isCBCCipherSuite(name):
+		return 1
+	default:
+		return 0
+	}
 }
 
 func IsCipherSuiteCompatibleWith(version uint16, id uint16) bool {

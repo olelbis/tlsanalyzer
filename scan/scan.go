@@ -122,6 +122,13 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		MaxVersion:         version,
 		NextProtos:         DefaultALPNProtocols(),
 	}
+	if version < tls.VersionTLS13 {
+		// Offer the same suites the cipher probe can detect. The crypto/tls
+		// default list leaves out legacy suites (static RSA key exchange,
+		// 3DES), so an endpoint that only supports those would otherwise look
+		// like it does not support the protocol version at all.
+		config.CipherSuites = utils.CipherSuiteIDsForVersion(version)
+	}
 
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
 	if err != nil {
@@ -252,7 +259,7 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 
 		result.Discovery = CipherDiscoveryObserved
 		result.ObservedOnly = true
-		result.Warnings = append(result.Warnings, "TLS 1.3 raw probing did not confirm cipher support; no observed fallback was attempted.")
+		result.Warnings = append(result.Warnings, "TLS 1.3 raw probing did not confirm cipher support; only the cipher suite negotiated by the version handshake is reported.")
 	}
 
 	supported = utils.UniqueStrings(supported)
