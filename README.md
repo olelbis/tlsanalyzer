@@ -27,6 +27,7 @@ External feedback is welcome, especially endpoint compatibility reports, policy 
 - Tests TLS protocol support from TLS 1.0 through TLS 1.3.
 - Reports negotiated and supported cipher suites.
 - Raw-probes TLS 1.3 cipher support when full cipher probing is enabled.
+- Raw-probes legacy TLS 1.0 to 1.2 suites that Go cannot offer (RC4, DHE, anonymous, EXPORT, CAMELLIA, ARIA, CCM and more) when full cipher probing is enabled.
 - Reports negotiated key exchange group, ALPN protocol and certificate key/signature metadata.
 - Keeps TLS support separate from certificate validation status.
 - Supports explicit SNI/certificate name overrides for IP and load balancer scans.
@@ -103,7 +104,7 @@ if err != nil {
 
 Operational scan failures are returned as structured `scan.TLSScanResult` statuses such as `network_error`, `timeout` and `handshake_error`. `analyzer.Run` returns an error only when caller-provided hooks fail.
 
-The `tlsprobe` package exposes the preview raw TLS 1.3 cipher probe used by the scanner:
+The `tlsprobe` package exposes the preview raw cipher probes used by the scanner (TLS 1.3 below; `ProbeLegacyCipherSuite` covers TLS 1.0 to 1.2):
 
 ```go
 results, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
@@ -142,6 +143,7 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 - JSON output uses `schema_version: "1.1"` and follows the documented [JSON schema v1](docs/json-schema-v1.md) contract.
 - Minor releases may add optional JSON fields; removing or renaming fields requires a new schema version.
 - TLS 1.3 cipher suites are raw-probed with minimal ClientHello handshakes when cipher probing is enabled, with per-cipher report evidence and observed-handshake fallback for inconclusive raw probes.
+- TLS 1.0 to 1.2 cipher probing combines full handshakes for the suites Go implements with ClientHello-only raw probes for a catalog of legacy suites Go cannot offer. PSK, SRP, Kerberos, GOST and static DH/ECDH suites are not probed.
 - Raw probe reports include ClientHello-only evidence level, selected key share group, HelloRetryRequest retry metadata and TLS alert codes when available.
 - The raw TLS 1.3 probe is available as the preview `tlsprobe` package inside this module.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.

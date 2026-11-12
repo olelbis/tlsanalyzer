@@ -130,3 +130,88 @@ func TestUniqueStringsPreservesFirstOccurrenceOrder(t *testing.T) {
 		t.Fatalf("UniqueStrings() = %v, want %v", got, want)
 	}
 }
+
+func TestCipherSuiteSeverityClassifiesRawProbedSuitesByName(t *testing.T) {
+	tests := map[string]CipherSeverity{
+		// No encryption, no authentication, export-grade or broken primitives.
+		"TLS_RSA_WITH_NULL_SHA256":              CipherSeverityInsecure,
+		"TLS_ECDHE_RSA_WITH_NULL_SHA":           CipherSeverityInsecure,
+		"TLS_DH_anon_WITH_AES_256_GCM_SHA384":   CipherSeverityInsecure,
+		"TLS_ECDH_anon_WITH_AES_128_CBC_SHA":    CipherSeverityInsecure,
+		"TLS_RSA_EXPORT_WITH_RC4_40_MD5":        CipherSeverityInsecure,
+		"TLS_RSA_EXPORT_WITH_DES40_CBC_SHA":     CipherSeverityInsecure,
+		"TLS_RSA_WITH_RC4_128_MD5":              CipherSeverityInsecure,
+		"TLS_RSA_WITH_DES_CBC_SHA":              CipherSeverityInsecure,
+		"TLS_RSA_WITH_IDEA_CBC_SHA":             CipherSeverityInsecure,
+		"TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA":     CipherSeverityInsecure,
+		"TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA": CipherSeverityInsecure,
+
+		// Static RSA key exchange or DSS certificates.
+		"TLS_RSA_WITH_AES_256_CBC_SHA256":      CipherSeverityWeak,
+		"TLS_RSA_WITH_CAMELLIA_256_CBC_SHA":    CipherSeverityWeak,
+		"TLS_RSA_WITH_SEED_CBC_SHA":            CipherSeverityWeak,
+		"TLS_RSA_WITH_AES_128_CCM_8":           CipherSeverityWeak,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8":   CipherSeverityWeak,
+		"TLS_DHE_DSS_WITH_AES_128_CBC_SHA":     CipherSeverityWeak,
+		"TLS_DHE_DSS_WITH_AES_256_GCM_SHA384":  CipherSeverityWeak,
+		"TLS_DHE_DSS_WITH_ARIA_128_GCM_SHA256": CipherSeverityWeak,
+
+		// Forward-secret CBC, and DHE (group strength is not observed).
+		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384":        CipherSeverityAcceptable,
+		"TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_CBC_SHA256": CipherSeverityAcceptable,
+		"TLS_DHE_RSA_WITH_AES_128_CBC_SHA":             CipherSeverityAcceptable,
+		"TLS_DHE_RSA_WITH_AES_128_GCM_SHA256":          CipherSeverityAcceptable,
+		"TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256":    CipherSeverityAcceptable,
+
+		// AEAD without DHE.
+		"TLS_RSA_WITH_AES_256_CCM":                      CipherSeveritySecure,
+		"TLS_ECDHE_ECDSA_WITH_AES_128_CCM":              CipherSeveritySecure,
+		"TLS_ECDHE_RSA_WITH_ARIA_256_GCM_SHA384":        CipherSeveritySecure,
+		"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   CipherSeverityModern,
+		"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": CipherSeverityModern,
+
+		// Anything the rules do not fully recognise stays unknown.
+		"TLS_ECDHE_RSA_WITH_FUTURE_128_GCM_SHA256": CipherSeverityUnknown,
+		"TLS_ECDHE_RSA_WITH_AES_128_OCB_SHA256":    CipherSeverityUnknown,
+		"TLS_PSK_WITH_AES_128_GCM_SHA256":          CipherSeverityUnknown,
+		"TLS_PRIVATE_UNKNOWN_CIPHER":               CipherSeverityUnknown,
+		"0x1234":                                   CipherSeverityUnknown,
+	}
+
+	for cipher, want := range tests {
+		if got := CipherSuiteSeverity(cipher); got != want {
+			t.Errorf("CipherSuiteSeverity(%q) = %q, want %q", cipher, got, want)
+		}
+	}
+}
+
+func TestCipherSuiteSeverityKeepsExplicitEntries(t *testing.T) {
+	// The name-based rules are only a fallback: explicit entries always win.
+	for name, want := range CipherSeverityByName {
+		if got := CipherSuiteSeverity(name); got != want {
+			t.Errorf("CipherSuiteSeverity(%q) = %q, want explicit %q", name, got, want)
+		}
+	}
+}
+
+func TestCipherClassificationForVersionLabelsRawProbedSuites(t *testing.T) {
+	tests := map[string]string{
+		"TLS_RSA_WITH_RC4_128_MD5":            "🔴 INSECURE",
+		"TLS_RSA_WITH_CAMELLIA_256_CBC_SHA":   "🟠 WEAK",
+		"TLS_DHE_RSA_WITH_AES_128_GCM_SHA256": "🟡 ACCEPTABLE",
+	}
+	for cipher, want := range tests {
+		label, ok := CipherClassificationForVersion(tls.VersionTLS12, cipher)
+		if !ok || label != want {
+			t.Errorf("CipherClassificationForVersion(%q) = %q, %t; want %q", cipher, label, ok, want)
+		}
+	}
+
+	if label, ok := CipherClassificationForVersion(tls.VersionTLS12, "TLS_PRIVATE_UNKNOWN_CIPHER"); ok {
+		t.Errorf("unknown cipher got label %q, want no classification", label)
+	}
+	// Forward-secret CBC found by the raw probe is still legacy CBC below TLS 1.2.
+	if label, _ := CipherClassificationForVersion(tls.VersionTLS10, "TLS_DHE_RSA_WITH_AES_128_CBC_SHA"); label != "🟠 WEAK (legacy CBC)" {
+		t.Errorf("TLS 1.0 DHE CBC label = %q, want legacy CBC", label)
+	}
+}

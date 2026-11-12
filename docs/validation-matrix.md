@@ -57,8 +57,12 @@ Two results are worth knowing before reading the output:
 - badssl endpoints with an RSA certificate fail `--policy modern` even though
   the certificate itself validates. They deliberately offer 3DES and
   static-RSA suites, which the modern policy rejects for lack of forward
-  secrecy. The positive baseline is `ecc256.badssl.com`, which offers only
-  ECDHE_ECDSA suites.
+  secrecy. `ecc256.badssl.com` and `ecc384.badssl.com` offer only ECDHE_ECDSA
+  suites but fail as well: they accept `TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA`,
+  which the Go standard library does not implement and only the raw
+  TLS 1.0-1.2 probe detects. The matrix therefore has no badssl case that
+  passes `--policy modern`; the positive case is covered by the Go test
+  `TestWeakCipherGateStillPassesOnCleanEndpoint`.
 - `revoked.badssl.com` is platform dependent. Go's own verifier (Linux) performs no
   OCSP or CRL check, so the certificate validates (exit 0). On macOS the system
   verifier reports it as revoked (exit 3). The case is observational.

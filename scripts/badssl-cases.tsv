@@ -28,8 +28,8 @@ sha256|sha256.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Come baseli
 rsa2048|rsa2048.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Cert valido, ma la policy modern boccia 3DES e assenza di PFS.
 rsa4096|rsa4096.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Come rsa2048: la dimensione chiave non salva le suite legacy.
 rsa8192|rsa8192.badssl.com|443|--min-version 1.2 --policy modern|3|no|Come sopra. Handshake lento: utile per tarare il timeout.
-ecc256|ecc256.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Baseline positiva: solo suite ECDHE_ECDSA, modern passa. Unico caso a esito 0 con policy.
-ecc384|ecc384.badssl.com|443|--min-version 1.2 --policy modern|0|yes|Chiave P-384.
+ecc256|ecc256.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Cert ECDSA valido, ma il raw probe trova ECDHE_ECDSA_3DES (suite che crypto/tls non implementa): modern fallisce.
+ecc384|ecc384.badssl.com|443|--min-version 1.2 --policy modern|3|yes|Chiave P-384. Come ecc256: 3DES rilevato solo via raw probe.
 
 # --- Stress sul parsing certificato -------------------------------------------
 sans-1000|1000-sans.badssl.com|443|--min-version 1.2 --json|0|no|1000 SAN. Controlla che il JSON resti valido e il report non esploda.

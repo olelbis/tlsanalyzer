@@ -206,6 +206,17 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 			})
 		}
 		if checks[CheckWeakCipher] {
+			if r.CipherEvidenceIncomplete {
+				// A gate that passes when it could not look protects nobody:
+				// with unanswered probes the absence of weak suites is not
+				// verified, so the check fails instead of passing on the
+				// suites that happened to be found.
+				result.Failures = append(result.Failures, Failure{
+					Check:   CheckWeakCipher,
+					Version: r.Version,
+					Message: fmt.Sprintf("%s cipher evidence is incomplete (probes went unanswered); weak cipher suites cannot be ruled out", r.Version),
+				})
+			}
 			for _, cipher := range r.CipherSuites {
 				if failure, ok := cipherPolicyFailure(r.Version, r.VersionID, cipher); ok {
 					result.Failures = append(result.Failures, failure)
