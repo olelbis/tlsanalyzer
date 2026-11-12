@@ -372,3 +372,37 @@ func testCertificate(bits int, notAfter time.Time) *x509.Certificate {
 		},
 	}
 }
+
+func TestEvaluateFailsWeakCipherOnIncompleteCipherEvidence(t *testing.T) {
+	results := []scan.TLSScanResult{{
+		Version:                  "TLS 1.2",
+		VersionID:                tls.VersionTLS12,
+		Supported:                true,
+		CipherSuites:             []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
+		CipherEvidenceIncomplete: true,
+	}}
+
+	result := Evaluate(results, Config{FailOn: []string{CheckWeakCipher}}, time.Now())
+
+	// Every suite that was found is fine, but probes went unanswered: the
+	// gate must not report a verified absence of weak suites.
+	if result.Passed {
+		t.Fatal("weak-cipher passed on incomplete cipher evidence")
+	}
+	if len(result.Failures) != 1 || result.Failures[0].Check != CheckWeakCipher ||
+		!strings.Contains(result.Failures[0].Message, "TLS 1.2 cipher evidence is incomplete") {
+		t.Fatalf("Failures = %+v, want one weak-cipher failure about incomplete evidence", result.Failures)
+	}
+
+	// Without the weak-cipher check nobody relies on the cipher list.
+	result = Evaluate(results, Config{FailOn: []string{CheckLegacyTLS}}, time.Now())
+	if !result.Passed || len(result.Failures) != 0 {
+		t.Fatalf("Failures = %+v, want none when weak-cipher is not evaluated", result.Failures)
+	}
+
+	// Complete evidence with the same suites passes.
+	results[0].CipherEvidenceIncomplete = false
+	if result = Evaluate(results, Config{FailOn: []string{CheckWeakCipher}}, time.Now()); !result.Passed {
+		t.Fatalf("Failures = %+v, want a pass on complete evidence", result.Failures)
+	}
+}

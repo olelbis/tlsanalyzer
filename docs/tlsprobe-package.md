@@ -1,9 +1,9 @@
 # TLS Probe Go Package
 
-`github.com/olelbis/tlsanalyzer/tlsprobe` exposes the raw TLS 1.3 cipher probe
-used by `tlsanalyzer`.
+`github.com/olelbis/tlsanalyzer/tlsprobe` exposes the raw cipher probes used by
+`tlsanalyzer`: one for TLS 1.3 and one for TLS 1.0 to 1.2.
 
-The package is intentionally small and preview-level. It sends minimal TLS 1.3
+The package is intentionally small and preview-level. It sends minimal
 ClientHello messages, offers one cipher suite at a time and classifies the first
 useful server response. It is not a TLS implementation and it does not complete
 full TLS handshakes.
@@ -63,6 +63,13 @@ Public entry points:
 - `SupportedKeyShareGroups`
 - `ProbeTLS13CipherSuite`
 - `ProbeTLS13CipherSuites`
+- `LegacyCipherSuite`
+- `LegacyCipherSuites`
+- `LegacyCipherSuitesForVersion`
+- `LegacyEnumeration`
+- `EnumerateLegacyCipherSuites`
+- `ProbeLegacyCipherSuite`
+- `ProbeLegacyCipherSuites`
 - `Summarize`
 
 Configuration errors are returned as `*tlsprobe.ConfigError`. Network and TLS
@@ -90,6 +97,51 @@ nil, the package uses `net.Dialer`.
 `Summarize` returns status counts for a result set so callers do not need to
 duplicate basic aggregation logic.
 
+## TLS 1.0 to 1.2 Probe
+
+```go
+suites := tlsprobe.LegacyCipherSuitesForVersion(tls.VersionTLS12)
+results, err := tlsprobe.ProbeLegacyCipherSuites(ctx, tlsprobe.Options{
+	Address:    net.JoinHostPort("example.com", "443"),
+	ServerName: "example.com",
+	Timeout:    5 * time.Second,
+}, tls.VersionTLS12, suites)
+```
+
+`ProbeLegacyCipherSuite` sends a ClientHello whose `client_version` is the
+probed version (`tls.VersionTLS10`, `tls.VersionTLS11` or `tls.VersionTLS12`),
+with a single cipher suite and no `supported_versions` extension. Any other
+version is a `*tlsprobe.ConfigError` for the `version` field.
+
+- `supported`: the ServerHello selected the offered suite on the probed version.
+- `rejected` with `ErrorCode` `server_version_mismatch`: the server selected the
+  suite on a lower protocol version.
+- `alert` (normally `handshake_failure`, or `protocol_version`) or `closed`: the
+  server does not support the suite on that version.
+
+`LegacyCipherSuites` returns the catalog (ID, IANA name and minimum protocol
+version). It includes suites `crypto/tls` does not implement, because the probe
+stops at ServerHello and performs no key exchange. `Options.KeyShareGroups`
+controls the `supported_groups` extension. PSK, SRP, Kerberos, GOST and static
+DH/ECDH suites are not in the catalog, and calls are sequential: callers that
+need concurrency run `ProbeLegacyCipherSuite` from their own goroutines.
+
+`ProbeLegacyCipherSuites` opens one connection per suite. To learn which suites
+a server supports, prefer `EnumerateLegacyCipherSuites`:
+
+```go
+enumeration, err := tlsprobe.EnumerateLegacyCipherSuites(ctx, opts, tls.VersionTLS12,
+	tlsprobe.LegacyCipherSuitesForVersion(tls.VersionTLS12))
+```
+
+It offers all remaining suites in one ClientHello, records the suite the server
+selects, removes it and repeats until the server refuses the rest: k supported
+suites cost k+1 connections. `Supported` lists the selected suites in server
+preference order. `Complete` is false, and `Unresolved` holds the suites that
+were not classified, when the enumeration could not finish (unanswered
+ClientHellos after one retry, or a ServerHello selecting a suite that was not
+offered). This is how `tlsanalyzer` stays below connection rate limits.
+
 ## Status Values
 
 | Status | Meaning |
@@ -110,7 +162,8 @@ duplicate basic aggregation logic.
 
 ## Current Limits
 
-- TLS 1.3 only.
+- TLS 1.0 to 1.3; no SSLv2 or SSLv3.
+- The TLS 1.0 to 1.2 probe does not read ServerKeyExchange, so it reports neither the selected curve nor the DHE parameter size.
 - ClientHello-only evidence; no full TLS handshake completion.
 - Supported key share groups are configurable. Defaults are X25519, P-256, P-384 and P-521.
 - Fragmented handshake records are reassembled for ServerHello parsing, but this is still a focused probe rather than a complete TLS parser.

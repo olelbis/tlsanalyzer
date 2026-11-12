@@ -40,6 +40,7 @@ type JSONScanResult struct {
 	CipherProbeDurationMillis int64             `json:"cipher_probe_duration_millis,omitempty"`
 	CipherProbeResults        []JSONProbeResult `json:"cipher_probe_results,omitempty"`
 	RawProbeFullHandshake     *bool             `json:"raw_probe_completed_full_handshake,omitempty"`
+	CipherEvidenceIncomplete  bool              `json:"cipher_evidence_incomplete,omitempty"`
 	Warnings                  []string          `json:"warnings,omitempty"`
 	Certificate               *JSONCertificate  `json:"certificate,omitempty"`
 	CertValidationStatus      string            `json:"certificate_validation_status,omitempty"`
@@ -104,6 +105,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			CipherProbeDurationMillis: r.CipherProbeDurationMillis,
 			CipherProbeResults:        buildJSONProbeResults(r.CipherProbeResults),
 			RawProbeFullHandshake:     rawProbeFullHandshakeFlag(r),
+			CipherEvidenceIncomplete:  r.CipherEvidenceIncomplete,
 			Warnings:                  r.Warnings,
 			CertValidationStatus:      r.CertValidationStatus,
 			CertValidationMessage:     r.CertValidationMessage,
@@ -160,7 +162,7 @@ func alertCodePointer(alert string, code uint8) *uint8 {
 }
 
 func rawProbeFullHandshakeFlag(result scan.TLSScanResult) *bool {
-	if result.CipherDiscovery != scan.CipherDiscoveryRawProbed {
+	if result.CipherDiscovery != scan.CipherDiscoveryRawProbed && len(RawProbedCipherSuites(result)) == 0 {
 		return nil
 	}
 	completed := false

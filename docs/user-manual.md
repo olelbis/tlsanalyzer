@@ -414,7 +414,18 @@ When certificate policy checks are enabled with `--policy modern` or `--fail-on 
 tlsanalyzer --host example.com --force-ciphers
 ```
 
-For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` can force individual cipher suites to probe support.
+For TLS 1.0, 1.1 and 1.2, `tlsanalyzer` finds the supported cipher suites in two steps:
+
+- A raw enumeration over the `tlsprobe` legacy catalog (124 suites on TLS 1.2, 54 on TLS 1.0 and 1.1). The scanner sends a minimal ClientHello that offers a group of suites, reads which one the ServerHello selects, removes it and asks again until the server refuses the rest. It never needs an implementation of the suite, so it also reaches RC4, DES, 3DES, EXPORT, NULL, anonymous DH/ECDH, DHE with RSA or DSS certificates, CAMELLIA, ARIA, SEED, IDEA, AES-CCM and the CBC-SHA256/SHA384 suites. An endpoint with k suites costs about k connections plus a few refusals, not one connection per catalog suite.
+- A full TLS handshake for every enumerated suite that Go's `crypto/tls` implements, so those keep full-handshake evidence.
+
+A suite found only by the raw enumeration is reported as supported because the ServerHello selected it on the probed protocol version. In the console list such suites are marked `(raw probe, ClientHello-only)`; in JSON and Markdown they have a `cipher_probe_results` row with `clienthello-serverhello` evidence while `cipher_discovery` stays `probed`.
+
+Unanswered probes are repeated once. If the enumeration still cannot finish, or full-handshake probes time out twice, the result is flagged `cipher_evidence_incomplete`: the console and the reports carry a warning, and the `weak-cipher` check fails with `cipher evidence is incomplete`, because a suite missing from the list is then not proof that the endpoint refuses it. This usually means the endpoint or a firewall is rate limiting or dropping connections; scanning again later, or with a longer `--timeout`, normally clears it.
+
+Raw-probed suites without an explicit classification are rated from their name: NULL, anonymous, EXPORT, RC4, DES, 3DES, IDEA and MD5 suites are insecure; static RSA or DSS with CBC, and `CCM_8`, are weak; forward-secret CBC and all DHE suites are acceptable (the Diffie-Hellman group size is not inspected); other AEAD suites are secure.
+
+Not covered: PSK, SRP, Kerberos, GOST and static DH/ECDH suites, SSLv2/SSLv3, and the strength of DHE parameters.
 
 By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
 

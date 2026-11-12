@@ -65,6 +65,9 @@ const (
 	ErrorCodeRejectedCipher         ErrorCode = "rejected_cipher"
 	ErrorCodeMalformedHRR           ErrorCode = "malformed_hello_retry_request"
 	ErrorCodeUnsupportedHRRGroup    ErrorCode = "unsupported_hello_retry_request_group"
+	// ErrorCodeVersionMismatch means a TLS 1.0-1.2 probe got a ServerHello that
+	// selected the offered cipher suite on a different protocol version.
+	ErrorCodeVersionMismatch ErrorCode = "server_version_mismatch"
 )
 
 // Options configures raw TLS 1.3 ClientHello probing.
@@ -351,9 +354,20 @@ func ProbeTLS13CipherSuite(ctx context.Context, opts Options, cipherSuite uint16
 	return readProbeResult(conn, read.result)
 }
 
-// CipherSuiteName returns the Go display name for a TLS cipher suite ID.
+// CipherSuiteName returns the display name for a TLS cipher suite ID.
+//
+// Names known to crypto/tls are returned as Go spells them. Suites that
+// crypto/tls does not implement are resolved through the TLS 1.0-1.2 probe
+// catalog (IANA names); anything else keeps the crypto/tls hex fallback.
 func CipherSuiteName(cipherSuite uint16) string {
-	return tls.CipherSuiteName(cipherSuite)
+	name := tls.CipherSuiteName(cipherSuite)
+	if !strings.HasPrefix(name, "0x") {
+		return name
+	}
+	if legacyName, ok := legacyCipherSuiteNames[cipherSuite]; ok {
+		return legacyName
+	}
+	return name
 }
 
 // SupportedTLS13CipherSuites returns the TLS 1.3 cipher suites understood by the probe.
@@ -586,6 +600,13 @@ func readProbeResult(conn net.Conn, result Result) (Result, error) {
 }
 
 func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
+	return readProbeRecordWith(conn, result, parseServerHello)
+}
+
+// serverHelloParser classifies a ServerHello handshake body for a probe.
+type serverHelloParser func(body []byte, result Result) readResult
+
+func readProbeRecordWith(conn net.Conn, result Result, parse serverHelloParser) (readResult, error) {
 	var handshakePayload []byte
 	for i := 0; i < 8; i++ {
 		header := make([]byte, 5)
@@ -619,7 +640,7 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 			return readResult{result: result}, nil
 		case 22:
 			handshakePayload = append(handshakePayload, payload...)
-			read, needMore := parseHandshakePayloadBuffered(handshakePayload, result)
+			read, needMore := parseHandshakePayloadWithMode(handshakePayload, result, true, parse)
 			if needMore {
 				continue
 			}
@@ -637,15 +658,11 @@ func readProbeRecord(conn net.Conn, result Result) (readResult, error) {
 }
 
 func parseHandshakePayload(payload []byte, result Result) readResult {
-	read, _ := parseHandshakePayloadWithMode(payload, result, false)
+	read, _ := parseHandshakePayloadWithMode(payload, result, false, parseServerHello)
 	return read
 }
 
-func parseHandshakePayloadBuffered(payload []byte, result Result) (readResult, bool) {
-	return parseHandshakePayloadWithMode(payload, result, true)
-}
-
-func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplete bool) (readResult, bool) {
+func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplete bool, parse serverHelloParser) (readResult, bool) {
 	for len(payload) >= 4 {
 		handshakeType := payload[0]
 		handshakeLength := int(payload[1])<<16 | int(payload[2])<<8 | int(payload[3])
@@ -663,7 +680,7 @@ func parseHandshakePayloadWithMode(payload []byte, result Result, allowIncomplet
 		if handshakeType != 2 {
 			continue
 		}
-		return parseServerHello(body, result), false
+		return parse(body, result), false
 	}
 
 	if allowIncomplete {

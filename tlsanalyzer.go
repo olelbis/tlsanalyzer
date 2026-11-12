@@ -164,7 +164,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 					Message: result.CertValidationMessage,
 				})
 				output.PrintTLSPosture(stdout, result)
-				output.PrintCipherSuites(stdout, result.CipherSuites, result.CipherDiscovery)
+				output.PrintCipherSuitesForResult(stdout, result)
 			}
 			if !cfg.certChain {
 				return nil

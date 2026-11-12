@@ -137,6 +137,9 @@ func appendCipherProbeResultsMarkdown(sb *strings.Builder, result scan.TLSScanRe
 	if result.CipherDiscovery == scan.CipherDiscoveryRawProbed {
 		sb.WriteString("Raw probe evidence is ClientHello-only. `clienthello-serverhello` and `clienthello-hrr-serverhello` evidence means the server selected a cipher in ServerHello, but the probe still does not complete a full TLS handshake.\n\n")
 	}
+	if result.CipherDiscovery == scan.CipherDiscoveryProbed {
+		sb.WriteString("These rows are cipher suites confirmed only by ClientHello-only raw probes. `clienthello-serverhello` means the server selected the cipher in ServerHello; the probe does not complete a full TLS handshake. Suites the server refused are not listed.\n\n")
+	}
 	sb.WriteString("| Cipher Suite | Status | Evidence | Group | HRR | Alert | Error |\n")
 	sb.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, probe := range result.CipherProbeResults {
@@ -467,7 +470,50 @@ func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
 	}
 }
 
+// RawProbedCipherSuites returns the cipher suites of a per-cipher probed
+// TLS 1.0-1.2 result whose only evidence is a ClientHello-only raw probe.
+// Suites confirmed by a full handshake, including the negotiated one, are not
+// part of the set.
+func RawProbedCipherSuites(result scan.TLSScanResult) map[string]bool {
+	if result.CipherDiscovery != scan.CipherDiscoveryProbed {
+		return nil
+	}
+	var raw map[string]bool
+	for _, probe := range result.CipherProbeResults {
+		if probe.Status != "supported" || !strings.HasPrefix(probe.Evidence, "clienthello-") || probe.CipherSuite == result.NegotiatedCipherSuite {
+			continue
+		}
+		if raw == nil {
+			raw = make(map[string]bool)
+		}
+		raw[probe.CipherSuite] = true
+	}
+	return raw
+}
+
+// PrintCipherSuitesForResult prints the cipher list of a scan result and marks
+// the suites that were only confirmed by a ClientHello-only raw probe.
+//
+// When the cipher evidence is incomplete it also prints the warnings that say
+// so, because a missing suite is otherwise indistinguishable from an
+// unsupported one.
+func PrintCipherSuitesForResult(w io.Writer, result scan.TLSScanResult) {
+	printCipherSuites(w, result.CipherSuites, result.CipherDiscovery, RawProbedCipherSuites(result))
+	if !result.CipherEvidenceIncomplete {
+		return
+	}
+	for _, warning := range result.Warnings {
+		if strings.Contains(warning, "incomplete") {
+			fmt.Fprintf(w, "   ⚠️  %s\n", warning)
+		}
+	}
+}
+
 func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {
+	printCipherSuites(w, ciphers, discovery, nil)
+}
+
+func printCipherSuites(w io.Writer, ciphers []string, discovery string, rawProbed map[string]bool) {
 	if len(ciphers) > 0 {
 		switch discovery {
 		case scan.CipherDiscoveryRawProbed:
@@ -480,6 +526,10 @@ func PrintCipherSuites(w io.Writer, ciphers []string, discovery string) {
 			return
 		}
 		for _, cs := range ciphers {
+			if rawProbed[cs] {
+				fmt.Fprintf(w, "     • %s (raw probe, ClientHello-only)\n", cs)
+				continue
+			}
 			fmt.Fprintf(w, "     • %s\n", cs)
 		}
 	}

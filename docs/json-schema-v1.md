@@ -72,8 +72,9 @@ Single-target scans and batch scans share the same schema version but use differ
 | `cipher_suites` | array | no | Cipher suites discovered by the selected discovery mode. |
 | `cipher_suites_observed` | boolean | yes | `true` when TLS 1.3 suites are observed rather than forced. |
 | `cipher_probe_duration_millis` | number | no | Extra duration used for cipher probing or observation. |
-| `cipher_probe_results` | array | no | Per-cipher raw probe statuses when available. |
-| `raw_probe_completed_full_handshake` | boolean | no | `false` when `cipher_discovery` is `raw-probed`; raw probes stop after ServerHello, alert or another probe outcome. |
+| `cipher_probe_results` | array | no | Per-cipher raw probe statuses when available. For `raw-probed` and `observed` (TLS 1.3) every probed suite has a row. For `probed` (TLS 1.0 to 1.2) rows exist only for suites confirmed by a ClientHello-only raw probe; refused suites have no row. |
+| `cipher_evidence_incomplete` | boolean | no | `true` when cipher probes went unanswered, so `cipher_suites` may be missing supported suites. Omitted when the evidence is complete. The `weak-cipher` policy check fails on such a result. |
+| `raw_probe_completed_full_handshake` | boolean | no | `false` when `cipher_discovery` is `raw-probed`, or when it is `probed` and at least one suite in `cipher_suites` is backed only by a raw probe row; raw probes stop after ServerHello, alert or another probe outcome. |
 | `warnings` | array | no | Semantics warnings, such as TLS 1.3 observation limitations. |
 | `certificate` | object | no | Leaf certificate details when available. |
 | `certificate_validation_status` | string | no | `valid`, `invalid`, `skipped` or `unavailable`. |

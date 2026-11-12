@@ -134,6 +134,7 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 			result.CipherSuites = suites
 			result.CipherDiscovery = probe.Discovery
 			result.CipherSuitesObserved = probe.ObservedOnly
+			result.CipherEvidenceIncomplete = probe.Incomplete
 			result.CipherProbeDurationMillis = probe.DurationMillis
 			result.CipherProbeResults = probe.Statuses
 			result.HandshakeAttempts += probe.Attempts

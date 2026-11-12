@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -28,14 +29,17 @@ type TLSScanResult struct {
 	CipherSuitesObserved      bool
 	CipherProbeDurationMillis int64
 	CipherProbeResults        []CipherProbeStatus
-	Warnings                  []string
-	Supported                 bool
-	Status                    string
-	ErrorMessage              string
-	Certificate               *x509.Certificate
-	CertInfos                 []utils.CertInfo
-	CertValidationStatus      string
-	CertValidationMessage     string
+	// CipherEvidenceIncomplete reports that cipher probing could not classify
+	// every suite, so CipherSuites may be missing supported suites.
+	CipherEvidenceIncomplete bool
+	Warnings                 []string
+	Supported                bool
+	Status                   string
+	ErrorMessage             string
+	Certificate              *x509.Certificate
+	CertInfos                []utils.CertInfo
+	CertValidationStatus     string
+	CertValidationMessage    string
 }
 
 type Options struct {
@@ -72,11 +76,15 @@ const (
 )
 
 type CipherProbeResult struct {
-	CipherSuites   []string
-	Discovery      string
-	Attempts       int
-	Warnings       []string
-	ObservedOnly   bool
+	CipherSuites []string
+	Discovery    string
+	Attempts     int
+	Warnings     []string
+	ObservedOnly bool
+	// Incomplete reports that some cipher suites could not be classified
+	// (dropped or unanswered probes), so absence from CipherSuites does not
+	// prove a suite is unsupported.
+	Incomplete     bool
 	Statuses       []CipherProbeStatus
 	DurationMillis int64
 }
@@ -204,48 +212,12 @@ func GetSupportedCiphersForVersion(opts Options, version uint16) []string {
 func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult {
 	start := time.Now()
 	supported := []string{}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, utils.DefaultMaxConcurrency)
 	result := CipherProbeResult{
 		Discovery: CipherDiscoveryProbed,
 	}
 
 	if version != tls.VersionTLS13 {
-		for _, cs := range utils.AllCipherSuites {
-			if !utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
-				continue
-			}
-			result.Attempts++
-			cs := cs
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				conf := &tls.Config{
-					MinVersion:   version,
-					MaxVersion:   version,
-					CipherSuites: []uint16{cs.ID},
-					// Cipher probing only needs the server to accept or reject
-					// the offered suite; certificate trust is evaluated once by
-					// ValidatePeerCertificates, not on every probe connection.
-					InsecureSkipVerify: true, // #nosec G402 -- scanner probe, validation done separately
-					ServerName:         opts.tlsServerName(),
-					NextProtos:         DefaultALPNProtocols(),
-				}
-				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
-				if err == nil {
-					conn.Close()
-					mu.Lock()
-					supported = append(supported, cs.Name)
-					mu.Unlock()
-				}
-			}()
-		}
-
-		wg.Wait()
+		supported = append(supported, probeLegacyCipherSuites(opts, version, &result)...)
 	}
 
 	if version == tls.VersionTLS13 {
@@ -267,6 +239,251 @@ func ProbeCipherSuitesForVersion(opts Options, version uint16) CipherProbeResult
 	result.CipherSuites = supported
 	result.DurationMillis = time.Since(start).Milliseconds()
 	return result
+}
+
+// legacyEnumerationChunk is the number of catalog suites offered together in
+// one raw enumeration. The catalog is split so that the enumerations can run
+// side by side and every ClientHello stays small.
+const legacyEnumerationChunk = 32
+
+// runBounded calls fn(i) for every i in [0, n) with at most limit calls in flight.
+func runBounded(n, limit int, fn func(i int)) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, limit)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			fn(i)
+		}()
+	}
+	wg.Wait()
+}
+
+// probeLegacyCipherSuites finds the cipher suites an endpoint supports on one
+// TLS 1.0-1.2 version and returns their names.
+//
+// Step 1 enumerates the whole tlsprobe catalog with raw ClientHellos that
+// offer many suites at once: a server that supports k suites costs about k
+// connections plus one refusal per chunk, not one connection per catalog
+// suite. That keeps the scan below the connection rate limits that endpoints
+// and firewalls enforce, and it reaches suites crypto/tls cannot offer (RC4,
+// DHE, anonymous, EXPORT, CAMELLIA, ARIA, CCM...).
+//
+// Step 2 confirms with a full crypto/tls handshake every enumerated suite that
+// crypto/tls implements, so those keep full-handshake evidence. Suites that
+// only the raw enumeration can see are reported with a ClientHello-only status
+// row.
+//
+// When the enumeration cannot be trusted (it did not finish, or it saw none of
+// the suites crypto/tls can negotiate on a version that is known to work), all
+// crypto/tls suites are probed one by one, as before the enumeration existed,
+// and the result is flagged as incomplete.
+func probeLegacyCipherSuites(opts Options, version uint16, result *CipherProbeResult) []string {
+	versionName := utils.TLSVersions[version]
+
+	var fullHandshake []utils.CipherSuite
+	implemented := make(map[uint16]bool)
+	for _, cs := range utils.AllCipherSuites {
+		if utils.IsCipherSuiteCompatibleWith(version, cs.ID) {
+			fullHandshake = append(fullHandshake, cs)
+			implemented[cs.ID] = true
+		}
+	}
+
+	selected, unresolved, total, reason := enumerateLegacyCipherSuites(opts, version, result)
+	implementedSelected := 0
+	for id := range selected {
+		if implemented[id] {
+			implementedSelected++
+		}
+	}
+	switch {
+	case reason != "":
+		result.Incomplete = true
+		result.Warnings = append(result.Warnings, fmt.Sprintf(
+			"%s: the raw cipher enumeration could not finish (%s); %d of %d legacy cipher suites were not classified, so the cipher list is incomplete.",
+			versionName, reason, unresolved, total))
+	case implementedSelected == 0:
+		// The version handshake succeeded with a crypto/tls suite, so an
+		// enumeration that saw none of them is not telling the truth.
+		result.Incomplete = true
+		result.Warnings = append(result.Warnings, fmt.Sprintf(
+			"%s: the raw cipher enumeration found none of the suites this endpoint negotiates with full handshakes; legacy cipher suites outside the full-handshake probe set could not be verified, so the cipher list is incomplete.",
+			versionName))
+	}
+
+	// Full-handshake confirmation: only what the enumeration found, or
+	// everything crypto/tls implements when the enumeration is not trusted.
+	candidates := fullHandshake
+	if !result.Incomplete {
+		candidates = nil
+		for _, cs := range fullHandshake {
+			if selected[cs.ID] {
+				candidates = append(candidates, cs)
+			}
+		}
+	}
+	errs := fullHandshakeCipherProbes(opts, version, candidates, result)
+
+	var supported []string
+	timedOut := 0
+	rawOnly := make(map[string]bool)
+	for i, cs := range candidates {
+		switch {
+		case errs[i] == nil:
+			supported = append(supported, cs.Name)
+		case selected[cs.ID]:
+			// The server selected it in ServerHello but the full handshake
+			// did not complete: keep it, with the weaker evidence.
+			rawOnly[cs.Name] = true
+		default:
+			if status, _ := classifyScanError(errs[i]); status == ScanStatusTimeout {
+				timedOut++
+			}
+		}
+		delete(selected, cs.ID)
+	}
+	for id := range selected {
+		rawOnly[tlsprobe.CipherSuiteName(id)] = true
+	}
+
+	for name := range rawOnly {
+		supported = append(supported, name)
+		result.Statuses = append(result.Statuses, CipherProbeStatus{
+			CipherSuite: name,
+			Status:      string(tlsprobe.StatusSupported),
+			Evidence:    "clienthello-serverhello",
+		})
+	}
+	sort.SliceStable(result.Statuses, func(i, j int) bool {
+		return result.Statuses[i].CipherSuite < result.Statuses[j].CipherSuite
+	})
+
+	if len(rawOnly) > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf(
+			"%s: %d cipher suite(s) were confirmed only by ClientHello-only raw probes (listed in the cipher probe results); full TLS handshakes are not completed for them.",
+			versionName, len(rawOnly)))
+	}
+	if timedOut > 0 {
+		result.Incomplete = true
+		result.Warnings = append(result.Warnings, fmt.Sprintf(
+			"%s: %d of %d full-handshake cipher probes timed out twice; the endpoint or a network device may be dropping probes and the cipher list is incomplete.",
+			versionName, timedOut, len(candidates)))
+	}
+	return supported
+}
+
+// enumerateLegacyCipherSuites runs the raw enumeration over the tlsprobe
+// catalog. It returns the IDs the server selected, the number of catalog
+// suites left unclassified out of total, and a short reason when the
+// enumeration could not finish.
+func enumerateLegacyCipherSuites(opts Options, version uint16, result *CipherProbeResult) (selected map[uint16]bool, unresolved, total int, reason string) {
+	selected = make(map[uint16]bool)
+	catalog := tlsprobe.LegacyCipherSuitesForVersion(version)
+	total = len(catalog)
+
+	rawOptions := tlsprobe.Options{
+		Address:    net.JoinHostPort(opts.Host, opts.Port),
+		ServerName: opts.tlsServerName(),
+		Timeout:    opts.Timeout,
+		ALPN:       DefaultALPNProtocols(),
+	}
+	if err := tlsprobe.ValidateOptions(rawOptions); err != nil {
+		return selected, total, total, err.Error()
+	}
+
+	var chunks [][]uint16
+	for start := 0; start < len(catalog); start += legacyEnumerationChunk {
+		end := start + legacyEnumerationChunk
+		if end > len(catalog) {
+			end = len(catalog)
+		}
+		chunks = append(chunks, catalog[start:end])
+	}
+
+	enumerations := make([]tlsprobe.LegacyEnumeration, len(chunks))
+	enumerationErrors := make([]error, len(chunks))
+	runBounded(len(chunks), len(chunks), func(i int) {
+		enumerations[i], enumerationErrors[i] = tlsprobe.EnumerateLegacyCipherSuites(context.Background(), rawOptions, version, chunks[i])
+	})
+
+	for i, enumeration := range enumerations {
+		result.Attempts += enumeration.Connections
+		for _, supported := range enumeration.Supported {
+			selected[supported.CipherSuite] = true
+		}
+		if enumeration.Complete && enumerationErrors[i] == nil {
+			continue
+		}
+		unresolved += len(enumeration.Unresolved)
+		if reason != "" {
+			continue
+		}
+		switch {
+		case enumerationErrors[i] != nil:
+			reason = enumerationErrors[i].Error()
+		case enumeration.Last.Error != "":
+			reason = string(enumeration.Last.Status) + ": " + enumeration.Last.Error
+		default:
+			reason = string(enumeration.Last.Status)
+		}
+	}
+	return selected, unresolved, total, reason
+}
+
+// fullHandshakeCipherProbes offers each suite in its own crypto/tls handshake
+// and returns one error per suite, nil when the suite was negotiated.
+//
+// A handshake that fails for a network reason (timeout, reset, refused) says
+// nothing about the suite, so those probes are repeated once.
+func fullHandshakeCipherProbes(opts Options, version uint16, suites []utils.CipherSuite, result *CipherProbeResult) []error {
+	errs := make([]error, len(suites))
+	dial := func(i int) {
+		conf := &tls.Config{
+			MinVersion:   version,
+			MaxVersion:   version,
+			CipherSuites: []uint16{suites[i].ID},
+			// Cipher probing only needs the server to accept or reject
+			// the offered suite; certificate trust is evaluated once by
+			// ValidatePeerCertificates, not on every probe connection.
+			InsecureSkipVerify: true, // #nosec G402 -- scanner probe, validation done separately
+			ServerName:         opts.tlsServerName(),
+			NextProtos:         DefaultALPNProtocols(),
+		}
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
+		if err == nil {
+			conn.Close()
+		}
+		errs[i] = err
+	}
+
+	result.Attempts += len(suites)
+	runBounded(len(suites), utils.DefaultMaxConcurrency, dial)
+
+	var retry []int
+	for i, err := range errs {
+		if isTransientProbeError(err) {
+			retry = append(retry, i)
+		}
+	}
+	if len(retry) > 0 {
+		result.Attempts += len(retry)
+		runBounded(len(retry), utils.DefaultMaxConcurrency, func(i int) { dial(retry[i]) })
+	}
+	return errs
+}
+
+// isTransientProbeError reports whether a failed probe handshake was caused by
+// the network rather than by the server refusing the offered cipher suite.
+func isTransientProbeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	status, _ := classifyScanError(err)
+	return status == ScanStatusTimeout || status == ScanStatusNetworkError
 }
 
 func probeTLS13CipherSuites(opts Options) CipherProbeResult {
