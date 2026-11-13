@@ -2,7 +2,7 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
-## Unreleased
+## v0.32.0 - 2026-11-13
 
 ### Added
 
@@ -23,6 +23,9 @@ All notable changes to `tlsanalyzer` are documented here.
 ### Changed
 
 - `release.yml` now defaults to read-only permissions; `contents: write`, `id-token` and `attestations` are granted only to the release job and `packages: write` only to the container image job.
+- Explicit `--forbid-tls`, `--require-tls` and `--fail-on legacy-tls` gates that refer to versions below `--min-version` now extend the scan for that run, so they are evaluated instead of silently passing. `--policy modern` keeps `--min-version` authoritative and reports an informational `notes` entry in the policy result.
+- Built with Go 1.27.3 (crypto/x509 security fix). CI, release workflow, Dockerfile and README now reference Go 1.27.3.
+- Updated documentation examples and packaged version metadata to `v0.32.0`.
 
 ### Fixed
 
@@ -32,11 +35,7 @@ All notable changes to `tlsanalyzer` are documented here.
 - The TLS 1.3 probe honours context cancellation instead of waiting for the full timeout.
 - The TLS 1.0 to 1.2 version handshake offers every known suite ordered by preference, so endpoints that only offer static RSA key exchange or 3DES are no longer reported as unsupported.
 - The negotiated cipher suite is kept in the cipher list when the raw probe misses it, and a warning is emitted.
-
-### Changed
-
-- Explicit `--forbid-tls`, `--require-tls` and `--fail-on legacy-tls` gates that refer to versions below `--min-version` now extend the scan for that run, so they are evaluated instead of silently passing. `--policy modern` keeps `--min-version` authoritative and reports an informational `notes` entry in the policy result.
-- Built with Go 1.27.3 (crypto/x509 security fix). CI, release workflow, Dockerfile and README now reference Go 1.27.3.
+- Cipher suites that `crypto/tls` names `TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256` and `TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256` were probed under a name without `_SHA256`, so a TLS 1.2 endpoint offering them listed the same suite twice (the negotiated name and the probed name). The probed list now uses the IANA and `crypto/tls` spelling everywhere; the names without `_SHA256` still classify. The suite names in the cipher list change accordingly.
 
 ## v0.31.3 - 2026-07-30
 

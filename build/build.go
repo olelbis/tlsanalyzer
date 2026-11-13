@@ -2,7 +2,7 @@ package build
 
 import "runtime"
 
-var Version = "v0.31.3"
+var Version = "v0.32.0"
 var BuildTime string
 var BuildUser string
 
