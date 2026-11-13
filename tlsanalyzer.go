@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"github.com/olelbis/tlsanalyzer/analyzer"
+	"github.com/olelbis/tlsanalyzer/baseline"
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/certs"
 	"github.com/olelbis/tlsanalyzer/output"
@@ -58,6 +59,7 @@ type cliConfig struct {
 	forbidALPN      string
 	minCertKeyBits  int
 	minCertDays     int
+	baseline        string
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -105,6 +107,20 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	port := inputs.port
 	minVersion := inputs.minVersion
 	policyConfig := inputs.policyConfig
+	var baselineReport *baseline.Report
+	if cfg.baseline != "" {
+		baselineSet, err := baseline.Load(cfg.baseline)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return exitCodeInputRuntimeFailure
+		}
+		report, ok := baselineSet.Lookup(h, port, serverName)
+		if !ok {
+			fmt.Fprintf(stderr, "Error: baseline %q holds no report for %s:%s (it has: %s)\n", cfg.baseline, h, port, strings.Join(baselineSet.Targets(), ", "))
+			return exitCodeInputRuntimeFailure
+		}
+		baselineReport = report
+	}
 	humanOutput := !cfg.outputJSON
 	verboseOutput := humanOutput && !cfg.compact
 
@@ -134,6 +150,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		ForceCiphers: cfg.forceCiphers,
 		SkipVerify:   cfg.skipVerify,
 		PolicyConfig: policyConfig,
+		Baseline:     baselineReport,
 	}, analyzer.Hooks{
 		VersionStart: func(name string, version uint16, probeCiphers bool) {
 			if verboseOutput {
@@ -338,6 +355,7 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.StringVar(&cfg.forbidALPN, "forbid-alpn", "", "Comma-separated ALPN protocols that must not be negotiated")
 	fs.IntVar(&cfg.minCertKeyBits, "min-cert-key-bits", 0, "Minimum certificate public key size in bits")
 	fs.IntVar(&cfg.minCertDays, "min-cert-days", 0, "Minimum number of days before certificate expiry")
+	fs.StringVar(&cfg.baseline, "baseline", "", "Compare with a JSON report recorded earlier with --json; regressions fail the run (exit 3)")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage of tlsanalyzer:")
 		fs.PrintDefaults()

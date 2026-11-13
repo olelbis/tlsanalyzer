@@ -175,6 +175,8 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         Minimum certificate public key size in bits
   --min-cert-days int
         Minimum number of days before certificate expiry
+  --baseline string
+        Compare with a JSON report recorded earlier with --json; regressions fail the run (exit 3)
   --markdown string
         Write scan result to a Markdown file
   --sarif string
@@ -509,6 +511,40 @@ Configurable policy flags are evaluated together with `--policy` and `--fail-on`
 - `--forbid-alpn`: fails when a supported handshake negotiates a listed ALPN protocol.
 - `--min-cert-key-bits`: fails when the certificate public key is unavailable or smaller than the configured size.
 - `--min-cert-days`: fails when certificate expiry is unavailable or closer than the configured threshold.
+
+### Baseline comparison
+
+A baseline turns a scan into a regression check: instead of asking whether an endpoint meets a fixed policy, it asks whether the endpoint got worse since a known-good scan.
+
+Record the baseline once with `--json`, adding `--force-ciphers` so that the cipher suites are part of it:
+
+```bash
+tlsanalyzer --host example.com --force-ciphers --json --no-clear > baseline.json
+```
+
+Then compare later scans with it:
+
+```bash
+tlsanalyzer --host example.com --baseline baseline.json
+```
+
+The baseline is an ordinary report, single-target or batch, so it can be committed next to the infrastructure it describes and replaced by recording a new one. `baseline` can also be set in a [config file](#json-config-file).
+
+A scan fails (exit 3, check `baseline`) when security got worse:
+
+- a legacy version (TLS 1.0 or 1.1) is supported that was not;
+- TLS 1.3 is no longer supported;
+- a cipher suite that is insecure, weak or unclassified is offered that was not;
+- cipher evidence became incomplete (probes went unanswered), so changes cannot be ruled out;
+- the certificate is no longer valid, expires earlier than the one in the baseline, or has a shorter key.
+
+Everything else that changed is reported as a `baseline:` note and does not change the exit code: a suite that disappeared, TLS 1.3 that appeared, a legacy version that is gone, a certificate that was renewed. A version that timed out or failed on either side, a version the baseline did not scan and a certificate that the current scan could not retrieve are notes as well, never regressions, so a flaky probe cannot fail the run by itself.
+
+Baseline failures are combined with `--policy` and the other gates; the policy fails when any of them fails. When the baseline lists cipher suites, the run probes them even without `--force-ciphers`.
+
+In batch mode pass a batch report recorded with `--targets-file ... --json`. Each target is compared with its own entry, matched by host, port and SNI. A target that is not in the baseline is scanned and noted. In single-target mode, a baseline without a report for the scanned host and port is an input error (exit 1), because comparing with another endpoint would pass silently.
+
+A baseline recorded with another JSON schema major version is refused. Scan the same range it was recorded with: versions the baseline has and the run did not scan (`--min-version`) are listed in a note and not compared.
 
 ## Interpreting Scan Status
 

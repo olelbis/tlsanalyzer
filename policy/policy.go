@@ -31,6 +31,10 @@ const (
 	CheckForbiddenALPN  = "forbidden-alpn"
 	CheckMinCertKeyBits = "min-cert-key-bits"
 	CheckMinCertDays    = "min-cert-days"
+
+	// CheckBaseline marks failures found by comparing a scan with a recorded
+	// baseline report (--baseline). It is not selectable with --fail-on.
+	CheckBaseline = "baseline"
 )
 
 type Config struct {

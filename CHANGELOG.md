@@ -2,6 +2,17 @@
 
 All notable changes to `tlsanalyzer` are documented here.
 
+## Unreleased
+
+### Added
+
+- `--baseline FILE` compares the scan with a report recorded earlier with `--json` and fails the run (exit 3) on regressions. The baseline is an ordinary single-target or batch report, so nothing new has to be maintained; the config file accepts `baseline` too. Record it once (`tlsanalyzer --host example.com --force-ciphers --json > baseline.json`), then scan with `--baseline baseline.json` from CI or a scheduled job.
+- What counts as a regression is limited to security getting worse: a legacy TLS version (1.0, 1.1) that is now supported, TLS 1.3 that is no longer supported, a cipher suite that is insecure, weak or unclassified and was not offered before, cipher evidence that became incomplete, a certificate that is no longer valid, that expires earlier than the baseline one or that has a shorter key. Each is reported as a policy failure with the new check name `baseline`, in the console, in `policy.failures` of the JSON report, and in the SARIF and JUnit reports.
+- Everything else that changed is a policy `notes` entry prefixed `baseline:` and never changes the exit code: improvements (a suite removed, TLS 1.3 added, a legacy version gone), a renewed certificate, and comparisons that could not be made, such as a version that timed out on either side or that the baseline did not scan.
+- When the baseline lists cipher suites, the run probes them even without `--force-ciphers`; otherwise every suite but the negotiated one would look removed.
+- In batch mode (`--targets-file`) the baseline is a batch report and each target is compared with its own entry (matched by host, port and SNI). A target missing from the baseline is scanned and noted, not failed. In single-target mode a baseline that has no report for the scanned host and port is an input error (exit 1), as are an unreadable file, a file that is not a tlsanalyzer report and a different JSON schema major version.
+- New `baseline` package and `output.NewJSONReport`, the structured form of the report that `output.BuildJSONReport` serializes.
+
 ## v0.32.0 - 2026-11-13
 
 ### Added

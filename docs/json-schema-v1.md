@@ -17,7 +17,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `go_version` | string | no | Go toolchain version the scanner binary was built with, for example `go1.27.3`. Certificate verdicts depend on that toolchain's `crypto/x509`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
-| `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits` or `--min-cert-days`. |
+| `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits`, `--min-cert-days` or `--baseline`. |
 | `results` | array | yes | Per-TLS-version scan results. |
 
 ## Batch Top-Level Object
@@ -125,7 +125,7 @@ Single-target scans and batch scans share the same schema version but use differ
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits` or `min-cert-days`. |
+| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits`, `min-cert-days` or `baseline` (a regression found by `--baseline`). |
 | `version` | string | no | TLS version associated with the failure when applicable. |
 | `message` | string | yes | Human-readable failure detail. Message wording is useful for humans, but automation should prefer `check` and `version`. |
 

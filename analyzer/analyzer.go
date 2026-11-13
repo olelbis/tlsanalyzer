@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/baseline"
+	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
 	"github.com/olelbis/tlsanalyzer/utils"
@@ -45,7 +47,14 @@ type Options struct {
 	ForceCiphers bool
 	SkipVerify   bool
 	PolicyConfig policy.Config
-	Now          time.Time
+	// Baseline, when set, is a previously recorded report for this target.
+	// The run is compared with it and every regression fails the policy
+	// result under the "baseline" check; other differences become notes.
+	// When the baseline lists cipher suites the run probes them even without
+	// ForceCiphers, otherwise every suite but the negotiated one would look
+	// removed.
+	Baseline *baseline.Report
+	Now      time.Time
 }
 
 // DefaultOptions returns a single-target configuration matching CLI defaults.
@@ -92,7 +101,7 @@ type Hooks struct {
 // Run executes the TLS scan matrix and evaluates the configured policy.
 func Run(opts Options, hooks Hooks) (Result, error) {
 	opts = normalizeOptions(opts)
-	probeCiphers := opts.ForceCiphers || policy.RequiresCipherProbe(opts.PolicyConfig)
+	probeCiphers := opts.ForceCiphers || policy.RequiresCipherProbe(opts.PolicyConfig) || baseline.NeedsCipherProbe(opts.Baseline)
 	scanOptions := scan.Options{
 		Host:         opts.Host,
 		Port:         opts.Port,
@@ -166,6 +175,10 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 	policyResult := policy.Evaluate(results, opts.PolicyConfig, now)
 	if policyResult.Enabled {
 		policyResult.Notes = append(policyResult.Notes, policy.ScanRangeNotes(opts.PolicyConfig, opts.MinVersion)...)
+	}
+	if opts.Baseline != nil {
+		current := output.NewJSONReport(opts.Host, opts.Port, opts.ServerName, "", now, results)
+		baseline.Compare(opts.Baseline, current).Apply(&policyResult)
 	}
 
 	return Result{
