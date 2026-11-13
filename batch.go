@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/analyzer"
+	"github.com/olelbis/tlsanalyzer/baseline"
 	"github.com/olelbis/tlsanalyzer/build"
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
@@ -151,6 +152,7 @@ type batchSettings struct {
 	forceCiphers bool
 	skipVerify   bool
 	policyConfig policy.Config
+	baseline     *baseline.Set
 	concurrency  int
 	retries      int
 	retryBackoff time.Duration
@@ -191,6 +193,14 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 		return batchSettings{}, err
 	}
 
+	var baselineSet *baseline.Set
+	if cfg.baseline != "" {
+		baselineSet, err = baseline.Load(cfg.baseline)
+		if err != nil {
+			return batchSettings{}, err
+		}
+	}
+
 	return batchSettings{
 		defaultPort:  port,
 		timeout:      time.Duration(cfg.timeout) * time.Second,
@@ -198,6 +208,7 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 		forceCiphers: cfg.forceCiphers,
 		skipVerify:   cfg.skipVerify,
 		policyConfig: policyConfig,
+		baseline:     baselineSet,
 		concurrency:  cfg.concurrency,
 		retries:      cfg.retries,
 		retryBackoff: time.Duration(cfg.retryBackoff) * time.Second,
@@ -303,6 +314,13 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 	attempts := 0
 	var last analyzer.Result
 	var lastErr error
+	var baselineReport *baseline.Report
+	missingBaseline := false
+	if settings.baseline != nil {
+		var found bool
+		baselineReport, found = settings.baseline.Lookup(target.Host, target.Port, target.SNI)
+		missingBaseline = !found
+	}
 	for attempt := 0; attempt <= settings.retries; attempt++ {
 		attempts++
 		last, lastErr = analyzer.Run(analyzer.Options{
@@ -314,6 +332,7 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 			ForceCiphers: settings.forceCiphers,
 			SkipVerify:   settings.skipVerify,
 			PolicyConfig: settings.policyConfig,
+			Baseline:     baselineReport,
 		}, analyzer.Hooks{})
 		if lastErr != nil || !hasTransientScanFailure(last.Results) || attempt == settings.retries {
 			break
@@ -328,6 +347,13 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 		Attempts: attempts,
 		Results:  last.Results,
 		Policy:   last.Policy,
+	}
+	if missingBaseline {
+		// Not an error: a target added after the baseline was recorded has
+		// nothing to be compared with, but the run must say so.
+		result.Policy.Enabled = true
+		result.Policy.Passed = len(result.Policy.Failures) == 0
+		result.Policy.Notes = append(result.Policy.Notes, fmt.Sprintf("baseline: no report for %s:%s in the baseline file, so it was not compared", target.Host, target.Port))
 	}
 	if lastErr != nil {
 		result.Error = lastErr.Error()

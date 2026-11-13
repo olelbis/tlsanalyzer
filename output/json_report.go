@@ -75,6 +75,14 @@ type JSONCertificate struct {
 }
 
 func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) ([]byte, error) {
+	report := NewJSONReport(host, port, serverName, scannerVersion, generatedAt, results, policyResults...)
+	return json.MarshalIndent(report, "", "  ")
+}
+
+// NewJSONReport builds the single-target report that BuildJSONReport
+// serializes. Callers that compare reports use it to get the structured form
+// without encoding and decoding it again.
+func NewJSONReport(host, port, serverName, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) JSONReport {
 	policyResult := firstPolicyResult(policyResults)
 	report := JSONReport{
 		Host:           host,
@@ -131,7 +139,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 		report.Results = append(report.Results, jsonResult)
 	}
 
-	return json.MarshalIndent(report, "", "  ")
+	return report
 }
 
 func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {

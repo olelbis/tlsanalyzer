@@ -32,6 +32,7 @@ type fileConfig struct {
 	ForbidALPN     *string                      `json:"forbid_alpn,omitempty"`
 	MinCertKeyBits *int                         `json:"min_cert_key_bits,omitempty"`
 	MinCertDays    *int                         `json:"min_cert_days,omitempty"`
+	Baseline       *string                      `json:"baseline,omitempty"`
 	Target         *string                      `json:"target,omitempty"`
 	Profile        *string                      `json:"profile,omitempty"`
 	TargetsFile    *string                      `json:"targets_file,omitempty"`
@@ -147,6 +148,7 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyString(&cfg.forbidALPN, file.ForbidALPN)
 	applyInt(&cfg.minCertKeyBits, file.MinCertKeyBits)
 	applyInt(&cfg.minCertDays, file.MinCertDays)
+	applyString(&cfg.baseline, file.Baseline)
 	applyString(&cfg.targetsFile, file.TargetsFile)
 	applyInt(&cfg.concurrency, file.Concurrency)
 	applyInt(&cfg.retries, file.Retries)
@@ -245,6 +247,9 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["min-cert-days"] {
 		dst.minCertDays = src.minCertDays
+	}
+	if explicit["baseline"] {
+		dst.baseline = src.baseline
 	}
 	if explicit["target"] {
 		dst.targetName = src.targetName
