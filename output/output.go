@@ -76,6 +76,9 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 		if r.Supported && (len(r.CipherSuites) > 0 || len(r.CipherProbeResults) > 0) {
 			sb.WriteString(fmt.Sprintf("\n### %s\n\n", r.Version))
 			sb.WriteString(fmt.Sprintf("- **Negotiated**: %s\n", emptyDash(r.NegotiatedCipherSuite)))
+			if r.VersionEvidence == scan.VersionEvidenceRawProbe {
+				sb.WriteString("- **Version Evidence**: ClientHello-only raw probe; no full handshake was completed and no certificate was retrieved\n")
+			}
 			sb.WriteString(fmt.Sprintf("- **Discovery**: %s\n", emptyDash(r.CipherDiscovery)))
 			if r.CipherProbeDurationMillis > 0 {
 				sb.WriteString(fmt.Sprintf("- **Cipher Probe Duration**: %d ms\n", r.CipherProbeDurationMillis))
@@ -461,6 +464,22 @@ func PrintCertSummary(w io.Writer, cert *x509.Certificate, cipher string, versio
 	fmt.Fprintf(w, "   DNS: %v\n", cert.DNSNames)
 }
 
+// PrintRawVersionSummary prints the summary of a protocol version that was
+// only detected with a ClientHello-only raw probe: there is no certificate to
+// show, and the reader must know the handshake was not completed.
+func PrintRawVersionSummary(w io.Writer, result scan.TLSScanResult) {
+	fmt.Fprintf(w, "✅ \033[1m%s\033[0m: supported (raw probe, ClientHello-only)\n", result.Version)
+	if result.NegotiatedCipherSuite != "" {
+		fmt.Fprintf(w, "   Cipher suite selected in ServerHello: %s\n", result.NegotiatedCipherSuite)
+	}
+	if result.ErrorMessage != "" {
+		fmt.Fprintf(w, "   Full handshake: not completed (%s)\n", result.ErrorMessage)
+	} else {
+		fmt.Fprintln(w, "   Full handshake: not completed")
+	}
+	fmt.Fprintln(w, "   Certificate: not retrieved")
+}
+
 func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
 	if result.KeyExchangeGroup != "" {
 		fmt.Fprintf(w, "   Key Exchange Group: %s\n", result.KeyExchangeGroup)
@@ -480,7 +499,12 @@ func RawProbedCipherSuites(result scan.TLSScanResult) map[string]bool {
 	}
 	var raw map[string]bool
 	for _, probe := range result.CipherProbeResults {
-		if probe.Status != "supported" || !strings.HasPrefix(probe.Evidence, "clienthello-") || probe.CipherSuite == result.NegotiatedCipherSuite {
+		if probe.Status != "supported" || !strings.HasPrefix(probe.Evidence, "clienthello-") {
+			continue
+		}
+		// The negotiated suite was confirmed by the version handshake, unless
+		// that handshake was itself a raw probe.
+		if probe.CipherSuite == result.NegotiatedCipherSuite && result.VersionEvidence != scan.VersionEvidenceRawProbe {
 			continue
 		}
 		if raw == nil {

@@ -705,3 +705,33 @@ func TestBuildLegacyClientHelloPadsAwkwardLengths(t *testing.T) {
 		t.Fatal("buildLegacyClientHello() with no cipher suite should fail")
 	}
 }
+
+func TestSelectLegacyCipherSuiteReportsServerChoice(t *testing.T) {
+	address := legacyConfServer(t, confCert(t, "rsa"), tls.VersionTLS12, tls.VersionTLS12, []uint16{
+		tls.TLS_RSA_WITH_RC4_128_SHA,
+	})
+	opts := Options{Address: address, ServerName: "localhost", Timeout: 2 * time.Second}
+
+	// Only one of the offered suites is enabled: the server must pick it.
+	result, err := SelectLegacyCipherSuite(context.Background(), opts, tls.VersionTLS12,
+		[]uint16{0x009e, tls.TLS_RSA_WITH_AES_128_CBC_SHA, tls.TLS_RSA_WITH_RC4_128_SHA})
+	if err != nil {
+		t.Fatalf("SelectLegacyCipherSuite() error = %v", err)
+	}
+	if result.Status != StatusSupported || result.CipherSuite != tls.TLS_RSA_WITH_RC4_128_SHA || result.Name != "TLS_RSA_WITH_RC4_128_SHA" {
+		t.Fatalf("result = %q 0x%04x %s, want supported TLS_RSA_WITH_RC4_128_SHA", result.Status, result.CipherSuite, result.Name)
+	}
+
+	// None of the offered suites is enabled.
+	result, err = SelectLegacyCipherSuite(context.Background(), opts, tls.VersionTLS12, []uint16{0x009e, tls.TLS_RSA_WITH_AES_128_CBC_SHA})
+	if err != nil {
+		t.Fatalf("SelectLegacyCipherSuite() error = %v", err)
+	}
+	if result.Status != StatusAlert {
+		t.Fatalf("Status = %q, want %q", result.Status, StatusAlert)
+	}
+
+	if _, err := SelectLegacyCipherSuite(context.Background(), opts, tls.VersionTLS12, nil); err == nil {
+		t.Fatal("SelectLegacyCipherSuite() with no suites should be a configuration error")
+	}
+}

@@ -156,6 +156,10 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		},
 		Supported: func(result scan.TLSScanResult, negotiatedCipher string) error {
 			if result.Certificate == nil {
+				if verboseOutput && result.VersionEvidence == scan.VersionEvidenceRawProbe {
+					output.PrintRawVersionSummary(stdout, result)
+					output.PrintCipherSuitesForResult(stdout, result)
+				}
 				return nil
 			}
 			if verboseOutput {

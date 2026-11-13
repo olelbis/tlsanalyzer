@@ -67,6 +67,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `handshake_attempts` | number | yes | Handshake attempts used for this result. |
 | `key_exchange_group` | string | no | Negotiated key exchange group, for example `X25519`; omitted when unavailable or when legacy RSA key exchange does not expose a group. |
 | `alpn_protocol` | string | no | Negotiated ALPN application protocol, for example `h2` or `http/1.1`. |
+| `version_evidence` | string | no | Omitted when the version was established by a full TLS handshake. `clienthello-serverhello` when the full handshake failed and the version was detected from the ServerHello answering a raw ClientHello; `certificate` is then absent, `certificate_validation_status` is `unavailable` and `error_message` holds the reason the full handshake failed. |
 | `cipher_discovery` | string | yes | `negotiated`, `probed`, `raw-probed` or `observed`. |
 | `negotiated_cipher_suite` | string | no | Cipher suite selected by the first successful handshake. |
 | `cipher_suites` | array | no | Cipher suites discovered by the selected discovery mode. |
@@ -74,7 +75,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `cipher_probe_duration_millis` | number | no | Extra duration used for cipher probing or observation. |
 | `cipher_probe_results` | array | no | Per-cipher raw probe statuses when available. For `raw-probed` and `observed` (TLS 1.3) every probed suite has a row. For `probed` (TLS 1.0 to 1.2) rows exist only for suites confirmed by a ClientHello-only raw probe; refused suites have no row. |
 | `cipher_evidence_incomplete` | boolean | no | `true` when cipher probes went unanswered, so `cipher_suites` may be missing supported suites. Omitted when the evidence is complete. The `weak-cipher` policy check fails on such a result. |
-| `raw_probe_completed_full_handshake` | boolean | no | `false` when `cipher_discovery` is `raw-probed`, or when it is `probed` and at least one suite in `cipher_suites` is backed only by a raw probe row; raw probes stop after ServerHello, alert or another probe outcome. |
+| `raw_probe_completed_full_handshake` | boolean | no | `false` when `cipher_discovery` is `raw-probed`, when `version_evidence` is `clienthello-serverhello`, or when `cipher_discovery` is `probed` and at least one suite in `cipher_suites` is backed only by a raw probe row; raw probes stop after ServerHello, alert or another probe outcome. |
 | `warnings` | array | no | Semantics warnings, such as TLS 1.3 observation limitations. |
 | `certificate` | object | no | Leaf certificate details when available. |
 | `certificate_validation_status` | string | no | `valid`, `invalid`, `skipped` or `unavailable`. |

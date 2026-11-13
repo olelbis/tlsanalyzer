@@ -42,15 +42,17 @@ tls12-require13|tls-v1-2.badssl.com|1012|--min-version 1.2 --require-tls 1.3|3|y
 tls12-ok|tls-v1-2.badssl.com|1012|--min-version 1.2 --forbid-tls 1.0,1.1|0|yes|Stesso endpoint, policy coerente: deve passare.
 
 # --- Cifrari deboli -----------------------------------------------------------
-# Nota: essendo il tool dependency-free su crypto/tls, questi cifrari non sono
-# implementati dalla stdlib. L attesa realistica e un handshake_error (exit 1),
-# non una classificazione "weak cipher". Servono a validare la gestione errori. Eccezione: 3des e ora negoziabile (il gate handshake offre le suite legacy) e dà exit 3.
-rc4|rc4.badssl.com|443|--min-version 1.0 --policy modern|1|yes|RC4. Verifica che l errore sia strutturato e non un panic.
+# Nota: questi cifrari non sono implementati da crypto/tls, quindi l handshake
+# completo fallisce. La versione TLS viene rilevata con un raw probe
+# ClientHello-only e le suite con l enumerazione raw: la policy modern fallisce
+# (exit 3) perche il certificato non e disponibile e le suite sono deboli.
+# 3des e negoziabile da crypto/tls e da exit 3 con evidenza completa.
+rc4|rc4.badssl.com|443|--min-version 1.0 --policy modern|3|yes|RC4: versione rilevata via raw probe, suite RC4 insecure.
 3des|3des.badssl.com|443|--min-version 1.0 --policy modern|3|yes|3DES offerto: la policy modern fallisce (exit 3) perché il gate handshake propone anche le suite legacy.
-null|null.badssl.com|443|--min-version 1.0 --policy modern|1|yes|Cifrario NULL.
-dh480|dh480.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 480 bit.
-dh512|dh512.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 512 bit.
-dh1024|dh1024.badssl.com|443|--min-version 1.0 --policy modern|1|yes|DH 1024 bit.
+null|null.badssl.com|443|--min-version 1.0 --policy modern|3|yes|Cifrario NULL: versione rilevata via raw probe, suite NULL insecure.
+dh480|dh480.badssl.com|443|--min-version 1.0 --policy modern|3|yes|DH 480 bit: versione rilevata via raw probe. Il gruppo DH non viene misurato; fallisce per certificato non disponibile.
+dh512|dh512.badssl.com|443|--min-version 1.0 --policy modern|3|yes|DH 512 bit. Come dh480.
+dh1024|dh1024.badssl.com|443|--min-version 1.0 --policy modern|3|yes|DH 1024 bit. Come dh480.
 
 # --- Scadenza certificato -----------------------------------------------------
 mincertdays|badssl.com|443|--min-version 1.2 --min-cert-days 3650|3|yes|Soglia irrealistica: verifica che il gate sulla validita residua scatti.

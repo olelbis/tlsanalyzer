@@ -68,8 +68,12 @@ Two results are worth knowing before reading the output:
   verifier reports it as revoked (exit 3). The case is observational.
 
 Weak-cipher endpoints (`rc4`, `null`, `dh480`, `dh512`, `dh1024`) are
-not negotiable by the Go standard library, so they exercise error handling
-rather than cipher classification.
+not negotiable by the Go standard library. Their TLS versions are detected
+with a ClientHello-only raw probe and their suites with the raw enumeration,
+so `--policy modern` fails on them (exit 3): no certificate is retrieved, and
+RC4 and NULL suites are insecure. The size of the DHE parameters is not
+inspected, so the `dh*` cases fail for the missing certificate and for legacy
+TLS versions, not for the weak Diffie-Hellman group.
 
 All badssl endpoints are TLS 1.2 only; TLS 1.3 reports `handshake_error`
 there.
