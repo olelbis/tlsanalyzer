@@ -33,6 +33,7 @@ type JSONScanResult struct {
 	HandshakeAttempts         int               `json:"handshake_attempts"`
 	KeyExchangeGroup          string            `json:"key_exchange_group,omitempty"`
 	ALPNProtocol              string            `json:"alpn_protocol,omitempty"`
+	VersionEvidence           string            `json:"version_evidence,omitempty"`
 	CipherDiscovery           string            `json:"cipher_discovery"`
 	NegotiatedCipherSuite     string            `json:"negotiated_cipher_suite,omitempty"`
 	CipherSuites              []string          `json:"cipher_suites,omitempty"`
@@ -107,6 +108,7 @@ func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt 
 			RawProbeFullHandshake:     rawProbeFullHandshakeFlag(r),
 			CipherEvidenceIncomplete:  r.CipherEvidenceIncomplete,
 			Warnings:                  r.Warnings,
+			VersionEvidence:           r.VersionEvidence,
 			CertValidationStatus:      r.CertValidationStatus,
 			CertValidationMessage:     r.CertValidationMessage,
 		}
@@ -162,7 +164,8 @@ func alertCodePointer(alert string, code uint8) *uint8 {
 }
 
 func rawProbeFullHandshakeFlag(result scan.TLSScanResult) *bool {
-	if result.CipherDiscovery != scan.CipherDiscoveryRawProbed && len(RawProbedCipherSuites(result)) == 0 {
+	if result.CipherDiscovery != scan.CipherDiscoveryRawProbed && len(RawProbedCipherSuites(result)) == 0 &&
+		result.VersionEvidence != scan.VersionEvidenceRawProbe {
 		return nil
 	}
 	completed := false

@@ -68,6 +68,7 @@ Public entry points:
 - `LegacyCipherSuitesForVersion`
 - `LegacyEnumeration`
 - `EnumerateLegacyCipherSuites`
+- `SelectLegacyCipherSuite`
 - `ProbeLegacyCipherSuite`
 - `ProbeLegacyCipherSuites`
 - `Summarize`

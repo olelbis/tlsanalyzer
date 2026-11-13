@@ -127,3 +127,82 @@ func TestMarkdownReportExplainsRawEvidenceInProbedResults(t *testing.T) {
 		}
 	}
 }
+
+func rawVersionResult() scan.TLSScanResult {
+	return scan.TLSScanResult{
+		Version:               "TLS 1.2",
+		VersionID:             tls.VersionTLS12,
+		Supported:             true,
+		Status:                scan.ScanStatusSupported,
+		ErrorMessage:          "remote error: tls: handshake failure",
+		VersionEvidence:       scan.VersionEvidenceRawProbe,
+		CipherDiscovery:       scan.CipherDiscoveryProbed,
+		NegotiatedCipherSuite: "TLS_RSA_WITH_RC4_128_SHA",
+		CipherSuites:          []string{"TLS_RSA_WITH_RC4_128_SHA"},
+		CipherProbeResults: []scan.CipherProbeStatus{
+			{CipherSuite: "TLS_RSA_WITH_RC4_128_SHA", Status: "supported", Evidence: "clienthello-serverhello"},
+		},
+		CertValidationStatus: scan.CertValidationUnavailable,
+	}
+}
+
+func TestPrintRawVersionSummary(t *testing.T) {
+	var buf bytes.Buffer
+	PrintRawVersionSummary(&buf, rawVersionResult())
+	out := buf.String()
+
+	for _, want := range []string{
+		"supported (raw probe, ClientHello-only)",
+		"Cipher suite selected in ServerHello: TLS_RSA_WITH_RC4_128_SHA",
+		"Full handshake: not completed (remote error: tls: handshake failure)",
+		"Certificate: not retrieved",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("summary is missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// With raw version evidence even the negotiated suite is ClientHello-only.
+func TestRawVersionEvidenceMarksNegotiatedSuiteAsRawProbed(t *testing.T) {
+	result := rawVersionResult()
+	if raw := RawProbedCipherSuites(result); !raw["TLS_RSA_WITH_RC4_128_SHA"] {
+		t.Fatalf("RawProbedCipherSuites() = %v, want the negotiated suite marked", raw)
+	}
+
+	generatedAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	data, err := BuildJSONReport("example.com", "443", "", "test", generatedAt, []scan.TLSScanResult{result})
+	if err != nil {
+		t.Fatalf("BuildJSONReport() error = %v", err)
+	}
+	var report JSONReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if report.Results[0].VersionEvidence != scan.VersionEvidenceRawProbe {
+		t.Fatalf("VersionEvidence = %q, want %q", report.Results[0].VersionEvidence, scan.VersionEvidenceRawProbe)
+	}
+	if report.Results[0].RawProbeFullHandshake == nil || *report.Results[0].RawProbeFullHandshake {
+		t.Fatalf("RawProbeFullHandshake = %v, want false", report.Results[0].RawProbeFullHandshake)
+	}
+	if strings.Contains(string(data), "version_evidence") != true {
+		t.Fatal("JSON should carry version_evidence for raw-detected versions")
+	}
+
+	markdown := BuildMarkdownReportFromResults("example.com", "443", "", "test", generatedAt, []scan.TLSScanResult{result})
+	if !strings.Contains(markdown, "**Version Evidence**: ClientHello-only raw probe") {
+		t.Fatalf("Markdown report should explain the raw version evidence:\n%s", markdown)
+	}
+}
+
+func TestJSONReportOmitsVersionEvidenceForFullHandshakes(t *testing.T) {
+	generatedAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	result := extendedProbeResult()
+	data, err := BuildJSONReport("example.com", "443", "", "test", generatedAt, []scan.TLSScanResult{result})
+	if err != nil {
+		t.Fatalf("BuildJSONReport() error = %v", err)
+	}
+	if strings.Contains(string(data), "version_evidence") {
+		t.Fatal("version_evidence must be omitted when the version was established by a full handshake")
+	}
+}

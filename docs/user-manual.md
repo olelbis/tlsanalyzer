@@ -427,6 +427,19 @@ Raw-probed suites without an explicit classification are rated from their name: 
 
 Not covered: PSK, SRP, Kerberos, GOST and static DH/ECDH suites, SSLv2/SSLv3, and the strength of DHE parameters.
 
+### Endpoints Go cannot negotiate with
+
+TLS version detection uses a full Go TLS handshake. Some endpoints refuse every such handshake on TLS 1.0 to 1.2 because they only accept suites Go does not implement (RC4, NULL, anonymous, DHE), or because they demand a client certificate. When the handshake is refused or dropped, `tlsanalyzer` sends one raw ClientHello offering the whole legacy catalog. If the ServerHello selects a suite on that version, the version is reported as supported with reduced evidence:
+
+```text
+✅ TLS 1.2: supported (raw probe, ClientHello-only)
+   Cipher suite selected in ServerHello: TLS_RSA_WITH_RC4_128_SHA
+   Full handshake: not completed (remote error: tls: handshake failure)
+   Certificate: not retrieved
+```
+
+In JSON the result has `version_evidence: "clienthello-serverhello"`, no `certificate`, and `certificate_validation_status: "unavailable"`. Cipher probing and policy gates then work as for any other version. Since the certificate cannot be validated, `--policy modern` and `--fail-on invalid-cert` fail on a version detected this way; `legacy-tls`, `weak-cipher`, `--forbid-tls` and `--require-tls` are evaluated normally. A version the server rejects explicitly, a timeout or a failed TCP connection is not probed again.
+
 By default, `tlsanalyzer` reports the cipher suite negotiated by the normal TLS handshake. Full cipher probing runs when `--force-ciphers` is used, or when a policy check needs cipher evidence, such as `--policy modern` or `--fail-on weak-cipher`.
 
 Go does not allow forcing individual TLS 1.3 cipher suites through `tls.Config.CipherSuites`. When cipher probing is enabled for TLS 1.3, `tlsanalyzer` uses its preview `tlsprobe` raw probe to send minimal ClientHello messages with one TLS 1.3 cipher suite at a time. The probe reads ServerHello, HelloRetryRequest, alert, close, timeout or inconclusive outcomes and records per-cipher status without completing the full TLS handshake.

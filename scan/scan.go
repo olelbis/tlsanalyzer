@@ -32,14 +32,19 @@ type TLSScanResult struct {
 	// CipherEvidenceIncomplete reports that cipher probing could not classify
 	// every suite, so CipherSuites may be missing supported suites.
 	CipherEvidenceIncomplete bool
-	Warnings                 []string
-	Supported                bool
-	Status                   string
-	ErrorMessage             string
-	Certificate              *x509.Certificate
-	CertInfos                []utils.CertInfo
-	CertValidationStatus     string
-	CertValidationMessage    string
+	// VersionEvidence is empty when the protocol version was established by
+	// a full crypto/tls handshake, and VersionEvidenceRawProbe when only a
+	// ClientHello-only raw probe could establish it. In the second case no
+	// certificate, key exchange group or ALPN protocol is available.
+	VersionEvidence       string
+	Warnings              []string
+	Supported             bool
+	Status                string
+	ErrorMessage          string
+	Certificate           *x509.Certificate
+	CertInfos             []utils.CertInfo
+	CertValidationStatus  string
+	CertValidationMessage string
 }
 
 type Options struct {
@@ -68,6 +73,10 @@ const (
 	CipherDiscoveryProbed     = "probed"
 	CipherDiscoveryRawProbed  = "raw-probed"
 	CipherDiscoveryObserved   = "observed"
+
+	// VersionEvidenceRawProbe marks a protocol version detected from the
+	// ServerHello answering a raw ClientHello, without a completed handshake.
+	VersionEvidenceRawProbe = "clienthello-serverhello"
 
 	CertValidationValid       = "valid"
 	CertValidationInvalid     = "invalid"
@@ -141,9 +150,66 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
 	if err != nil {
 		result.Status, result.ErrorMessage = classifyScanError(err)
+		if version < tls.VersionTLS13 && rawVersionFallbackApplies(result.Status, err) {
+			return rawVersionFallback(opts, version, result)
+		}
 		return result
 	}
 	return buildSupportedResult(result, conn, opts, serverName)
+}
+
+// rawVersionFallbackApplies reports whether a failed crypto/tls handshake may
+// still hide a supported protocol version. That is the case when the server
+// was reached and then refused or dropped the handshake. The usual cause is
+// that crypto/tls can only offer the suites it implements, so an endpoint
+// limited to RC4, NULL, DHE or other suites outside that set refuses every
+// crypto/tls ClientHello; an endpoint that demands a client certificate ends
+// the handshake the same way.
+//
+// A version the server explicitly rejects, a timeout and a failed TCP
+// connection are final: asking again would not change the answer.
+func rawVersionFallbackApplies(status string, err error) bool {
+	switch status {
+	case ScanStatusHandshake:
+		return true
+	case ScanStatusNetworkError:
+		var opErr *net.OpError
+		return !(errors.As(err, &opErr) && opErr.Op == "dial")
+	default:
+		return false
+	}
+}
+
+// rawVersionFallback asks the server, with one raw ClientHello offering the
+// whole tlsprobe catalog, whether it speaks the protocol version at all. If
+// the ServerHello selects a suite on that version the version is reported as
+// supported with ClientHello-only evidence; otherwise failed is returned with
+// the extra attempt counted.
+func rawVersionFallback(opts Options, version uint16, failed TLSScanResult) TLSScanResult {
+	failed.HandshakeAttempts++
+	raw, err := tlsprobe.SelectLegacyCipherSuite(context.Background(), tlsprobe.Options{
+		Address:    net.JoinHostPort(opts.Host, opts.Port),
+		ServerName: opts.tlsServerName(),
+		Timeout:    opts.Timeout,
+		ALPN:       DefaultALPNProtocols(),
+	}, version, tlsprobe.LegacyCipherSuitesForVersion(version))
+	if err != nil || raw.Status != tlsprobe.StatusSupported {
+		return failed
+	}
+
+	result := failed
+	result.Supported = true
+	result.Status = ScanStatusSupported
+	// ErrorMessage keeps the reason the full handshake failed.
+	result.VersionEvidence = VersionEvidenceRawProbe
+	result.NegotiatedCipherSuite = raw.Name
+	result.CipherSuites = []string{raw.Name}
+	result.CertValidationStatus = CertValidationUnavailable
+	result.CertValidationMessage = "certificate not retrieved: the protocol version was detected with a ClientHello-only raw probe"
+	result.Warnings = append(result.Warnings, fmt.Sprintf(
+		"%s was detected with a ClientHello-only raw probe: the server selected %s, but a full handshake could not be completed (%s). Certificate, key exchange group and ALPN are not available for this version.",
+		result.Version, raw.Name, failed.ErrorMessage))
+	return result
 }
 
 func buildSupportedResult(result TLSScanResult, conn *tls.Conn, opts Options, serverName string) TLSScanResult {
@@ -306,9 +372,11 @@ func probeLegacyCipherSuites(opts Options, version uint16, result *CipherProbeRe
 		result.Warnings = append(result.Warnings, fmt.Sprintf(
 			"%s: the raw cipher enumeration could not finish (%s); %d of %d legacy cipher suites were not classified, so the cipher list is incomplete.",
 			versionName, reason, unresolved, total))
-	case implementedSelected == 0:
-		// The version handshake succeeded with a crypto/tls suite, so an
-		// enumeration that saw none of them is not telling the truth.
+	case implementedSelected == 0 && fullHandshakeSucceeds(opts, version, fullHandshake, result):
+		// A full handshake negotiates a crypto/tls suite, so an enumeration
+		// that saw none of them is not telling the truth. When the handshake
+		// fails too, the endpoint simply has no suite crypto/tls implements
+		// (RC4-only, DHE-only...) and the enumeration is consistent.
 		result.Incomplete = true
 		result.Warnings = append(result.Warnings, fmt.Sprintf(
 			"%s: the raw cipher enumeration found none of the suites this endpoint negotiates with full handshakes; legacy cipher suites outside the full-handshake probe set could not be verified, so the cipher list is incomplete.",
@@ -374,6 +442,32 @@ func probeLegacyCipherSuites(opts Options, version uint16, result *CipherProbeRe
 			versionName, timedOut, len(candidates)))
 	}
 	return supported
+}
+
+// fullHandshakeSucceeds reports whether one crypto/tls handshake offering all
+// of suites completes on the given version.
+func fullHandshakeSucceeds(opts Options, version uint16, suites []utils.CipherSuite, result *CipherProbeResult) bool {
+	ids := make([]uint16, 0, len(suites))
+	for _, cs := range suites {
+		ids = append(ids, cs.ID)
+	}
+	if len(ids) == 0 {
+		return false
+	}
+	result.Attempts++
+	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), &tls.Config{
+		MinVersion:         version,
+		MaxVersion:         version,
+		CipherSuites:       ids,
+		InsecureSkipVerify: true, // #nosec G402 -- scanner probe, validation done separately
+		ServerName:         opts.tlsServerName(),
+		NextProtos:         DefaultALPNProtocols(),
+	})
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // enumerateLegacyCipherSuites runs the raw enumeration over the tlsprobe

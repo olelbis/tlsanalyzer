@@ -411,6 +411,19 @@ func ProbeLegacyCipherSuite(ctx context.Context, opts Options, version uint16, c
 // probeLegacyOffer sends one ClientHello offering cipherSuites and classifies
 // the answer. On StatusSupported the result names the suite the server
 // selected; on every other status it names the first offered suite.
+// SelectLegacyCipherSuite sends one TLS 1.0, 1.1 or 1.2 ClientHello that
+// offers all of cipherSuites and reports which one the server selects.
+//
+// On StatusSupported, Result.CipherSuite and Result.Name are the suite the
+// ServerHello selected on the requested protocol version. An alert or a closed
+// connection means the server accepts none of the offered suites on that
+// version. It is the single step EnumerateLegacyCipherSuites repeats, and the
+// cheapest way to learn whether a server speaks a protocol version at all when
+// crypto/tls shares no cipher suite with it.
+func SelectLegacyCipherSuite(ctx context.Context, opts Options, version uint16, cipherSuites []uint16) (Result, error) {
+	return probeLegacyOffer(ctx, opts, version, cipherSuites)
+}
+
 func probeLegacyOffer(ctx context.Context, opts Options, version uint16, cipherSuites []uint16) (Result, error) {
 	result := Result{
 		Status:        StatusInconclusive,
