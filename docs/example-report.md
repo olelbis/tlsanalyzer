@@ -1,7 +1,7 @@
 # TLS Scan Report for host example.com:443
 
 - **Generated At**: 2026-05-17T15:20:00Z
-- **Scanner Version**: v0.31.3
+- **Scanner Version**: v0.32.0
 - **JSON Schema Version**: 1.1
 
 ## Summary
@@ -52,7 +52,7 @@
 | --- | --- |
 | TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |
 | TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 | 🟢 SECURE |
-| TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 | 🟢 MODERN |
+| TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 | 🟢 MODERN |
 
 ### TLS 1.3
 

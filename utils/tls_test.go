@@ -215,3 +215,31 @@ func TestCipherClassificationForVersionLabelsRawProbedSuites(t *testing.T) {
 		t.Errorf("TLS 1.0 DHE CBC label = %q, want legacy CBC", label)
 	}
 }
+
+// A suite must carry one name everywhere: the negotiated name comes from
+// crypto/tls, so the probed list has to spell it the same way or the suite
+// shows up twice (for example with and without the _SHA256 suffix).
+func TestAllCipherSuitesUseCryptoTLSNames(t *testing.T) {
+	for _, cipherSuite := range AllCipherSuites {
+		if want := tls.CipherSuiteName(cipherSuite.ID); cipherSuite.Name != want {
+			t.Errorf("AllCipherSuites name for %#04x = %q, crypto/tls calls it %q", cipherSuite.ID, cipherSuite.Name, want)
+		}
+	}
+}
+
+func TestChaCha20NamesClassifyWithAndWithoutSHA256Suffix(t *testing.T) {
+	for _, name := range []string{
+		"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+		"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+		"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+		"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+	} {
+		if got := CipherSuiteSeverity(name); got != CipherSeverityModern {
+			t.Errorf("CipherSuiteSeverity(%q) = %q, want %q", name, got, CipherSeverityModern)
+		}
+		label, ok := CipherClassificationForVersion(tls.VersionTLS12, name)
+		if !ok || label != "🟢 MODERN" {
+			t.Errorf("CipherClassificationForVersion(%q) = %q, %v, want MODERN", name, label, ok)
+		}
+	}
+}

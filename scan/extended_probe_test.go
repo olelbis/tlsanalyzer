@@ -451,3 +451,20 @@ func TestProbeCipherSuitesFallsBackWhenEnumerationSeesNothing(t *testing.T) {
 		t.Fatalf("Warnings = %v, want the blind-enumeration warning", result.Warnings)
 	}
 }
+
+// Every suite the scanner can report must have one name, whichever probe
+// found it, otherwise the cipher list shows it twice.
+func TestProbeCatalogsAgreeOnCipherSuiteNames(t *testing.T) {
+	legacy := make(map[uint16]string)
+	for _, suite := range tlsprobe.LegacyCipherSuites() {
+		legacy[suite.ID] = suite.Name
+	}
+	for _, cs := range utils.AllCipherSuites {
+		if name, ok := legacy[cs.ID]; ok && name != cs.Name {
+			t.Errorf("suite %#04x is %q in the full-handshake list but %q in the raw probe catalog", cs.ID, cs.Name, name)
+		}
+		if got := tlsprobe.CipherSuiteName(cs.ID); got != cs.Name {
+			t.Errorf("suite %#04x is %q in the full-handshake list but tlsprobe.CipherSuiteName gives %q", cs.ID, cs.Name, got)
+		}
+	}
+}

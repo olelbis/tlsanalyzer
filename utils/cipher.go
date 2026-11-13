@@ -41,8 +41,8 @@ var AllCipherSuites = []CipherSuite{
 	{tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"},
 	{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"},
 	{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
-	{tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"},
-	{tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"},
+	{tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256"},
+	{tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"},
 	{tls.TLS_AES_128_GCM_SHA256, "TLS_AES_128_GCM_SHA256"},
 	{tls.TLS_AES_256_GCM_SHA384, "TLS_AES_256_GCM_SHA384"},
 	{tls.TLS_CHACHA20_POLY1305_SHA256, "TLS_CHACHA20_POLY1305_SHA256"},
@@ -71,9 +71,13 @@ var CipherClassification = map[string]string{
 	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   "🟢 SECURE",
 	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  "🟢 MODERN",
 	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    "🟢 MODERN",
-	"TLS_AES_128_GCM_SHA256":                  "🟢 MODERN",
-	"TLS_AES_256_GCM_SHA384":                  "🟢 MODERN",
-	"TLS_CHACHA20_POLY1305_SHA256":            "🟢 MODERN",
+	// IANA and crypto/tls spelling; the two entries above are the names
+	// earlier releases printed and are kept so older names still classify.
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": "🟢 MODERN",
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   "🟢 MODERN",
+	"TLS_AES_128_GCM_SHA256":                        "🟢 MODERN",
+	"TLS_AES_256_GCM_SHA384":                        "🟢 MODERN",
+	"TLS_CHACHA20_POLY1305_SHA256":                  "🟢 MODERN",
 }
 
 // CipherSeverityByName drives policy decisions; CipherClassification is only
@@ -101,9 +105,13 @@ var CipherSeverityByName = map[string]CipherSeverity{
 	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":   CipherSeveritySecure,
 	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305":  CipherSeverityModern,
 	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305":    CipherSeverityModern,
-	"TLS_AES_128_GCM_SHA256":                  CipherSeverityModern,
-	"TLS_AES_256_GCM_SHA384":                  CipherSeverityModern,
-	"TLS_CHACHA20_POLY1305_SHA256":            CipherSeverityModern,
+	// IANA and crypto/tls spelling; the two entries above are the names
+	// earlier releases printed and are kept so older names still classify.
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": CipherSeverityModern,
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   CipherSeverityModern,
+	"TLS_AES_128_GCM_SHA256":                        CipherSeverityModern,
+	"TLS_AES_256_GCM_SHA384":                        CipherSeverityModern,
+	"TLS_CHACHA20_POLY1305_SHA256":                  CipherSeverityModern,
 }
 
 func CipherSuiteSeverity(name string) CipherSeverity {
