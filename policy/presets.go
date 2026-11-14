@@ -3,6 +3,7 @@ package policy
 import (
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/olelbis/tlsanalyzer/scan"
@@ -130,14 +131,34 @@ func maxCertLifespanDays(name string) int {
 	return 0
 }
 
-func cipherAllowlistFailure(r scan.TLSScanResult, cipher string) (Failure, bool) {
-	if r.VersionID != tls.VersionTLS12 || mozillaIntermediateTLS12[cipher] {
+// cipherAllowlistFailure reports the TLS 1.2 suites outside the preset list as
+// one failure per version. Suites that weak-cipher already flags are left out,
+// so a suite is never reported twice for the same reason.
+func cipherAllowlistFailure(r scan.TLSScanResult) (Failure, bool) {
+	if r.VersionID != tls.VersionTLS12 {
 		return Failure{}, false
+	}
+	var outside []string
+	for _, cipher := range r.CipherSuites {
+		if mozillaIntermediateTLS12[cipher] {
+			continue
+		}
+		if _, weak := cipherPolicyFailure(r.Version, r.VersionID, cipher); weak {
+			continue
+		}
+		outside = append(outside, cipher)
+	}
+	if len(outside) == 0 {
+		return Failure{}, false
+	}
+	noun := "cipher suites"
+	if len(outside) == 1 {
+		noun = "cipher suite"
 	}
 	return Failure{
 		Check:   CheckCipherAllowlist,
 		Version: r.Version,
-		Message: fmt.Sprintf("%s allows cipher %s, which the %s preset does not list", r.Version, cipher, NameMozillaIntermediate),
+		Message: fmt.Sprintf("%s allows %d %s outside the %s list: %s", r.Version, len(outside), noun, NameMozillaIntermediate, strings.Join(outside, ", ")),
 	}, true
 }
 

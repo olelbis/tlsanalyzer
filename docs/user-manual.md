@@ -500,7 +500,7 @@ They are separate from `modern`, which keeps its meaning as tlsanalyzer's own TL
 | Check | `mozilla-modern` | `mozilla-intermediate` |
 | --- | --- | --- |
 | TLS versions | TLS 1.3 required, TLS 1.0 to 1.2 forbidden (`required-tls`, `forbidden-tls`) | TLS 1.0 and 1.1 forbidden (`legacy-tls`) |
-| TLS 1.2 cipher suites | not applicable | only the six ECDHE AES-GCM and ChaCha20 suites of the guideline (`cipher-allowlist`), plus `weak-cipher` |
+| TLS 1.2 cipher suites | not applicable | only the six ECDHE AES-GCM and ChaCha20 suites of the guideline (`cipher-allowlist`, one failure per version listing the suites outside it), plus `weak-cipher` |
 | Certificate key | ECDSA, P-256 or larger (`cert-key`) | ECDSA, P-256 or larger, or RSA of at least 2048 bits (`cert-key`) |
 | Certificate lifespan | at most 90 days, `NotAfter` minus `NotBefore` (`cert-lifespan`) | at most 366 days (`cert-lifespan`) |
 | Certificate trust | valid and not expired (`invalid-cert`, `expired-cert`) | valid and not expired |

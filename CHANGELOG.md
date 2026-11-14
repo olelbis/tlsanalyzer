@@ -4,6 +4,10 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Changed
+
+- The `cipher-allowlist` check of `--policy mozilla-intermediate` now reports one failure per TLS version, with the count and the list of the suites outside the guideline, and leaves out the suites that `weak-cipher` already reports for that version. Before, every suite produced its own line, so most of them appeared twice. A scan that failed before still fails.
+
 ## v0.34.0 - 2026-11-14
 
 ### Added
