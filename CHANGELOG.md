@@ -4,6 +4,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.35.0 - 2026-11-14
+
 ### Added
 
 - `--starttls smtp|imap|pop3` scans mail servers that start in plaintext and upgrade to TLS. Every connection of the scan, the full handshakes, the raw cipher and version probes and the key exchange group enumeration, first runs the STARTTLS dialogue and only then starts TLS, so `--force-ciphers`, `--enum-groups`, policies and baselines work on mail servers as on web servers. Without `--port` the protocol's own port is used (25, 143, 110); `--port 587` selects mail submission. The config file accepts `starttls` at the top level and in a named target.
