@@ -69,6 +69,13 @@ Public entry points:
 - `LegacyEnumeration`
 - `EnumerateLegacyCipherSuites`
 - `SelectLegacyCipherSuite`
+- `KeyExchangeGroup`
+- `KeyExchangeGroups`
+- `KeyExchangeGroupIDs`
+- `LookupKeyExchangeGroup`
+- `IsPostQuantumGroup`
+- `GroupEnumeration`
+- `EnumerateTLS13Groups`
 - `ProbeLegacyCipherSuite`
 - `ProbeLegacyCipherSuites`
 - `Summarize`
@@ -142,6 +149,31 @@ preference order. `Complete` is false, and `Unresolved` holds the suites that
 were not classified, when the enumeration could not finish (unanswered
 ClientHellos after one retry, or a ServerHello selecting a suite that was not
 offered). This is how `tlsanalyzer` stays below connection rate limits.
+
+## TLS 1.3 Key Exchange Groups
+
+`EnumerateTLS13Groups` finds which named groups a TLS 1.3 server accepts,
+post-quantum hybrids included:
+
+```go
+enumeration, err := tlsprobe.EnumerateTLS13Groups(ctx, opts, tlsprobe.KeyExchangeGroupIDs())
+for _, group := range enumeration.Supported {
+	fmt.Println(group.Name, group.PostQuantum)
+}
+```
+
+Each ClientHello offers all remaining groups with an empty `key_share`. The
+server answers with a HelloRetryRequest that names the group it wants (RFC 8446
+section 4.2.8), the group is recorded and removed, and the probe repeats until
+the server refuses with `handshake_failure` or `insufficient_security`: k groups
+cost k+1 connections. Because no key share is sent, no key material is needed
+and ML-KEM does not have to be implemented. A group is supported when the
+server selects it; no handshake is completed. `Supported` is in the order the
+server selected the groups, `Complete` is false and `Unresolved` holds the
+groups that were not classified when the enumeration could not finish (other
+alerts, unanswered ClientHellos after one retry, or a group that was not
+offered). A caller that also has a full handshake should check that the group it
+negotiated is in `Supported`.
 
 ## Status Values
 

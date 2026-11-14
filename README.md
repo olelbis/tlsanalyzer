@@ -60,6 +60,8 @@ tlsanalyzer --host example.com --policy modern
 tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
 tlsanalyzer --targets-file targets.json --concurrency 4 --retries 2 --json
 tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
+tlsanalyzer --host example.com --enum-groups
+tlsanalyzer --host example.com --require-pq
 tlsanalyzer --host example.com --force-ciphers --json > baseline.json
 tlsanalyzer --host example.com --baseline baseline.json
 tlsanalyzer --host example.com --compact

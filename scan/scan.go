@@ -17,18 +17,24 @@ import (
 )
 
 type TLSScanResult struct {
-	Version                   string
-	VersionID                 uint16
-	DurationMillis            int64
-	HandshakeAttempts         int
-	KeyExchangeGroup          string
-	ALPNProtocol              string
-	CipherDiscovery           string
-	NegotiatedCipherSuite     string
-	CipherSuites              []string
-	CipherSuitesObserved      bool
-	CipherProbeDurationMillis int64
-	CipherProbeResults        []CipherProbeStatus
+	Version           string
+	VersionID         uint16
+	DurationMillis    int64
+	HandshakeAttempts int
+	KeyExchangeGroup  string
+	// KeyExchangeGroups are the TLS 1.3 groups the endpoint accepts, in the
+	// order it selected them. It is only filled when group enumeration was
+	// requested, and KeyExchangeGroupsIncomplete reports that the list may
+	// be missing groups.
+	KeyExchangeGroups           []KeyExchangeGroupResult
+	KeyExchangeGroupsIncomplete bool
+	ALPNProtocol                string
+	CipherDiscovery             string
+	NegotiatedCipherSuite       string
+	CipherSuites                []string
+	CipherSuitesObserved        bool
+	CipherProbeDurationMillis   int64
+	CipherProbeResults          []CipherProbeStatus
 	// CipherEvidenceIncomplete reports that cipher probing could not classify
 	// every suite, so CipherSuites may be missing supported suites.
 	CipherEvidenceIncomplete bool

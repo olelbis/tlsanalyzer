@@ -50,12 +50,27 @@ func NeedsCipherProbe(base *Report) bool {
 	return false
 }
 
+// NeedsGroupProbe reports whether the baseline lists TLS 1.3 key exchange
+// groups, so that the current scan has to enumerate them too.
+func NeedsGroupProbe(base *Report) bool {
+	if base == nil {
+		return false
+	}
+	for _, r := range base.Results {
+		if r.Status == scan.ScanStatusSupported && len(r.KeyExchangeGroups) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Compare reports what changed from base to current, judging only what got
 // worse as a failure.
 //
 // A regression is: a legacy TLS version (1.0, 1.1) supported that was not, TLS
 // 1.3 no longer supported, a cipher suite that is insecure, weak or
-// unclassified that the baseline did not offer, cipher evidence that became
+// unclassified that the baseline did not offer, a post-quantum key exchange
+// group that is no longer accepted, cipher or group evidence that became
 // incomplete, a certificate that is no longer valid, that expires earlier or
 // that has a shorter key. A version or certificate that could not be
 // determined on either side is never a regression; it is a note.
@@ -138,7 +153,65 @@ func (c *comparison) version(b, cur output.JSONScanResult) {
 	}
 
 	c.ciphers(b, cur)
+	c.groups(b, cur)
 	c.certificate(b, cur)
+}
+
+func (c *comparison) groups(b, cur output.JSONScanResult) {
+	if len(b.KeyExchangeGroups) == 0 {
+		if len(cur.KeyExchangeGroups) > 0 {
+			c.note("key exchange groups of %s were not compared: the baseline has none (record it with --enum-groups)", cur.Version)
+		}
+		return
+	}
+	if len(cur.KeyExchangeGroups) == 0 && !cur.KeyExchangeGroupsIncomplete {
+		c.note("key exchange groups of %s were not compared: the current scan did not enumerate them", cur.Version)
+		return
+	}
+
+	if cur.KeyExchangeGroupsIncomplete && !b.KeyExchangeGroupsIncomplete {
+		c.fail(cur.Version, "%s key exchange group evidence is incomplete (probes went unanswered); changes since the baseline cannot be ruled out", cur.Version)
+	}
+	if b.KeyExchangeGroupsIncomplete {
+		c.note("%s key exchange group evidence in the baseline is incomplete, so groups reported as new may already have been accepted; record the baseline again", cur.Version)
+	}
+
+	baseGroups := groupSet(b.KeyExchangeGroups)
+	curGroups := groupSet(cur.KeyExchangeGroups)
+	for _, group := range cur.KeyExchangeGroups {
+		if _, ok := baseGroups[group.ID]; ok {
+			continue
+		}
+		c.note("%s now accepts key exchange group %s%s", cur.Version, group.Name, postQuantumSuffix(group))
+	}
+	if cur.KeyExchangeGroupsIncomplete {
+		return
+	}
+	for _, group := range b.KeyExchangeGroups {
+		if _, ok := curGroups[group.ID]; ok {
+			continue
+		}
+		if group.PostQuantum {
+			c.fail(cur.Version, "%s no longer accepts post-quantum key exchange group %s", cur.Version, group.Name)
+		} else {
+			c.note("%s no longer accepts key exchange group %s", cur.Version, group.Name)
+		}
+	}
+}
+
+func groupSet(groups []output.JSONKeyExchangeGroup) map[uint16]output.JSONKeyExchangeGroup {
+	set := make(map[uint16]output.JSONKeyExchangeGroup, len(groups))
+	for _, group := range groups {
+		set[group.ID] = group
+	}
+	return set
+}
+
+func postQuantumSuffix(group output.JSONKeyExchangeGroup) string {
+	if group.PostQuantum {
+		return " (post-quantum)"
+	}
+	return ""
 }
 
 func (c *comparison) ciphers(b, cur output.JSONScanResult) {
