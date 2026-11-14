@@ -58,7 +58,7 @@ JSON output is the best format for automation:
 ```json
 {
   "schema_version": "1.1",
-  "scanner_version": "v0.33.0",
+  "scanner_version": "v0.34.0",
   "host": "example.com",
   "port": "443",
   "results": [
