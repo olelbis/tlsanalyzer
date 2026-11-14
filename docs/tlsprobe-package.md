@@ -1,12 +1,17 @@
 # TLS Probe Go Package
 
-`github.com/olelbis/tlsanalyzer/tlsprobe` exposes the raw cipher probes used by
-`tlsanalyzer`: one for TLS 1.3 and one for TLS 1.0 to 1.2.
+`github.com/olelbis/tlsanalyzer/tlsprobe` exposes the raw probes used by
+`tlsanalyzer`: cipher suite probes for TLS 1.3 and for TLS 1.0 to 1.2, and the
+enumeration of the key exchange groups a TLS 1.3 server accepts.
 
 The package is intentionally small and preview-level. It sends minimal
-ClientHello messages, offers one cipher suite at a time and classifies the first
-useful server response. It is not a TLS implementation and it does not complete
-full TLS handshakes.
+ClientHello messages and classifies the first useful server response. The
+`Probe*` functions offer one cipher suite at a time; the `Enumerate*` functions
+offer many candidates at once and remove the one the server selects, so a server
+with k entries costs about k+1 connections. Group enumeration sends an empty
+`key_share`, which makes the server name its preferred group in a
+HelloRetryRequest, so no key material is generated. It is not a TLS
+implementation and it does not complete full TLS handshakes.
 
 ## Install
 

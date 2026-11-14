@@ -15,9 +15,10 @@ releases unless a changelog entry explicitly calls out a breaking change.
 | --- | --- |
 | CLI exit codes | `0`, `1`, `2` and `3` keep their documented meanings. |
 | JSON schema v1 | Existing documented fields, types and enum meanings are preserved. |
-| Policy checks | Built-in check names and policy failure exit behavior are preserved. |
+| Policy checks | Built-in check names, including `baseline` and `require-pq`, and policy failure exit behavior are preserved. |
 | Report separation | TLS protocol support remains separate from certificate validation status. |
-| TLS 1.3 evidence labels | Raw-probed, observed and negotiated evidence remain explicitly labeled. |
+| Evidence labels | Raw-probed, observed and negotiated evidence, and the `clienthello-serverhello` version and cipher evidence, remain explicitly labeled. |
+| Baseline input | `--baseline` reads an ordinary `--json` report. A report with a different JSON schema major version is an input error (exit 1), never a silent pass. |
 | Runtime dependency model | The released CLI remains dependency-free at runtime. |
 
 Single-target input validation may report multiple input errors in one
@@ -36,7 +37,8 @@ Minor `v0.x` releases may:
 - add CLI flags with default-off behavior;
 - add new policy checks when they do not change existing defaults;
 - improve wording in human-readable output;
-- improve raw TLS 1.3 evidence without claiming full-handshake support;
+- improve raw probe evidence without claiming full-handshake support;
+- extend what `--baseline` treats as a regression only when security gets worse;
 - add release artifacts, documentation or validation checks.
 
 Patch releases should be limited to bug fixes, documentation corrections and
@@ -54,7 +56,7 @@ breaking preview release or a future `v1.0.0` compatibility decision:
 - changing `--policy modern` defaults in a way that makes previous passes fail
   for reasons unrelated to better evidence;
 - mixing certificate PEM output into JSON stdout;
-- presenting TLS 1.3 raw probe evidence as a completed full TLS handshake.
+- presenting raw probe evidence (TLS 1.0 to 1.3 versions and cipher suites, or key exchange groups) as a completed full TLS handshake.
 
 ## Exit Codes
 

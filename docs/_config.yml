@@ -1,5 +1,5 @@
 title: tlsanalyzer
-description: Dependency-free TLS inspection CLI for protocols, ciphers, certificates, reports and CI policy checks.
+description: Dependency-free TLS inspection CLI for protocols, ciphers, post-quantum key exchange groups, certificates, baseline comparison, reports and CI policy checks.
 theme: jekyll-theme-cayman
 
 plugins:

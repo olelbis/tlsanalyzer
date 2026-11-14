@@ -1,6 +1,6 @@
 # Feedback and Compatibility Reports
 
-`tlsanalyzer` is in beta-readiness review. The most useful external feedback is
+`tlsanalyzer` is preview software on the `v0.33.x` line. The most useful external feedback is
 real-world evidence from endpoints, CI runs and package installations that the
 maintainers cannot reproduce locally.
 
@@ -10,6 +10,8 @@ Please open an issue when you see:
 
 - TLS version support that differs from another trusted scanner.
 - TLS 1.3 raw-probe evidence that is inconclusive, unstable or hard to interpret.
+- Key exchange group lists (`--enum-groups`) that differ from another scanner, or `--require-pq` results that look wrong.
+- `--baseline` failures or notes that do not match what changed on the endpoint.
 - Certificate validation, public key, signature or expiry details that look wrong.
 - Policy checks that fail or pass unexpectedly.
 - JSON, SARIF, JUnit or Markdown output that is hard to consume in automation.
@@ -30,6 +32,13 @@ For TLS 1.3 raw-probe evidence, enable full cipher probing:
 
 ```bash
 tlsanalyzer --host example.com --sni example.com --force-cipher-check --json
+```
+
+For key exchange group and baseline reports:
+
+```bash
+tlsanalyzer --host example.com --sni example.com --enum-groups --json
+tlsanalyzer --host example.com --sni example.com --baseline baseline.json --json
 ```
 
 For installation and release verification reports:

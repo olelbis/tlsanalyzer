@@ -13,7 +13,7 @@ tag_commit="$(git rev-list -n 1 "${latest_tag}")"
 if [[ "${head_commit}" != "${tag_commit}" ]]; then
   release_required=0
   while IFS= read -r file; do
-    if [[ "${file}" != docs/* && "${file}" != "scripts/check-release-alignment.sh" ]]; then
+    if [[ "${file}" != docs/* && "${file}" != "README.md" && "${file}" != "BACKLOG.md" && "${file}" != "scripts/check-release-alignment.sh" ]]; then
       release_required=1
       break
     fi

@@ -18,7 +18,7 @@ It is built for environments where the scanner should be easy to carry, easy to 
 
 ## Project Status
 
-`tlsanalyzer` is in beta-readiness review on the `v0.31.x` line. Feature growth is paused for now; patch releases are limited to bug fixes, documentation updates and compatibility-preserving hardening while the project gathers real-world usage before a future beta/v1 decision.
+`tlsanalyzer` is preview software on the `v0.33.x` line. Feature work has resumed, focused on what a plain cipher list does not give you: raw probing of legacy and TLS 1.3 cipher suites, post-quantum key exchange group enumeration and baseline comparison for regression checks. The contracts in the [compatibility policy](docs/compatibility-policy.md) still apply, and a beta/v1 decision stays open until there is more real-world usage.
 
 External feedback is welcome, especially endpoint compatibility reports, policy false positives/negatives, JSON automation issues and installation or release-verification problems. See [Feedback and compatibility reports](docs/feedback.md) for useful commands and what to include.
 
@@ -28,7 +28,10 @@ External feedback is welcome, especially endpoint compatibility reports, policy 
 - Reports negotiated and supported cipher suites.
 - Raw-probes TLS 1.3 cipher support when full cipher probing is enabled.
 - Raw-probes legacy TLS 1.0 to 1.2 suites that Go cannot offer (RC4, DHE, anonymous, EXPORT, CAMELLIA, ARIA, CCM and more) when full cipher probing is enabled.
+- Detects TLS 1.0 to 1.2 even when the endpoint shares no cipher suite with Go, using a raw ClientHello version probe.
 - Reports negotiated key exchange group, ALPN protocol and certificate key/signature metadata.
+- Enumerates the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids, with `--enum-groups`, and fails CI when none is offered with `--require-pq`.
+- Compares a scan with a report recorded earlier and fails on security regressions with `--baseline`.
 - Keeps TLS support separate from certificate validation status.
 - Supports explicit SNI/certificate name overrides for IP and load balancer scans.
 - Prints certificate summaries and optional PEM certificate chains.
@@ -78,7 +81,7 @@ Exit codes are stable for CI: `0` means success, `1` means input/runtime/report 
 - [User manual](docs/user-manual.md): installation, flags, examples, output formats and operational notes.
 - [JSON schema v1](docs/json-schema-v1.md): machine-readable output contract.
 - [Compatibility policy](docs/compatibility-policy.md): preview stability promises for CLI, JSON, policy and release behavior.
-- [TLS probe Go package](docs/tlsprobe-package.md): preview API for raw TLS 1.3 cipher probing.
+- [TLS probe Go package](docs/tlsprobe-package.md): preview API for raw TLS 1.0 to 1.3 cipher probing and TLS 1.3 key exchange group enumeration.
 - [Sample Markdown report](docs/example-report.md): example of the generated report format.
 - [Output examples](docs/output-examples.md): small console, JSON, Markdown and CI snippets with evidence semantics.
 - [Validation matrix](docs/validation-matrix.md): manual real-world smoke checks for release confidence.
