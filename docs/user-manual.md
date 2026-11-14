@@ -160,7 +160,7 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
   --version
         Print version information and exit
   --policy string
-        Policy to evaluate: modern
+        Policy to evaluate: modern, mozilla-modern or mozilla-intermediate
   --fail-on string
         Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert
   --require-tls string
@@ -485,6 +485,29 @@ The `modern` policy fails the run when it detects:
 Because the `modern` policy includes weak cipher checks, it automatically enables cipher probing.
 
 Because the `modern` policy includes certificate checks, certificate validation must succeed. Invalid, skipped or unavailable validation fails the policy.
+
+#### Mozilla presets
+
+`mozilla-modern` and `mozilla-intermediate` follow the Modern and Intermediate configurations of the [Mozilla Server Side TLS guidelines](https://wiki.mozilla.org/Security/Server_Side_TLS), version 6.0:
+
+```bash
+tlsanalyzer --host example.com --policy mozilla-intermediate
+tlsanalyzer --host example.com --policy mozilla-modern --require-pq
+```
+
+They are separate from `modern`, which keeps its meaning as tlsanalyzer's own TLS 1.2 baseline. Mozilla removed its Old configuration in version 6.0, so there is no preset for it.
+
+| Check | `mozilla-modern` | `mozilla-intermediate` |
+| --- | --- | --- |
+| TLS versions | TLS 1.3 required, TLS 1.0 to 1.2 forbidden (`required-tls`, `forbidden-tls`) | TLS 1.0 and 1.1 forbidden (`legacy-tls`) |
+| TLS 1.2 cipher suites | not applicable | only the six ECDHE AES-GCM and ChaCha20 suites of the guideline (`cipher-allowlist`), plus `weak-cipher` |
+| Certificate key | ECDSA, P-256 or larger (`cert-key`) | ECDSA, P-256 or larger, or RSA of at least 2048 bits (`cert-key`) |
+| Certificate lifespan | at most 90 days, `NotAfter` minus `NotBefore` (`cert-lifespan`) | at most 366 days (`cert-lifespan`) |
+| Certificate trust | valid and not expired (`invalid-cert`, `expired-cert`) | valid and not expired |
+
+`mozilla-modern` scans down to TLS 1.0 whatever `--min-version` says, because the versions it forbids have to be looked at. `mozilla-intermediate` enables cipher probing, since it judges the TLS 1.2 suite list. Lifespans are compared in whole days, rounded down. A version detected only by the raw probe has no certificate, so the key and lifespan checks fail on it.
+
+Only what a client-side scan can observe is checked. The server's cipher preference order, HSTS, OCSP stapling and the key exchange groups are not. Add `--require-pq` to also require a post-quantum group; the presets do not, so their result does not change when a server adds or drops one. An explicit gate that contradicts a preset, such as `--policy mozilla-modern --require-tls 1.2`, is an input error (exit 1).
 
 Use targeted checks without a named policy:
 

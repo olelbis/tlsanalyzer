@@ -350,7 +350,7 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.IntVar(&cfg.concurrency, "concurrency", 4, "Maximum concurrent targets in batch mode")
 	fs.IntVar(&cfg.retries, "retries", 0, "Retry count for transient network failures")
 	fs.IntVar(&cfg.retryBackoff, "retry-backoff", 1, "Base retry backoff in seconds")
-	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern")
+	fs.StringVar(&cfg.policy, "policy", "", "Policy to evaluate: modern, mozilla-modern or mozilla-intermediate")
 	fs.StringVar(&cfg.failOn, "fail-on", "", "Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert")
 	fs.StringVar(&cfg.requireTLS, "require-tls", "", "Comma-separated TLS versions that must be supported, such as 1.3")
 	fs.StringVar(&cfg.forbidTLS, "forbid-tls", "", "Comma-separated TLS versions that must not be supported, such as 1.0,1.1")

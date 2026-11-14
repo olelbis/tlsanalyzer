@@ -100,7 +100,13 @@ Print version information and exit.
 .TP
 .BR --policy " " \fIname\fR
 Evaluate a built-in policy. Currently supported:
-.BR modern .
+.BR modern ,
+.B mozilla-modern
+and
+.BR mozilla-intermediate .
+The two Mozilla presets follow the Modern and Intermediate configurations of the
+Mozilla Server Side TLS guidelines 6.0: protocol versions, the TLS 1.2 cipher
+suite list, the certificate key type and size, and the certificate lifespan.
 .TP
 .BR --fail-on " " \fIchecks\fR
 Comma-separated checks that fail the run. Supported checks:
