@@ -4,6 +4,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.36.0 - 2026-11-14
+
 ### Added
 
 - `X25519MLKEM768` is now confirmed with a complete TLS 1.3 handshake that offers only that group, instead of relying on the HelloRetryRequest alone. Each entry of `key_exchange_groups` has an `evidence` field (`hello-retry-request`, `handshake`, `handshake-failed`). A group the server selects but then fails to complete is marked `[handshake failed]` and no longer counts for `--require-pq`.
