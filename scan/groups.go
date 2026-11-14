@@ -62,10 +62,11 @@ func ProbeKeyExchangeGroups(opts Options, negotiatedGroup string) GroupProbeResu
 	}
 
 	enumeration, err := tlsprobe.EnumerateTLS13Groups(context.Background(), tlsprobe.Options{
-		Address:    net.JoinHostPort(opts.Host, opts.Port),
-		ServerName: opts.tlsServerName(),
-		Timeout:    opts.Timeout,
-		ALPN:       DefaultALPNProtocols(),
+		Address:     net.JoinHostPort(opts.Host, opts.Port),
+		ServerName:  opts.tlsServerName(),
+		Timeout:     opts.Timeout,
+		ALPN:        DefaultALPNProtocols(),
+		DialContext: opts.probeDialContext(),
 	}, tlsprobe.KeyExchangeGroupIDs())
 	result.Connections = enumeration.Connections
 	for _, group := range enumeration.Supported {

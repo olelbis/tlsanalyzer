@@ -10,6 +10,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
+	"github.com/olelbis/tlsanalyzer/starttls"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
@@ -48,8 +49,13 @@ type Options struct {
 	// EnumGroups enumerates the TLS 1.3 key exchange groups the endpoint
 	// accepts (post-quantum hybrids included). A policy that requires post-
 	// quantum key exchange and a baseline that lists groups turn it on too.
-	EnumGroups   bool
-	SkipVerify   bool
+	EnumGroups bool
+	SkipVerify bool
+	// StartTLS runs the STARTTLS dialogue of a mail protocol on every
+	// connection before the TLS handshake. The dialogue is tried once before
+	// the scan; a server that does not offer STARTTLS makes Run return a
+	// *starttls.Error instead of a pile of failed TLS versions.
+	StartTLS     starttls.Protocol
 	PolicyConfig policy.Config
 	// Baseline, when set, is a previously recorded report for this target.
 	// The run is compared with it and every regression fails the policy
@@ -115,6 +121,10 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 		MinVersion:   opts.MinVersion,
 		ForceCiphers: opts.ForceCiphers,
 		SkipVerify:   opts.SkipVerify,
+		StartTLS:     opts.StartTLS,
+	}
+	if err := scan.CheckStartTLS(scanOptions); err != nil {
+		return Result{}, err
 	}
 
 	// Explicit policy gates (--forbid-tls, --require-tls, --fail-on legacy-tls)

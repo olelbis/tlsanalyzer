@@ -6,7 +6,7 @@ This backlog is ordered by implementation priority. The goal is to keep `tlsanal
 
 The feature backlog from P1 through P31.1 is complete and feature work has resumed. Done since `v0.31.x`: raw probing of TLS 1.0 to 1.2 versions and cipher suites (`v0.32.0`), baseline comparison with `--baseline` and TLS 1.3 key exchange group and post-quantum enumeration with `--enum-groups` and `--require-pq` (`v0.33.0`), and the `mozilla-modern` and `mozilla-intermediate` policy presets (`v0.34.0`).
 
-Next: STARTTLS for SMTP, IMAP and POP3. Smaller ideas: TLS 1.2 ECDHE curve enumeration and reading the rest of the handshake for DH parameter sizes.
+Next: STARTTLS for FTP, XMPP, LDAP and PostgreSQL (SMTP, IMAP and POP3 are done, unreleased). Smaller ideas: TLS 1.2 ECDHE curve enumeration and reading the rest of the handshake for DH parameter sizes.
 
 Feedback intake is prepared with issue templates and documentation for endpoint compatibility reports, policy feedback, JSON automation issues and release-verification problems.
 

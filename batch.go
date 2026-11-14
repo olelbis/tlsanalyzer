@@ -16,6 +16,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
+	"github.com/olelbis/tlsanalyzer/starttls"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
@@ -151,6 +152,7 @@ type batchSettings struct {
 	minVersion   uint16
 	forceCiphers bool
 	enumGroups   bool
+	startTLS     starttls.Protocol
 	skipVerify   bool
 	policyConfig policy.Config
 	baseline     *baseline.Set
@@ -186,6 +188,14 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 		return batchSettings{}, fmt.Errorf("invalid --min-version %q; use 1.0, 1.1, 1.2 or 1.3", cfg.minVersionStr)
 	}
 
+	var startTLSProtocol starttls.Protocol
+	if cfg.startTLS != "" {
+		var err error
+		if startTLSProtocol, err = starttls.Parse(cfg.startTLS); err != nil {
+			return batchSettings{}, fmt.Errorf("invalid --starttls: %w", err)
+		}
+	}
+
 	policyConfig, err := buildPolicyConfig(cfg)
 	if err != nil {
 		return batchSettings{}, err
@@ -208,6 +218,7 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 		minVersion:   minVersion,
 		forceCiphers: cfg.forceCiphers,
 		enumGroups:   cfg.enumGroups,
+		startTLS:     startTLSProtocol,
 		skipVerify:   cfg.skipVerify,
 		policyConfig: policyConfig,
 		baseline:     baselineSet,
@@ -333,6 +344,7 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 			MinVersion:   settings.minVersion,
 			ForceCiphers: settings.forceCiphers,
 			EnumGroups:   settings.enumGroups,
+			StartTLS:     settings.startTLS,
 			SkipVerify:   settings.skipVerify,
 			PolicyConfig: settings.policyConfig,
 			Baseline:     baselineReport,

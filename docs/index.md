@@ -92,6 +92,7 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.34.1 --host example.com --no-clea
 | Cipher suites | Negotiated, probed, raw-probed or observed cipher evidence depending on TLS version and scan mode. |
 | TLS 1.3 raw probes | ClientHello-only ServerHello evidence with selected key share group, HelloRetryRequest and alert metadata. |
 | Legacy raw probes | TLS 1.0 to 1.2 version and cipher suite detection for suites Go cannot offer (RC4, DHE, anonymous, EXPORT and more). |
+| Mail servers | SMTP, IMAP and POP3 with `--starttls`, including raw probes and group enumeration. |
 | Key exchange groups | TLS 1.3 groups the server accepts, post-quantum hybrids marked, with `--enum-groups` and the `--require-pq` gate. |
 | Regression checks | `--baseline` compares a scan with an earlier JSON report and fails only on security regressions. |
 | Certificates | Trust status, issuer, subject, SANs, expiry, public key and signature details. |
