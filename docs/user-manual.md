@@ -124,7 +124,7 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
   --host string
         Hostname or server IP to scan (required unless provided by --config)
   --port string
-        TLS server port (default "443")
+        TLS server port; with --starttls the default is the protocol's port (default "443")
   --sni string
         TLS Server Name Indication and certificate validation name
   --targets-file string
@@ -175,6 +175,8 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         Minimum certificate public key size in bits
   --min-cert-days int
         Minimum number of days before certificate expiry
+  --starttls string
+        Upgrade the connection with STARTTLS before the TLS handshake: smtp, imap or pop3
   --enum-groups
         Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids
   --require-pq
@@ -538,6 +540,25 @@ Configurable policy flags are evaluated together with `--policy` and `--fail-on`
 - `--forbid-alpn`: fails when a supported handshake negotiates a listed ALPN protocol.
 - `--min-cert-key-bits`: fails when the certificate public key is unavailable or smaller than the configured size.
 - `--min-cert-days`: fails when certificate expiry is unavailable or closer than the configured threshold.
+
+### Mail servers with STARTTLS
+
+SMTP, IMAP and POP3 servers usually start in plaintext and switch to TLS on request. `--starttls` runs that plaintext dialogue first, so the scan sees the TLS the server really offers:
+
+```bash
+tlsanalyzer --host mail.example.com --starttls smtp
+tlsanalyzer --host mail.example.com --starttls smtp --port 587 --force-ciphers
+tlsanalyzer --host mail.example.com --starttls imap --policy mozilla-intermediate
+tlsanalyzer --host mail.example.com --starttls pop3 --enum-groups
+```
+
+Without `--port`, the protocol's own port is used: 25 for `smtp`, 143 for `imap` and 110 for `pop3`. Mail submission usually listens on 587, which has to be passed explicitly. Implicit-TLS ports such as 465, 993 and 995 need no `--starttls`.
+
+Every connection of the scan starts with the dialogue, the raw probes and the group enumeration included, so `--force-ciphers` and `--enum-groups` work as on a web server. The dialogue stops as soon as the server agrees to start TLS; no authentication is attempted and no mail is sent. SMTP announces itself as `tlsanalyzer.invalid` in `EHLO`.
+
+Before the scan the dialogue is tried once. A server that does not offer STARTTLS, refuses it, or does not speak the chosen protocol ends the run with exit 1 and a message such as `starttls smtp: the server does not offer STARTTLS`, instead of four unsupported TLS versions.
+
+A full scan opens many connections, each with its own greeting. Mail servers often limit how fast a client may connect, and some tarpit or block it, so scan servers you run or have permission to test, and keep `--force-ciphers` for those. In a config file, `starttls` is accepted at the top level and in a named target; with `--targets-file` the one `--starttls` applies to every target.
 
 ### Key exchange groups and post-quantum support
 

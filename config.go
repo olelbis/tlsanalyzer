@@ -34,6 +34,7 @@ type fileConfig struct {
 	MinCertDays    *int                         `json:"min_cert_days,omitempty"`
 	Baseline       *string                      `json:"baseline,omitempty"`
 	EnumGroups     *bool                        `json:"enum_groups,omitempty"`
+	StartTLS       *string                      `json:"starttls,omitempty"`
 	RequirePQ      *bool                        `json:"require_pq,omitempty"`
 	Target         *string                      `json:"target,omitempty"`
 	Profile        *string                      `json:"profile,omitempty"`
@@ -46,9 +47,10 @@ type fileConfig struct {
 }
 
 type fileTarget struct {
-	Host *string `json:"host,omitempty"`
-	Port *string `json:"port,omitempty"`
-	SNI  *string `json:"sni,omitempty"`
+	Host     *string `json:"host,omitempty"`
+	Port     *string `json:"port,omitempty"`
+	SNI      *string `json:"sni,omitempty"`
+	StartTLS *string `json:"starttls,omitempty"`
 }
 
 type filePolicyProfile struct {
@@ -129,6 +131,8 @@ func applyFileConfig(cfg *cliConfig, file fileConfig, cliTarget, cliProfile stri
 func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyString(&cfg.host, file.Host)
 	applyString(&cfg.port, file.Port)
+	cfg.portSet = cfg.portSet || file.Port != nil
+	applyString(&cfg.startTLS, file.StartTLS)
 	applyString(&cfg.sni, file.SNI)
 	applyBool(&cfg.certChain, file.Cert)
 	applyBool(&cfg.checkCertExpiry, file.CheckCert)
@@ -163,6 +167,8 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 func applyFileTarget(cfg *cliConfig, target fileTarget) {
 	applyString(&cfg.host, target.Host)
 	applyString(&cfg.port, target.Port)
+	cfg.portSet = cfg.portSet || target.Port != nil
+	applyString(&cfg.startTLS, target.StartTLS)
 	applyString(&cfg.sni, target.SNI)
 }
 
@@ -184,6 +190,10 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["port"] {
 		dst.port = src.port
+		dst.portSet = true
+	}
+	if explicit["starttls"] {
+		dst.startTLS = src.startTLS
 	}
 	if explicit["sni"] {
 		dst.sni = src.sni

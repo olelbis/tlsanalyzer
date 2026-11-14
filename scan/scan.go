@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/olelbis/tlsanalyzer/starttls"
 	"github.com/olelbis/tlsanalyzer/tlsprobe"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
@@ -61,6 +62,56 @@ type Options struct {
 	MinVersion   uint16
 	ForceCiphers bool
 	SkipVerify   bool
+	// StartTLS, when set, makes every connection start in plaintext and run
+	// the STARTTLS dialogue of that protocol before the TLS handshake or
+	// raw ClientHello probe.
+	StartTLS starttls.Protocol
+}
+
+// probeDialContext is the dial function raw probes use: nil, so tlsprobe dials
+// directly, or one that completes the STARTTLS dialogue first.
+func (o Options) probeDialContext() func(ctx context.Context, network, address string) (net.Conn, error) {
+	if o.StartTLS == "" {
+		return nil
+	}
+	return starttls.DialContext(o.StartTLS, o.Timeout, nil)
+}
+
+// dialTLS opens a connection and completes a crypto/tls handshake with config,
+// after the STARTTLS dialogue when one is configured.
+func (o Options) dialTLS(config *tls.Config) (*tls.Conn, error) {
+	address := net.JoinHostPort(o.Host, o.Port)
+	if o.StartTLS == "" {
+		return tls.DialWithDialer(&net.Dialer{Timeout: o.Timeout}, "tcp", address, config)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), o.Timeout)
+	defer cancel()
+	raw, err := starttls.DialContext(o.StartTLS, o.Timeout, nil)(ctx, "tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	conn := tls.Client(raw, config)
+	if err := conn.HandshakeContext(ctx); err != nil {
+		_ = raw.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+// CheckStartTLS runs the STARTTLS dialogue once, so that a server that does
+// not offer it is reported as such instead of as a failure of every TLS
+// version. It returns nil when no STARTTLS protocol is configured.
+func CheckStartTLS(opts Options) error {
+	if opts.StartTLS == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	defer cancel()
+	conn, err := starttls.DialContext(opts.StartTLS, opts.Timeout, nil)(ctx, "tcp", net.JoinHostPort(opts.Host, opts.Port))
+	if err != nil {
+		return err
+	}
+	return conn.Close()
 }
 
 type CertValidation struct {
@@ -134,7 +185,6 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		result.DurationMillis = time.Since(start).Milliseconds()
 	}()
 
-	address := net.JoinHostPort(opts.Host, opts.Port)
 	serverName := opts.tlsServerName()
 	config := &tls.Config{
 		ServerName: serverName,
@@ -153,7 +203,7 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 		config.CipherSuites = utils.CipherSuiteIDsForVersion(version)
 	}
 
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", address, config)
+	conn, err := opts.dialTLS(config)
 	if err != nil {
 		result.Status, result.ErrorMessage = classifyScanError(err)
 		if version < tls.VersionTLS13 && rawVersionFallbackApplies(result.Status, err) {
@@ -175,6 +225,11 @@ func ScanTLSVersion(opts Options, version uint16) (result TLSScanResult) {
 // A version the server explicitly rejects, a timeout and a failed TCP
 // connection are final: asking again would not change the answer.
 func rawVersionFallbackApplies(status string, err error) bool {
+	if starttls.IsError(err) {
+		// The server never reached TLS, so another raw probe would only
+		// repeat the failed STARTTLS dialogue.
+		return false
+	}
 	switch status {
 	case ScanStatusHandshake:
 		return true
@@ -194,10 +249,11 @@ func rawVersionFallbackApplies(status string, err error) bool {
 func rawVersionFallback(opts Options, version uint16, failed TLSScanResult) TLSScanResult {
 	failed.HandshakeAttempts++
 	raw, err := tlsprobe.SelectLegacyCipherSuite(context.Background(), tlsprobe.Options{
-		Address:    net.JoinHostPort(opts.Host, opts.Port),
-		ServerName: opts.tlsServerName(),
-		Timeout:    opts.Timeout,
-		ALPN:       DefaultALPNProtocols(),
+		Address:     net.JoinHostPort(opts.Host, opts.Port),
+		ServerName:  opts.tlsServerName(),
+		Timeout:     opts.Timeout,
+		ALPN:        DefaultALPNProtocols(),
+		DialContext: opts.probeDialContext(),
 	}, version, tlsprobe.LegacyCipherSuitesForVersion(version))
 	if err != nil || raw.Status != tlsprobe.StatusSupported {
 		return failed
@@ -461,7 +517,7 @@ func fullHandshakeSucceeds(opts Options, version uint16, suites []utils.CipherSu
 		return false
 	}
 	result.Attempts++
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), &tls.Config{
+	conn, err := opts.dialTLS(&tls.Config{
 		MinVersion:         version,
 		MaxVersion:         version,
 		CipherSuites:       ids,
@@ -486,10 +542,11 @@ func enumerateLegacyCipherSuites(opts Options, version uint16, result *CipherPro
 	total = len(catalog)
 
 	rawOptions := tlsprobe.Options{
-		Address:    net.JoinHostPort(opts.Host, opts.Port),
-		ServerName: opts.tlsServerName(),
-		Timeout:    opts.Timeout,
-		ALPN:       DefaultALPNProtocols(),
+		Address:     net.JoinHostPort(opts.Host, opts.Port),
+		ServerName:  opts.tlsServerName(),
+		Timeout:     opts.Timeout,
+		ALPN:        DefaultALPNProtocols(),
+		DialContext: opts.probeDialContext(),
 	}
 	if err := tlsprobe.ValidateOptions(rawOptions); err != nil {
 		return selected, total, total, err.Error()
@@ -553,7 +610,7 @@ func fullHandshakeCipherProbes(opts Options, version uint16, suites []utils.Ciph
 			ServerName:         opts.tlsServerName(),
 			NextProtos:         DefaultALPNProtocols(),
 		}
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: opts.Timeout}, "tcp", net.JoinHostPort(opts.Host, opts.Port), conf)
+		conn, err := opts.dialTLS(conf)
 		if err == nil {
 			conn.Close()
 		}
@@ -589,10 +646,11 @@ func isTransientProbeError(err error) bool {
 func probeTLS13CipherSuites(opts Options) CipherProbeResult {
 	cipherIDs := tlsprobe.SupportedTLS13CipherSuites()
 	probeResults, err := tlsprobe.ProbeTLS13CipherSuites(context.Background(), tlsprobe.Options{
-		Address:    net.JoinHostPort(opts.Host, opts.Port),
-		ServerName: opts.tlsServerName(),
-		Timeout:    opts.Timeout,
-		ALPN:       DefaultALPNProtocols(),
+		Address:     net.JoinHostPort(opts.Host, opts.Port),
+		ServerName:  opts.tlsServerName(),
+		Timeout:     opts.Timeout,
+		ALPN:        DefaultALPNProtocols(),
+		DialContext: opts.probeDialContext(),
 	}, cipherIDs)
 
 	result := CipherProbeResult{

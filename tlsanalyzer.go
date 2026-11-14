@@ -19,6 +19,7 @@ import (
 	"github.com/olelbis/tlsanalyzer/output"
 	"github.com/olelbis/tlsanalyzer/policy"
 	"github.com/olelbis/tlsanalyzer/scan"
+	"github.com/olelbis/tlsanalyzer/starttls"
 	"github.com/olelbis/tlsanalyzer/utils"
 )
 
@@ -61,6 +62,8 @@ type cliConfig struct {
 	minCertDays     int
 	baseline        string
 	enumGroups      bool
+	startTLS        string
+	portSet         bool
 	requirePQ       bool
 }
 
@@ -135,6 +138,9 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		if serverName != "" {
 			fmt.Fprintf(stdout, "Using SNI/certificate name %s\n", serverName)
 		}
+		if inputs.startTLS != "" {
+			fmt.Fprintf(stdout, "Using STARTTLS (%s) before every TLS handshake\n", inputs.startTLS)
+		}
 		if scanMin := policy.MinimumScanVersion(policyConfig, minVersion); scanMin < minVersion {
 			fmt.Fprintf(stdout, "Scanning down to %s because policy gates refer to older TLS versions\n", utils.TLSVersions[scanMin])
 		}
@@ -152,6 +158,7 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		ForceCiphers: cfg.forceCiphers,
 		EnumGroups:   cfg.enumGroups,
 		SkipVerify:   cfg.skipVerify,
+		StartTLS:     inputs.startTLS,
 		PolicyConfig: policyConfig,
 		Baseline:     baselineReport,
 	}, analyzer.Hooks{
@@ -203,7 +210,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 		},
 	})
 	if err != nil {
-		fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
+		if starttls.IsError(err) {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+		} else {
+			fmt.Fprintf(stderr, "Error saving certificate chain: %v\n", err)
+		}
 		return exitCodeInputRuntimeFailure
 	}
 
@@ -304,8 +315,10 @@ func parseCLIArgs(args []string, stderr io.Writer) (cliConfig, error) {
 	fs.Visit(func(flag *flag.Flag) {
 		explicit[flag.Name] = true
 	})
+	cfg.portSet = explicit["port"]
 
 	if cfg.configPath == "" {
+		cfg.resolveStartTLSPort()
 		return cfg, nil
 	}
 
@@ -320,7 +333,19 @@ func parseCLIArgs(args []string, stderr io.Writer) (cliConfig, error) {
 		return cfg, cliInputError{err: err}
 	}
 	overlayExplicitCLIValues(&merged, cfg, explicit)
+	merged.resolveStartTLSPort()
 	return merged, nil
+}
+
+// resolveStartTLSPort gives --starttls its protocol's port when no port was
+// set on the command line or in the config file, instead of the HTTPS default.
+func (cfg *cliConfig) resolveStartTLSPort() {
+	if cfg.startTLS == "" || cfg.portSet {
+		return
+	}
+	if protocol, err := starttls.Parse(cfg.startTLS); err == nil {
+		cfg.port = starttls.DefaultPort(protocol)
+	}
 }
 
 func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
@@ -331,7 +356,8 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.StringVar(&cfg.profileName, "profile", "", "Named policy profile from --config")
 	fs.StringVar(&cfg.targetsFile, "targets-file", "", "JSON file with targets to scan in batch mode")
 	fs.StringVar(&cfg.host, "host", "", "Hostname or server IP")
-	fs.StringVar(&cfg.port, "port", "443", "TLS server port")
+	fs.StringVar(&cfg.port, "port", "443", "TLS server port; with --starttls the default is the protocol's port")
+	fs.StringVar(&cfg.startTLS, "starttls", "", "Upgrade the connection with STARTTLS before the TLS handshake: smtp, imap or pop3")
 	fs.StringVar(&cfg.sni, "sni", "", "TLS Server Name Indication and certificate validation name")
 	fs.BoolVar(&cfg.certChain, "cert", false, "Print certificate chain")
 	fs.BoolVar(&cfg.checkCertExpiry, "checkcert", false, "Check if the certificate is about to expire")
@@ -413,6 +439,7 @@ type singleTargetInput struct {
 	serverName   string
 	port         string
 	minVersion   uint16
+	startTLS     starttls.Protocol
 	policyConfig policy.Config
 }
 
@@ -440,6 +467,13 @@ func validateSingleTargetInput(cfg cliConfig) (singleTargetInput, []error) {
 	}
 	if cfg.timeout < 1 {
 		errs = append(errs, fmt.Errorf("--timeout must be at least 1 second"))
+	}
+	if cfg.startTLS != "" {
+		if protocol, err := starttls.Parse(cfg.startTLS); err != nil {
+			errs = append(errs, fmt.Errorf("invalid --starttls: %w", err))
+		} else {
+			in.startTLS = protocol
+		}
 	}
 
 	in.minVersion = utils.TLSVersionToUint16(cfg.minVersionStr)
