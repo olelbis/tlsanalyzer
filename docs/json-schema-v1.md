@@ -118,7 +118,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | yes | Whether policy evaluation was enabled. |
-| `name` | string | no | Built-in policy name, such as `modern`. Empty custom policies omit this field. |
+| `name` | string | no | Built-in policy name: `modern`, `mozilla-modern` or `mozilla-intermediate`. Empty custom policies omit this field. |
 | `passed` | boolean | yes | Whether all enabled checks passed. |
 | `failures` | array | no | Policy failure details. |
 | `notes` | array of strings | no | Informational notes that never change `passed`, for example when `legacy-tls` was evaluated only on the TLS versions selected by `--min-version`. |
@@ -127,7 +127,7 @@ Single-target scans and batch scans share the same schema version but use differ
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits`, `min-cert-days`, `require-pq` or `baseline` (a regression found by `--baseline`). |
+| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits`, `min-cert-days`, `cert-key`, `cert-lifespan`, `cipher-allowlist` (the last three only with the Mozilla presets), `require-pq` or `baseline` (a regression found by `--baseline`). |
 | `version` | string | no | TLS version associated with the failure when applicable. |
 | `message` | string | yes | Human-readable failure detail. Message wording is useful for humans, but automation should prefer `check` and `version`. |
 

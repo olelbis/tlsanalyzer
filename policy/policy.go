@@ -96,9 +96,13 @@ func ParseTLSVersions(value string) ([]uint16, error) {
 }
 
 func ValidateConfig(config Config) error {
-	if config.Name != "" && config.Name != NameModern {
-		return fmt.Errorf("unknown policy %q", config.Name)
+	if config.Name != "" && !IsKnownName(config.Name) {
+		return fmt.Errorf("unknown policy %q; use one of: %s", config.Name, strings.Join(Names(), ", "))
 	}
+	if err := validatePresetConflicts(config); err != nil {
+		return err
+	}
+	config = expand(config)
 	for _, check := range config.FailOn {
 		if !isKnownCheck(check) {
 			return fmt.Errorf("unknown fail-on check %q", check)
@@ -141,6 +145,7 @@ func ValidateConfig(config Config) error {
 // policy does not extend the scan: --min-version stays authoritative there and
 // ScanRangeNotes reports the limitation instead.
 func MinimumScanVersion(config Config, requested uint16) uint16 {
+	config = expand(config)
 	minimum := requested
 	lower := func(version uint16) {
 		if version != 0 && version < minimum {
@@ -162,6 +167,7 @@ func MinimumScanVersion(config Config, requested uint16) uint16 {
 // ScanRangeNotes describes policy checks that could not see every TLS version
 // they are about to judge because of the requested minimum scan version.
 func ScanRangeNotes(config Config, requested uint16) []string {
+	config = expand(config)
 	if !checksForConfig(config)[CheckLegacyTLS] {
 		return nil
 	}
@@ -180,10 +186,11 @@ func RequiresGroupProbe(config Config) bool {
 
 func RequiresCipherProbe(config Config) bool {
 	checks := checksForConfig(config)
-	return checks[CheckWeakCipher]
+	return checks[CheckWeakCipher] || checks[CheckCipherAllowlist]
 }
 
 func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result {
+	config = expand(config)
 	checks := checksForConfig(config)
 	result := Result{
 		Enabled: policyEnabled(config, checks),
@@ -207,7 +214,7 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 			result.Failures = append(result.Failures, Failure{
 				Check:   CheckLegacyTLS,
 				Version: r.Version,
-				Message: fmt.Sprintf("%s is supported; modern policy requires TLS 1.2 or newer", r.Version),
+				Message: legacyTLSMessage(config.Name, r.Version),
 			})
 		}
 		if checks[CheckInvalidCert] {
@@ -238,6 +245,23 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 				if failure, ok := cipherPolicyFailure(r.Version, r.VersionID, cipher); ok {
 					result.Failures = append(result.Failures, failure)
 				}
+			}
+		}
+		if checks[CheckCipherAllowlist] {
+			for _, cipher := range r.CipherSuites {
+				if failure, ok := cipherAllowlistFailure(r, cipher); ok {
+					result.Failures = append(result.Failures, failure)
+				}
+			}
+		}
+		if checks[CheckCertKey] {
+			if failure, ok := certKeyFailure(r, config.Name); ok {
+				result.Failures = append(result.Failures, failure)
+			}
+		}
+		if checks[CheckCertLifespan] {
+			if failure, ok := certLifespanFailure(r, config.Name); ok {
+				result.Failures = append(result.Failures, failure)
 			}
 		}
 		if config.RequirePostQuantum && r.VersionID == tls.VersionTLS13 {
@@ -302,11 +326,27 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 
 func checksForConfig(config Config) map[string]bool {
 	checks := make(map[string]bool)
-	if config.Name == NameModern {
+	switch config.Name {
+	case NameModern:
 		checks[CheckLegacyTLS] = true
 		checks[CheckWeakCipher] = true
 		checks[CheckInvalidCert] = true
 		checks[CheckExpiredCert] = true
+	case NameMozillaModern:
+		// TLS 1.0 to 1.2 are forbidden explicitly (see expand), so legacy-tls
+		// and weak-cipher would only repeat those failures.
+		checks[CheckInvalidCert] = true
+		checks[CheckExpiredCert] = true
+		checks[CheckCertKey] = true
+		checks[CheckCertLifespan] = true
+	case NameMozillaIntermediate:
+		checks[CheckLegacyTLS] = true
+		checks[CheckWeakCipher] = true
+		checks[CheckCipherAllowlist] = true
+		checks[CheckInvalidCert] = true
+		checks[CheckExpiredCert] = true
+		checks[CheckCertKey] = true
+		checks[CheckCertLifespan] = true
 	}
 	for _, check := range config.FailOn {
 		checks[check] = true

@@ -4,6 +4,13 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Added
+
+- `--policy mozilla-modern` and `--policy mozilla-intermediate` check a scan against the Modern and Intermediate configurations of the Mozilla Server Side TLS guidelines, version 6.0 (Mozilla removed its Old configuration in 6.0, so there is no preset for it). `mozilla-modern` requires TLS 1.3, forbids TLS 1.0 to 1.2 and asks for an ECDSA certificate issued for at most 90 days. `mozilla-intermediate` forbids TLS 1.0 and 1.1, allows only the six ECDHE AES-GCM and ChaCha20 suites of the guideline on TLS 1.2, and accepts an ECDSA certificate or an RSA one of at least 2048 bits issued for at most 366 days. Both also require a valid, unexpired certificate.
+- New policy checks `cert-key`, `cert-lifespan` and `cipher-allowlist`, reported in `policy.failures`, SARIF and JUnit like the others. They are only enabled by the Mozilla presets and cannot be selected with `--fail-on`.
+- The presets are separate from `modern`, which keeps its meaning. They check what a client-side scan can see; cipher preference order, HSTS, OCSP stapling and key exchange groups are not checked (`--require-pq` still adds the post-quantum group). A gate that contradicts a preset, such as `--policy mozilla-modern --require-tls 1.2`, is an input error.
+- The unknown-policy error now lists the built-in policy names.
+
 ## v0.33.0 - 2026-11-14
 
 ### Added

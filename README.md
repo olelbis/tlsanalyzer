@@ -60,6 +60,7 @@ tlsanalyzer --host example.com --json
 tlsanalyzer --host example.com --markdown example.com.md
 tlsanalyzer --host example.com --policy modern --sarif tls.sarif --junit tls.xml
 tlsanalyzer --host example.com --policy modern
+tlsanalyzer --host example.com --policy mozilla-intermediate
 tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
 tlsanalyzer --targets-file targets.json --concurrency 4 --retries 2 --json
 tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert-days 30
@@ -153,6 +154,7 @@ The scanner is suitable for controlled operational checks and CI policy gates, b
 - TLS 1.0 to 1.2 cipher probing combines full handshakes for the suites Go implements with ClientHello-only raw probes for a catalog of legacy suites Go cannot offer. PSK, SRP, Kerberos, GOST and static DH/ECDH suites are not probed.
 - Raw probe reports include ClientHello-only evidence level, selected key share group, HelloRetryRequest retry metadata and TLS alert codes when available.
 - The raw TLS 1.3 probe is available as the preview `tlsprobe` package inside this module.
+- `--policy mozilla-modern` and `--policy mozilla-intermediate` check a scan against the Mozilla Server Side TLS guidelines 6.0 (protocol versions, TLS 1.2 cipher list, certificate key and lifespan). They are separate from `modern`.
 - `--policy modern` is intentionally conservative: invalid, skipped or unavailable certificate validation fails certificate policy checks, and unclassified cipher suites fail weak-cipher checks.
 - Custom policy gates can require or forbid TLS versions and ALPN protocols, enforce minimum certificate key size and require a minimum certificate validity window.
 - The project remains dependency-free at runtime and uses only the Go standard library.

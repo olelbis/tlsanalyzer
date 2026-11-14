@@ -95,7 +95,7 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.33.0 --host example.com --no-clea
 | Key exchange groups | TLS 1.3 groups the server accepts, post-quantum hybrids marked, with `--enum-groups` and the `--require-pq` gate. |
 | Regression checks | `--baseline` compares a scan with an earlier JSON report and fails only on security regressions. |
 | Certificates | Trust status, issuer, subject, SANs, expiry, public key and signature details. |
-| CI policy | Exit codes, modern policy checks, SARIF output and JUnit XML output. |
+| CI policy | Exit codes, the `modern` and Mozilla Server Side TLS presets, SARIF output and JUnit XML output. |
 
 ## Release Artifacts
 
