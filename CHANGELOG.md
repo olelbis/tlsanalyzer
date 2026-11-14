@@ -4,6 +4,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.33.0 - 2026-11-14
+
 ### Added
 
 - `--enum-groups` enumerates the TLS 1.3 key exchange groups the endpoint accepts, including the post-quantum hybrids `X25519MLKEM768`, `SecP256r1MLKEM768` and `SecP384r1MLKEM1024`, the pure ML-KEM groups, the pre-standard `X25519Kyber768Draft00`, P-256/384/521, X25519, X448 and the FFDHE groups (17 groups in the catalog). Each ClientHello offers the remaining groups with an empty `key_share`, which RFC 8446 section 4.2.8 answers with a HelloRetryRequest that names the group the server wants, so no key material is needed (ML-KEM does not have to be implemented) and a server with k groups costs k+1 connections. A group counts as supported when the server selects it; no handshake is completed with it, and the evidence is labeled ClientHello-only.
