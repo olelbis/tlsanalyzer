@@ -248,10 +248,8 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 			}
 		}
 		if checks[CheckCipherAllowlist] {
-			for _, cipher := range r.CipherSuites {
-				if failure, ok := cipherAllowlistFailure(r, cipher); ok {
-					result.Failures = append(result.Failures, failure)
-				}
+			if failure, ok := cipherAllowlistFailure(r); ok {
+				result.Failures = append(result.Failures, failure)
 			}
 		}
 		if checks[CheckCertKey] {

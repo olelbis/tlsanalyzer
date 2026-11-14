@@ -153,12 +153,44 @@ func TestMozillaIntermediateFailsSuitesOutsideTheList(t *testing.T) {
 			"TLS_RSA_WITH_AES_128_GCM_SHA256"),
 	}
 	result := Evaluate(results, Config{Name: NameMozillaIntermediate}, presetNow)
-	if got := failureChecks(result)[CheckCipherAllowlist]; got != 2 {
-		t.Fatalf("cipher-allowlist failures = %d, want 2: %+v", got, result.Failures)
+	if got := failureChecks(result)[CheckCipherAllowlist]; got != 1 {
+		t.Fatalf("cipher-allowlist failures = %d, want one per version: %+v", got, result.Failures)
 	}
 	for _, failure := range result.Failures {
-		if failure.Check == CheckCipherAllowlist && strings.Contains(failure.Message, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256") {
-			t.Fatalf("a listed suite must not fail: %+v", failure)
+		if failure.Check != CheckCipherAllowlist {
+			continue
+		}
+		for _, want := range []string{"TLS 1.2 allows 2 cipher suites", "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256", "TLS_RSA_WITH_AES_128_GCM_SHA256"} {
+			if !strings.Contains(failure.Message, want) {
+				t.Fatalf("message %q does not contain %q", failure.Message, want)
+			}
+		}
+		if strings.Contains(failure.Message, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256") {
+			t.Fatalf("a listed suite must not be reported: %q", failure.Message)
+		}
+	}
+}
+
+func TestMozillaIntermediateAllowlistSkipsSuitesAlreadyFlaggedWeak(t *testing.T) {
+	cert := rsaCert(2048, days(90))
+	weakAndOutside := "TLS_RSA_WITH_AES_128_CBC_SHA"
+	results := []scan.TLSScanResult{
+		supportedResult("TLS 1.2", tls.VersionTLS12, cert, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", weakAndOutside),
+	}
+	result := Evaluate(results, Config{Name: NameMozillaIntermediate}, presetNow)
+	checks := failureChecks(result)
+	if checks[CheckWeakCipher] != 1 {
+		t.Fatalf("weak-cipher failures = %d, want 1: %+v", checks[CheckWeakCipher], result.Failures)
+	}
+	if checks[CheckCipherAllowlist] != 0 {
+		t.Fatalf("a suite weak-cipher already reports must not appear again: %+v", result.Failures)
+	}
+
+	results[0].CipherSuites = append(results[0].CipherSuites, "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256")
+	result = Evaluate(results, Config{Name: NameMozillaIntermediate}, presetNow)
+	for _, failure := range result.Failures {
+		if failure.Check == CheckCipherAllowlist && (strings.Contains(failure.Message, weakAndOutside) || !strings.Contains(failure.Message, "allows 1 cipher suite outside")) {
+			t.Fatalf("allowlist message should name only the suite weak-cipher does not report: %q", failure.Message)
 		}
 	}
 }
