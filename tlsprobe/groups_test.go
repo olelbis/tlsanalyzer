@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -198,17 +199,27 @@ func TestEnumerateTLS13GroupsGivesUpOnSilentServer(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	defer listener.Close()
-	var held []net.Conn
+	// The connections are held open and never answered; the accept goroutine
+	// and the cleanup share the list.
+	var (
+		mu   sync.Mutex
+		held []net.Conn
+	)
 	go func() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
 				return
 			}
+			mu.Lock()
 			held = append(held, conn)
+			mu.Unlock()
 		}
 	}()
 	defer func() {
+		_ = listener.Close()
+		mu.Lock()
+		defer mu.Unlock()
 		for _, conn := range held {
 			conn.Close()
 		}
