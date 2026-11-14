@@ -4,6 +4,13 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Added
+
+- `X25519MLKEM768` is now confirmed with a complete TLS 1.3 handshake that offers only that group, instead of relying on the HelloRetryRequest alone. Each entry of `key_exchange_groups` has an `evidence` field (`hello-retry-request`, `handshake`, `handshake-failed`). A group the server selects but then fails to complete is marked `[handshake failed]` and no longer counts for `--require-pq`.
+- The scan measures the server's key exchange group preference with two extra ClientHellos (post-quantum groups listed first and last). The console prints `Key Exchange Group Preference` and the JSON report has `key_exchange_group_preference` (`post-quantum`, `classical`, `client-order`, `inconclusive`), so a server that accepts a hybrid but only uses it when the client asks first is visible.
+- `--require-pq-preferred` (config key `require_pq_preferred`, policy check `require-pq-preferred`) fails the run unless the server prefers a post-quantum group. It implies `--enum-groups`.
+- `--baseline` fails when a server that preferred post-quantum groups no longer does, or when its hybrid handshake now fails.
+
 ## v0.35.0 - 2026-11-14
 
 ### Added

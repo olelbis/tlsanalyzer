@@ -34,6 +34,7 @@ type JSONScanResult struct {
 	KeyExchangeGroup            string                 `json:"key_exchange_group,omitempty"`
 	KeyExchangeGroups           []JSONKeyExchangeGroup `json:"key_exchange_groups,omitempty"`
 	KeyExchangeGroupsIncomplete bool                   `json:"key_exchange_groups_incomplete,omitempty"`
+	KeyExchangeGroupPreference  string                 `json:"key_exchange_group_preference,omitempty"`
 	ALPNProtocol                string                 `json:"alpn_protocol,omitempty"`
 	VersionEvidence             string                 `json:"version_evidence,omitempty"`
 	CipherDiscovery             string                 `json:"cipher_discovery"`
@@ -55,6 +56,8 @@ type JSONKeyExchangeGroup struct {
 	Name        string `json:"name"`
 	ID          uint16 `json:"id"`
 	PostQuantum bool   `json:"post_quantum"`
+	// Evidence is hello-retry-request, handshake or handshake-failed.
+	Evidence string `json:"evidence,omitempty"`
 }
 
 type JSONProbeResult struct {
@@ -126,6 +129,7 @@ func NewJSONReport(host, port, serverName, scannerVersion string, generatedAt ti
 			CipherEvidenceIncomplete:    r.CipherEvidenceIncomplete,
 			KeyExchangeGroups:           buildJSONKeyExchangeGroups(r.KeyExchangeGroups),
 			KeyExchangeGroupsIncomplete: r.KeyExchangeGroupsIncomplete,
+			KeyExchangeGroupPreference:  r.KeyExchangeGroupPreference,
 			Warnings:                    r.Warnings,
 			VersionEvidence:             r.VersionEvidence,
 			CertValidationStatus:        r.CertValidationStatus,
@@ -159,7 +163,7 @@ func buildJSONKeyExchangeGroups(groups []scan.KeyExchangeGroupResult) []JSONKeyE
 	}
 	out := make([]JSONKeyExchangeGroup, len(groups))
 	for i, group := range groups {
-		out[i] = JSONKeyExchangeGroup{Name: group.Name, ID: group.ID, PostQuantum: group.PostQuantum}
+		out[i] = JSONKeyExchangeGroup{Name: group.Name, ID: group.ID, PostQuantum: group.PostQuantum, Evidence: group.Evidence}
 	}
 	return out
 }

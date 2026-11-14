@@ -178,6 +178,13 @@ func (c *comparison) groups(b, cur output.JSONScanResult) {
 
 	baseGroups := groupSet(b.KeyExchangeGroups)
 	curGroups := groupSet(cur.KeyExchangeGroups)
+	c.groupPreference(b, cur)
+	for _, group := range cur.KeyExchangeGroups {
+		before, ok := baseGroups[group.ID]
+		if ok && group.PostQuantum && group.Evidence == scan.GroupEvidenceHandshakeFailed && before.Evidence != scan.GroupEvidenceHandshakeFailed {
+			c.fail(cur.Version, "%s selects post-quantum key exchange group %s but a handshake with it now fails; the baseline did not", cur.Version, group.Name)
+		}
+	}
 	for _, group := range cur.KeyExchangeGroups {
 		if _, ok := baseGroups[group.ID]; ok {
 			continue
@@ -196,6 +203,18 @@ func (c *comparison) groups(b, cur output.JSONScanResult) {
 		} else {
 			c.note("%s no longer accepts key exchange group %s", cur.Version, group.Name)
 		}
+	}
+}
+
+// groupPreference reports a server that stopped preferring post-quantum
+// groups. An inconclusive probe on either side proves nothing.
+func (c *comparison) groupPreference(b, cur output.JSONScanResult) {
+	if b.KeyExchangeGroupPreference != scan.PreferencePostQuantum {
+		return
+	}
+	switch cur.KeyExchangeGroupPreference {
+	case scan.PreferenceClassical, scan.PreferenceClient:
+		c.fail(cur.Version, "%s no longer prefers post-quantum key exchange groups (now: %s)", cur.Version, scan.FormatKeyExchangePreference(cur.KeyExchangeGroupPreference))
 	}
 }
 

@@ -315,3 +315,11 @@ func TestEnumerateTLS13GroupsRejectsInvalidInputAndStopsWithContext(t *testing.T
 		t.Fatalf("enumeration = %+v error = %v, want context.Canceled before any connection", enumeration, err)
 	}
 }
+
+func TestSelectTLS13GroupReportsServerChoice(t *testing.T) {
+	address := helloRetryRequestFixtureServer(t, GroupP256)
+	result := SelectTLS13Group(context.Background(), Options{Address: address, Timeout: time.Second}, []uint16{GroupX25519, GroupP256})
+	if result.Status != StatusHelloRetryRequest || result.SelectedGroup != GroupP256 {
+		t.Fatalf("result = %+v, want a HelloRetryRequest selecting P-256", result)
+	}
+}

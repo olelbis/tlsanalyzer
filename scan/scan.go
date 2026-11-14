@@ -29,13 +29,17 @@ type TLSScanResult struct {
 	// be missing groups.
 	KeyExchangeGroups           []KeyExchangeGroupResult
 	KeyExchangeGroupsIncomplete bool
-	ALPNProtocol                string
-	CipherDiscovery             string
-	NegotiatedCipherSuite       string
-	CipherSuites                []string
-	CipherSuitesObserved        bool
-	CipherProbeDurationMillis   int64
-	CipherProbeResults          []CipherProbeStatus
+	// KeyExchangeGroupPreference is the server's group preference class
+	// (Preference*), set with the group enumeration when a post-quantum group
+	// was found.
+	KeyExchangeGroupPreference string
+	ALPNProtocol               string
+	CipherDiscovery            string
+	NegotiatedCipherSuite      string
+	CipherSuites               []string
+	CipherSuitesObserved       bool
+	CipherProbeDurationMillis  int64
+	CipherProbeResults         []CipherProbeStatus
 	// CipherEvidenceIncomplete reports that cipher probing could not classify
 	// every suite, so CipherSuites may be missing supported suites.
 	CipherEvidenceIncomplete bool

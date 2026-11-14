@@ -31,7 +31,7 @@ External feedback is welcome, especially endpoint compatibility reports, policy 
 - Detects TLS 1.0 to 1.2 even when the endpoint shares no cipher suite with Go, using a raw ClientHello version probe.
 - Reports negotiated key exchange group, ALPN protocol and certificate key/signature metadata.
 - Scans SMTP, IMAP and POP3 servers that upgrade with STARTTLS (`--starttls smtp|imap|pop3`), probes included.
-- Enumerates the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids, with `--enum-groups`, and fails CI when none is offered with `--require-pq`.
+- Enumerates the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids, with `--enum-groups`, confirms `X25519MLKEM768` with a complete handshake, reports whether the server prefers a post-quantum group over classical ones, and fails CI with `--require-pq` (none offered) or `--require-pq-preferred` (not preferred).
 - Compares a scan with a report recorded earlier and fails on security regressions with `--baseline`.
 - Keeps TLS support separate from certificate validation status.
 - Supports explicit SNI/certificate name overrides for IP and load balancer scans.
@@ -68,6 +68,7 @@ tlsanalyzer --host example.com --require-tls 1.3 --forbid-tls 1.0,1.1 --min-cert
 tlsanalyzer --host example.com --enum-groups
 tlsanalyzer --host mail.example.com --starttls smtp
 tlsanalyzer --host example.com --require-pq
+tlsanalyzer --host example.com --require-pq-preferred
 tlsanalyzer --host example.com --force-ciphers --json > baseline.json
 tlsanalyzer --host example.com --baseline baseline.json
 tlsanalyzer --host example.com --compact

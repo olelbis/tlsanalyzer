@@ -174,6 +174,7 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 			groups := scan.ProbeKeyExchangeGroups(scanOptions, result.KeyExchangeGroup)
 			result.KeyExchangeGroups = groups.Groups
 			result.KeyExchangeGroupsIncomplete = groups.Incomplete
+			result.KeyExchangeGroupPreference = groups.Preference
 			result.HandshakeAttempts += groups.Connections
 			result.Warnings = append(result.Warnings, groups.Warnings...)
 		}
