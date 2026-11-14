@@ -4,6 +4,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.34.0 - 2026-11-14
+
 ### Added
 
 - `--policy mozilla-modern` and `--policy mozilla-intermediate` check a scan against the Modern and Intermediate configurations of the Mozilla Server Side TLS guidelines, version 6.0 (Mozilla removed its Old configuration in 6.0, so there is no preset for it). `mozilla-modern` requires TLS 1.3, forbids TLS 1.0 to 1.2 and asks for an ECDSA certificate issued for at most 90 days. `mozilla-intermediate` forbids TLS 1.0 and 1.1, allows only the six ECDHE AES-GCM and ChaCha20 suites of the guideline on TLS 1.2, and accepts an ECDSA certificate or an RSA one of at least 2048 bits issued for at most 366 days. Both also require a valid, unexpired certificate.
