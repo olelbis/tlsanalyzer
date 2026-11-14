@@ -16,7 +16,7 @@ implementation and it does not complete full TLS handshakes.
 ## Install
 
 ```bash
-go get github.com/olelbis/tlsanalyzer@v0.35.0
+go get github.com/olelbis/tlsanalyzer@v0.36.0
 ```
 
 ## Example

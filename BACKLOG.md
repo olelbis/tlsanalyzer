@@ -2,9 +2,9 @@
 
 This backlog is ordered by implementation priority. The goal is to keep `tlsanalyzer` small and dependency-free while improving correctness, testability and release quality.
 
-## Current Focus - v0.35.x Differentiation from Other TLS Scanners
+## Current Focus - v0.36.x Differentiation from Other TLS Scanners
 
-The feature backlog from P1 through P31.1 is complete and feature work has resumed. Done since `v0.31.x`: raw probing of TLS 1.0 to 1.2 versions and cipher suites (`v0.32.0`), baseline comparison with `--baseline` and TLS 1.3 key exchange group and post-quantum enumeration with `--enum-groups` and `--require-pq` (`v0.33.0`), the `mozilla-modern` and `mozilla-intermediate` policy presets (`v0.34.0`), and STARTTLS for SMTP, IMAP and POP3 with `--starttls` (`v0.35.0`).
+The feature backlog from P1 through P31.1 is complete and feature work has resumed. Done since `v0.31.x`: raw probing of TLS 1.0 to 1.2 versions and cipher suites (`v0.32.0`), baseline comparison with `--baseline` and TLS 1.3 key exchange group and post-quantum enumeration with `--enum-groups` and `--require-pq` (`v0.33.0`), the `mozilla-modern` and `mozilla-intermediate` policy presets (`v0.34.0`), and STARTTLS for SMTP, IMAP and POP3 with `--starttls` (`v0.35.0`), and handshake confirmation of `X25519MLKEM768`, server group preference and `--require-pq-preferred` (`v0.36.0`).
 
 Next: STARTTLS for FTP, XMPP, LDAP and PostgreSQL. Smaller ideas: TLS 1.2 ECDHE curve enumeration and reading the rest of the handshake for DH parameter sizes.
 

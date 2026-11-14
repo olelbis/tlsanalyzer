@@ -36,7 +36,7 @@ tlsanalyzer --host example.com --markdown example.com.md
 Container image:
 
 ```bash
-docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.35.0 --host example.com --no-clear
+docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.36.0 --host example.com --no-clear
 ```
 
 ## Documentation Map
