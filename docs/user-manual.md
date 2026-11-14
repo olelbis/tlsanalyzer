@@ -175,6 +175,10 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         Minimum certificate public key size in bits
   --min-cert-days int
         Minimum number of days before certificate expiry
+  --enum-groups
+        Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids
+  --require-pq
+        Fail when TLS 1.3 accepts no post-quantum key exchange group (implies --enum-groups)
   --baseline string
         Compare with a JSON report recorded earlier with --json; regressions fail the run (exit 3)
   --markdown string
@@ -512,6 +516,28 @@ Configurable policy flags are evaluated together with `--policy` and `--fail-on`
 - `--min-cert-key-bits`: fails when the certificate public key is unavailable or smaller than the configured size.
 - `--min-cert-days`: fails when certificate expiry is unavailable or closer than the configured threshold.
 
+### Key exchange groups and post-quantum support
+
+By default the scan reports the key exchange group the TLS handshake negotiated. `--enum-groups` finds every TLS 1.3 group the endpoint accepts, which answers the question "does this server offer post-quantum key exchange?":
+
+```bash
+tlsanalyzer --host example.com --min-version 1.3 --enum-groups
+```
+
+```
+   Accepted Key Exchange Groups: X25519MLKEM768 (post-quantum), X25519, P-256
+```
+
+The 17 groups of the catalog are classical (P-256, P-384, P-521, X25519, X448, ffdhe2048 to ffdhe8192), hybrid (`X25519MLKEM768`, `SecP256r1MLKEM768`, `SecP384r1MLKEM1024`), pure ML-KEM (`MLKEM512`, `MLKEM768`, `MLKEM1024`) and the pre-standard `X25519Kyber768Draft00`. Groups marked `post_quantum` in the JSON report are the ones that include a post-quantum KEM.
+
+How it works matters for reading the result. Each probe is a ClientHello that offers the remaining groups with an empty key share; the server answers with a HelloRetryRequest naming the group it wants. The group is recorded and removed, and the probe repeats until the server refuses, so an endpoint with three groups costs four connections. No handshake is completed with any group: "supported" means the server selected the group, not that a full key exchange was verified. The list is in the order the server selected the groups; it is the server's preference only if the server applies its own preference order rather than the client's.
+
+The enumeration is checked against the handshake: the group the version handshake negotiated has to be in the list. When it is not, or when probes went unanswered, `key_exchange_groups_incomplete` is set and the console warns that the list may be missing groups.
+
+Only TLS 1.3 is enumerated. TLS 1.2 ECDHE curves are not.
+
+`--require-pq` turns it into a gate: the run fails (exit 3, check `require-pq`) when TLS 1.3 accepts no post-quantum group, when TLS 1.3 is not supported, or when the enumeration is incomplete and no post-quantum group was found. It implies `--enum-groups`, and `require_pq` can be set in a config file or a policy profile. With a [baseline](#baseline-comparison) that lists groups, losing a post-quantum group is a regression.
+
 ### Baseline comparison
 
 A baseline turns a scan into a regression check: instead of asking whether an endpoint meets a fixed policy, it asks whether the endpoint got worse since a known-good scan.
@@ -536,6 +562,7 @@ A scan fails (exit 3, check `baseline`) when security got worse:
 - TLS 1.3 is no longer supported;
 - a cipher suite that is insecure, weak or unclassified is offered that was not;
 - cipher evidence became incomplete (probes went unanswered), so changes cannot be ruled out;
+- a post-quantum key exchange group (see above) is no longer accepted, or the group evidence became incomplete;
 - the certificate is no longer valid, expires earlier than the one in the baseline, or has a shorter key.
 
 Everything else that changed is reported as a `baseline:` note and does not change the exit code: a suite that disappeared, TLS 1.3 that appeared, a legacy version that is gone, a certificate that was renewed. A version that timed out or failed on either side, a version the baseline did not scan and a certificate that the current scan could not retrieve are notes as well, never regressions, so a flaky probe cannot fail the run by itself.

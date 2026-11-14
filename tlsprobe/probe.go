@@ -207,6 +207,14 @@ type clientHelloSpec struct {
 	random        []byte
 	keyShareGroup uint16
 	cookie        []byte
+	// cipherSuites, when set, replaces the single cipherSuite of the hello.
+	cipherSuites []uint16
+	// groups, when set, replaces the supported_groups of opts.
+	groups []uint16
+	// emptyKeyShare sends an empty client_shares list, which asks the server
+	// to name the group it wants in a HelloRetryRequest (RFC 8446 section
+	// 4.2.8) without the client having to generate key material for it.
+	emptyKeyShare bool
 	// afterHRR marks the ClientHello sent in response to a HelloRetryRequest.
 	// RFC 8446 section 5.1 requires its record legacy_version to be 0x0303.
 	afterHRR bool
@@ -474,9 +482,13 @@ func buildRetryClientHello(opts Options, cipherSuite uint16, sessionID, random [
 }
 
 func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
-	publicKey, err := generateKeyShare(spec.keyShareGroup)
-	if err != nil {
-		return nil, err
+	var publicKey []byte
+	if !spec.emptyKeyShare {
+		var err error
+		publicKey, err = generateKeyShare(spec.keyShareGroup)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	randomBytes := spec.random
@@ -497,8 +509,14 @@ func buildTLS13ClientHello(spec clientHelloSpec) ([]byte, error) {
 	body = appendUint16(body, 0x0303)
 	body = append(body, randomBytes...)
 	body = appendOpaque8(body, spec.sessionID)
-	body = appendUint16(body, 2)
-	body = appendUint16(body, spec.cipherSuite)
+	cipherSuites := spec.cipherSuites
+	if len(cipherSuites) == 0 {
+		cipherSuites = []uint16{spec.cipherSuite}
+	}
+	body = appendUint16(body, uint16(2*len(cipherSuites)))
+	for _, cipherSuite := range cipherSuites {
+		body = appendUint16(body, cipherSuite)
+	}
 	body = append(body, 1, 0)
 
 	extensions := buildClientHelloExtensions(spec, publicKey)
@@ -553,8 +571,12 @@ func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 		extensions = appendExtension(extensions, extensionServerName, appendOpaque16(nil, serverName))
 	}
 
+	groups := spec.groups
+	if len(groups) == 0 {
+		groups = normalizedKeyShareGroups(spec.opts)
+	}
 	var supportedGroups []byte
-	for _, group := range normalizedKeyShareGroups(spec.opts) {
+	for _, group := range groups {
 		supportedGroups = appendUint16(supportedGroups, group)
 	}
 	extensions = appendExtension(extensions, extensionSupportedGroups, appendOpaque16(nil, supportedGroups))
@@ -568,8 +590,10 @@ func buildClientHelloExtensions(spec clientHelloSpec, keyShare []byte) []byte {
 	extensions = appendExtension(extensions, extensionSupportedVersions, []byte{2, 0x03, 0x04})
 
 	var keyShareEntry []byte
-	keyShareEntry = appendUint16(keyShareEntry, spec.keyShareGroup)
-	keyShareEntry = appendOpaque16(keyShareEntry, keyShare)
+	if !spec.emptyKeyShare {
+		keyShareEntry = appendUint16(keyShareEntry, spec.keyShareGroup)
+		keyShareEntry = appendOpaque16(keyShareEntry, keyShare)
+	}
 	extensions = appendExtension(extensions, extensionKeyShare, appendOpaque16(nil, keyShareEntry))
 
 	extensions = appendExtension(extensions, extensionPSKModes, []byte{1, 1})
@@ -854,6 +878,9 @@ func keyShareGroupName(group uint16) string {
 	case 0:
 		return ""
 	default:
+		if name, ok := catalogGroupName(group); ok {
+			return name
+		}
 		return fmt.Sprintf("0x%04x", group)
 	}
 }

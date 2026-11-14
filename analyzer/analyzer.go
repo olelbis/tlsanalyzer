@@ -45,6 +45,10 @@ type Options struct {
 	Timeout      time.Duration
 	MinVersion   uint16
 	ForceCiphers bool
+	// EnumGroups enumerates the TLS 1.3 key exchange groups the endpoint
+	// accepts (post-quantum hybrids included). A policy that requires post-
+	// quantum key exchange and a baseline that lists groups turn it on too.
+	EnumGroups   bool
 	SkipVerify   bool
 	PolicyConfig policy.Config
 	// Baseline, when set, is a previously recorded report for this target.
@@ -102,6 +106,7 @@ type Hooks struct {
 func Run(opts Options, hooks Hooks) (Result, error) {
 	opts = normalizeOptions(opts)
 	probeCiphers := opts.ForceCiphers || policy.RequiresCipherProbe(opts.PolicyConfig) || baseline.NeedsCipherProbe(opts.Baseline)
+	probeGroups := opts.EnumGroups || policy.RequiresGroupProbe(opts.PolicyConfig) || baseline.NeedsGroupProbe(opts.Baseline)
 	scanOptions := scan.Options{
 		Host:         opts.Host,
 		Port:         opts.Port,
@@ -153,6 +158,14 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 					"cipher probing did not confirm %s, which the %s handshake negotiated; the endpoint may be rate limiting or unstable and the cipher list may be incomplete.",
 					negotiatedCipher, result.Version))
 			}
+		}
+
+		if probeGroups && version == tls.VersionTLS13 {
+			groups := scan.ProbeKeyExchangeGroups(scanOptions, result.KeyExchangeGroup)
+			result.KeyExchangeGroups = groups.Groups
+			result.KeyExchangeGroupsIncomplete = groups.Incomplete
+			result.HandshakeAttempts += groups.Connections
+			result.Warnings = append(result.Warnings, groups.Warnings...)
 		}
 
 		if hooks.Supported != nil {

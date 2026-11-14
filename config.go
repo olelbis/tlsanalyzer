@@ -33,6 +33,8 @@ type fileConfig struct {
 	MinCertKeyBits *int                         `json:"min_cert_key_bits,omitempty"`
 	MinCertDays    *int                         `json:"min_cert_days,omitempty"`
 	Baseline       *string                      `json:"baseline,omitempty"`
+	EnumGroups     *bool                        `json:"enum_groups,omitempty"`
+	RequirePQ      *bool                        `json:"require_pq,omitempty"`
 	Target         *string                      `json:"target,omitempty"`
 	Profile        *string                      `json:"profile,omitempty"`
 	TargetsFile    *string                      `json:"targets_file,omitempty"`
@@ -58,6 +60,7 @@ type filePolicyProfile struct {
 	ForbidALPN     *string `json:"forbid_alpn,omitempty"`
 	MinCertKeyBits *int    `json:"min_cert_key_bits,omitempty"`
 	MinCertDays    *int    `json:"min_cert_days,omitempty"`
+	RequirePQ      *bool   `json:"require_pq,omitempty"`
 }
 
 type cliInputError struct {
@@ -149,6 +152,8 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyInt(&cfg.minCertKeyBits, file.MinCertKeyBits)
 	applyInt(&cfg.minCertDays, file.MinCertDays)
 	applyString(&cfg.baseline, file.Baseline)
+	applyBool(&cfg.enumGroups, file.EnumGroups)
+	applyBool(&cfg.requirePQ, file.RequirePQ)
 	applyString(&cfg.targetsFile, file.TargetsFile)
 	applyInt(&cfg.concurrency, file.Concurrency)
 	applyInt(&cfg.retries, file.Retries)
@@ -170,6 +175,7 @@ func applyPolicyProfile(cfg *cliConfig, profile filePolicyProfile) {
 	applyString(&cfg.forbidALPN, profile.ForbidALPN)
 	applyInt(&cfg.minCertKeyBits, profile.MinCertKeyBits)
 	applyInt(&cfg.minCertDays, profile.MinCertDays)
+	applyBool(&cfg.requirePQ, profile.RequirePQ)
 }
 
 func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string]bool) {
@@ -250,6 +256,12 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["baseline"] {
 		dst.baseline = src.baseline
+	}
+	if explicit["enum-groups"] {
+		dst.enumGroups = src.enumGroups
+	}
+	if explicit["require-pq"] {
+		dst.requirePQ = src.requirePQ
 	}
 	if explicit["target"] {
 		dst.targetName = src.targetName

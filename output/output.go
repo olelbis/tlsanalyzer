@@ -71,6 +71,7 @@ func BuildMarkdownReportFromResults(host, port, serverName, scannerVersion strin
 		}
 		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %d ms | %d |\n", r.Version, supported, emptyDash(r.Status), emptyDash(r.CertValidationStatus), emptyDash(r.KeyExchangeGroup), emptyDash(r.ALPNProtocol), r.DurationMillis, r.HandshakeAttempts))
 	}
+	writeMarkdownKeyExchangeGroups(&sb, results)
 	sb.WriteString("\n## Cipher Suites\n")
 	for _, r := range results {
 		if r.Supported && (len(r.CipherSuites) > 0 || len(r.CipherProbeResults) > 0) {
@@ -154,6 +155,25 @@ func appendCipherProbeResultsMarkdown(sb *strings.Builder, result scan.TLSScanRe
 			}
 		}
 		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n", escapeTable(probe.CipherSuite), emptyDash(probe.Status), emptyDash(probe.Evidence), emptyDash(probe.SelectedGroup), hrr, emptyDash(probe.Alert), emptyDash(probe.Error)))
+	}
+}
+
+func writeMarkdownKeyExchangeGroups(sb *strings.Builder, results []scan.TLSScanResult) {
+	header := false
+	for _, r := range results {
+		if !r.Supported || (len(r.KeyExchangeGroups) == 0 && !r.KeyExchangeGroupsIncomplete) {
+			continue
+		}
+		if !header {
+			sb.WriteString("\n## Key Exchange Groups\n\n")
+			sb.WriteString("Enumerated with ClientHello-only HelloRetryRequest probes; no handshake is completed with any group.\n\n")
+			header = true
+		}
+		sb.WriteString(fmt.Sprintf("- **%s**: %s", r.Version, emptyDash(scan.FormatKeyExchangeGroups(r.KeyExchangeGroups))))
+		if r.KeyExchangeGroupsIncomplete {
+			sb.WriteString(" (incomplete: the list may be missing groups)")
+		}
+		sb.WriteString("\n")
 	}
 }
 
@@ -483,6 +503,12 @@ func PrintRawVersionSummary(w io.Writer, result scan.TLSScanResult) {
 func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
 	if result.KeyExchangeGroup != "" {
 		fmt.Fprintf(w, "   Key Exchange Group: %s\n", result.KeyExchangeGroup)
+	}
+	if len(result.KeyExchangeGroups) > 0 {
+		fmt.Fprintf(w, "   Accepted Key Exchange Groups: %s\n", scan.FormatKeyExchangeGroups(result.KeyExchangeGroups))
+	}
+	if result.KeyExchangeGroupsIncomplete {
+		fmt.Fprintln(w, "   ⚠️  Key exchange group evidence is incomplete: the list may be missing groups")
 	}
 	if result.ALPNProtocol != "" {
 		fmt.Fprintf(w, "   ALPN: %s\n", result.ALPNProtocol)

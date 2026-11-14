@@ -24,28 +24,37 @@ type JSONReport struct {
 }
 
 type JSONScanResult struct {
-	Version                   string            `json:"version"`
-	VersionID                 uint16            `json:"version_id"`
-	Supported                 bool              `json:"supported"`
-	Status                    string            `json:"status"`
-	ErrorMessage              string            `json:"error_message,omitempty"`
-	DurationMillis            int64             `json:"duration_millis"`
-	HandshakeAttempts         int               `json:"handshake_attempts"`
-	KeyExchangeGroup          string            `json:"key_exchange_group,omitempty"`
-	ALPNProtocol              string            `json:"alpn_protocol,omitempty"`
-	VersionEvidence           string            `json:"version_evidence,omitempty"`
-	CipherDiscovery           string            `json:"cipher_discovery"`
-	NegotiatedCipherSuite     string            `json:"negotiated_cipher_suite,omitempty"`
-	CipherSuites              []string          `json:"cipher_suites,omitempty"`
-	CipherSuitesObserved      bool              `json:"cipher_suites_observed"`
-	CipherProbeDurationMillis int64             `json:"cipher_probe_duration_millis,omitempty"`
-	CipherProbeResults        []JSONProbeResult `json:"cipher_probe_results,omitempty"`
-	RawProbeFullHandshake     *bool             `json:"raw_probe_completed_full_handshake,omitempty"`
-	CipherEvidenceIncomplete  bool              `json:"cipher_evidence_incomplete,omitempty"`
-	Warnings                  []string          `json:"warnings,omitempty"`
-	Certificate               *JSONCertificate  `json:"certificate,omitempty"`
-	CertValidationStatus      string            `json:"certificate_validation_status,omitempty"`
-	CertValidationMessage     string            `json:"certificate_validation_message,omitempty"`
+	Version                     string                 `json:"version"`
+	VersionID                   uint16                 `json:"version_id"`
+	Supported                   bool                   `json:"supported"`
+	Status                      string                 `json:"status"`
+	ErrorMessage                string                 `json:"error_message,omitempty"`
+	DurationMillis              int64                  `json:"duration_millis"`
+	HandshakeAttempts           int                    `json:"handshake_attempts"`
+	KeyExchangeGroup            string                 `json:"key_exchange_group,omitempty"`
+	KeyExchangeGroups           []JSONKeyExchangeGroup `json:"key_exchange_groups,omitempty"`
+	KeyExchangeGroupsIncomplete bool                   `json:"key_exchange_groups_incomplete,omitempty"`
+	ALPNProtocol                string                 `json:"alpn_protocol,omitempty"`
+	VersionEvidence             string                 `json:"version_evidence,omitempty"`
+	CipherDiscovery             string                 `json:"cipher_discovery"`
+	NegotiatedCipherSuite       string                 `json:"negotiated_cipher_suite,omitempty"`
+	CipherSuites                []string               `json:"cipher_suites,omitempty"`
+	CipherSuitesObserved        bool                   `json:"cipher_suites_observed"`
+	CipherProbeDurationMillis   int64                  `json:"cipher_probe_duration_millis,omitempty"`
+	CipherProbeResults          []JSONProbeResult      `json:"cipher_probe_results,omitempty"`
+	RawProbeFullHandshake       *bool                  `json:"raw_probe_completed_full_handshake,omitempty"`
+	CipherEvidenceIncomplete    bool                   `json:"cipher_evidence_incomplete,omitempty"`
+	Warnings                    []string               `json:"warnings,omitempty"`
+	Certificate                 *JSONCertificate       `json:"certificate,omitempty"`
+	CertValidationStatus        string                 `json:"certificate_validation_status,omitempty"`
+	CertValidationMessage       string                 `json:"certificate_validation_message,omitempty"`
+}
+
+// JSONKeyExchangeGroup is one TLS 1.3 key exchange group the endpoint accepts.
+type JSONKeyExchangeGroup struct {
+	Name        string `json:"name"`
+	ID          uint16 `json:"id"`
+	PostQuantum bool   `json:"post_quantum"`
 }
 
 type JSONProbeResult struct {
@@ -98,27 +107,29 @@ func NewJSONReport(host, port, serverName, scannerVersion string, generatedAt ti
 
 	for _, r := range results {
 		jsonResult := JSONScanResult{
-			Version:                   r.Version,
-			VersionID:                 r.VersionID,
-			Supported:                 r.Supported,
-			Status:                    r.Status,
-			ErrorMessage:              r.ErrorMessage,
-			DurationMillis:            r.DurationMillis,
-			HandshakeAttempts:         r.HandshakeAttempts,
-			KeyExchangeGroup:          r.KeyExchangeGroup,
-			ALPNProtocol:              r.ALPNProtocol,
-			CipherDiscovery:           r.CipherDiscovery,
-			NegotiatedCipherSuite:     r.NegotiatedCipherSuite,
-			CipherSuites:              r.CipherSuites,
-			CipherSuitesObserved:      r.CipherSuitesObserved,
-			CipherProbeDurationMillis: r.CipherProbeDurationMillis,
-			CipherProbeResults:        buildJSONProbeResults(r.CipherProbeResults),
-			RawProbeFullHandshake:     rawProbeFullHandshakeFlag(r),
-			CipherEvidenceIncomplete:  r.CipherEvidenceIncomplete,
-			Warnings:                  r.Warnings,
-			VersionEvidence:           r.VersionEvidence,
-			CertValidationStatus:      r.CertValidationStatus,
-			CertValidationMessage:     r.CertValidationMessage,
+			Version:                     r.Version,
+			VersionID:                   r.VersionID,
+			Supported:                   r.Supported,
+			Status:                      r.Status,
+			ErrorMessage:                r.ErrorMessage,
+			DurationMillis:              r.DurationMillis,
+			HandshakeAttempts:           r.HandshakeAttempts,
+			KeyExchangeGroup:            r.KeyExchangeGroup,
+			ALPNProtocol:                r.ALPNProtocol,
+			CipherDiscovery:             r.CipherDiscovery,
+			NegotiatedCipherSuite:       r.NegotiatedCipherSuite,
+			CipherSuites:                r.CipherSuites,
+			CipherSuitesObserved:        r.CipherSuitesObserved,
+			CipherProbeDurationMillis:   r.CipherProbeDurationMillis,
+			CipherProbeResults:          buildJSONProbeResults(r.CipherProbeResults),
+			RawProbeFullHandshake:       rawProbeFullHandshakeFlag(r),
+			CipherEvidenceIncomplete:    r.CipherEvidenceIncomplete,
+			KeyExchangeGroups:           buildJSONKeyExchangeGroups(r.KeyExchangeGroups),
+			KeyExchangeGroupsIncomplete: r.KeyExchangeGroupsIncomplete,
+			Warnings:                    r.Warnings,
+			VersionEvidence:             r.VersionEvidence,
+			CertValidationStatus:        r.CertValidationStatus,
+			CertValidationMessage:       r.CertValidationMessage,
 		}
 		if r.Certificate != nil {
 			publicKeyAlgorithm, publicKeyBits, publicKeyCurve := certificatePublicKeyMetadata(r.Certificate)
@@ -140,6 +151,17 @@ func NewJSONReport(host, port, serverName, scannerVersion string, generatedAt ti
 	}
 
 	return report
+}
+
+func buildJSONKeyExchangeGroups(groups []scan.KeyExchangeGroupResult) []JSONKeyExchangeGroup {
+	if len(groups) == 0 {
+		return nil
+	}
+	out := make([]JSONKeyExchangeGroup, len(groups))
+	for i, group := range groups {
+		out[i] = JSONKeyExchangeGroup{Name: group.Name, ID: group.ID, PostQuantum: group.PostQuantum}
+	}
+	return out
 }
 
 func buildJSONProbeResults(results []scan.CipherProbeStatus) []JSONProbeResult {

@@ -32,6 +32,10 @@ const (
 	CheckMinCertKeyBits = "min-cert-key-bits"
 	CheckMinCertDays    = "min-cert-days"
 
+	// CheckRequirePQ fails when TLS 1.3 does not accept a post-quantum key
+	// exchange group (--require-pq).
+	CheckRequirePQ = "require-pq"
+
 	// CheckBaseline marks failures found by comparing a scan with a recorded
 	// baseline report (--baseline). It is not selectable with --fail-on.
 	CheckBaseline = "baseline"
@@ -46,6 +50,9 @@ type Config struct {
 	ForbiddenALPNProtocols     []string
 	MinCertificateKeyBits      int
 	MinCertificateValidityDays int
+	// RequirePostQuantum fails the run unless TLS 1.3 accepts at least one
+	// post-quantum or hybrid key exchange group. It needs group enumeration.
+	RequirePostQuantum bool
 }
 
 type Result struct {
@@ -165,6 +172,12 @@ func ScanRangeNotes(config Config, requested uint16) []string {
 	return []string{fmt.Sprintf("%s was evaluated only on TLS versions from %s upwards (--min-version); older versions were not scanned", CheckLegacyTLS, tlsVersionName(effective))}
 }
 
+// RequiresGroupProbe reports whether config can only be evaluated on a scan
+// that enumerated the TLS 1.3 key exchange groups.
+func RequiresGroupProbe(config Config) bool {
+	return config.RequirePostQuantum
+}
+
 func RequiresCipherProbe(config Config) bool {
 	checks := checksForConfig(config)
 	return checks[CheckWeakCipher]
@@ -227,6 +240,11 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 				}
 			}
 		}
+		if config.RequirePostQuantum && r.VersionID == tls.VersionTLS13 {
+			if failure, ok := postQuantumFailure(r); ok {
+				result.Failures = append(result.Failures, failure)
+			}
+		}
 		if containsTLSVersion(config.ForbiddenTLSVersions, r.VersionID) {
 			result.Failures = append(result.Failures, Failure{
 				Check:   CheckForbiddenTLS,
@@ -258,6 +276,14 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 				Message: fmt.Sprintf("%s negotiated forbidden ALPN protocol %q", r.Version, r.ALPNProtocol),
 			})
 		}
+	}
+
+	if config.RequirePostQuantum && !supportedVersions[tls.VersionTLS13] {
+		result.Failures = append(result.Failures, Failure{
+			Check:   CheckRequirePQ,
+			Version: tlsVersionName(tls.VersionTLS13),
+			Message: "post-quantum key exchange requires TLS 1.3, which is not supported",
+		})
 	}
 
 	for _, version := range config.RequiredTLSVersions {
@@ -297,8 +323,40 @@ func isKnownCheck(check string) bool {
 	}
 }
 
+// postQuantumFailure judges one supported TLS 1.3 result against
+// --require-pq. A post-quantum group that was found is proof whatever else the
+// enumeration could not classify; without one, an incomplete enumeration
+// cannot prove the absence.
+func postQuantumFailure(r scan.TLSScanResult) (Failure, bool) {
+	for _, group := range r.KeyExchangeGroups {
+		if group.PostQuantum {
+			return Failure{}, false
+		}
+	}
+	if r.KeyExchangeGroupsIncomplete {
+		return Failure{
+			Check:   CheckRequirePQ,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s key exchange group evidence is incomplete (probes went unanswered); post-quantum support cannot be confirmed", r.Version),
+		}, true
+	}
+	return Failure{
+		Check:   CheckRequirePQ,
+		Version: r.Version,
+		Message: fmt.Sprintf("%s accepts no post-quantum key exchange group (groups found: %s)", r.Version, groupList(r.KeyExchangeGroups)),
+	}, true
+}
+
+func groupList(groups []scan.KeyExchangeGroupResult) string {
+	if len(groups) == 0 {
+		return "none"
+	}
+	return strings.Join(scan.KeyExchangeGroupNames(groups), ", ")
+}
+
 func policyEnabled(config Config, checks map[string]bool) bool {
-	return len(checks) > 0 ||
+	return config.RequirePostQuantum ||
+		len(checks) > 0 ||
 		len(config.RequiredTLSVersions) > 0 ||
 		len(config.ForbiddenTLSVersions) > 0 ||
 		len(config.RequiredALPNProtocols) > 0 ||

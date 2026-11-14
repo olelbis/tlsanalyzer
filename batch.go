@@ -150,6 +150,7 @@ type batchSettings struct {
 	timeout      time.Duration
 	minVersion   uint16
 	forceCiphers bool
+	enumGroups   bool
 	skipVerify   bool
 	policyConfig policy.Config
 	baseline     *baseline.Set
@@ -206,6 +207,7 @@ func buildBatchSettings(cfg cliConfig) (batchSettings, error) {
 		timeout:      time.Duration(cfg.timeout) * time.Second,
 		minVersion:   minVersion,
 		forceCiphers: cfg.forceCiphers,
+		enumGroups:   cfg.enumGroups,
 		skipVerify:   cfg.skipVerify,
 		policyConfig: policyConfig,
 		baseline:     baselineSet,
@@ -330,6 +332,7 @@ func executeBatchTarget(target targetSpec, settings batchSettings) batchTargetRe
 			Timeout:      settings.timeout,
 			MinVersion:   settings.minVersion,
 			ForceCiphers: settings.forceCiphers,
+			EnumGroups:   settings.enumGroups,
 			SkipVerify:   settings.skipVerify,
 			PolicyConfig: settings.policyConfig,
 			Baseline:     baselineReport,

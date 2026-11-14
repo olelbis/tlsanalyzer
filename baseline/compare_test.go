@@ -309,3 +309,77 @@ func TestApplyEnablesAndFailsThePolicyResult(t *testing.T) {
 		t.Fatal("Apply(empty) must not turn a failed policy result into a passing one")
 	}
 }
+
+func tls13(groups ...output.JSONKeyExchangeGroup) *Report {
+	r := version(tls.VersionTLS13, "TLS 1.3", "supported", nil, cert("2027-01-01T00:00:00Z", "RSA", 2048))
+	r.KeyExchangeGroups = groups
+	return report(r)
+}
+
+var (
+	hybrid = output.JSONKeyExchangeGroup{Name: "X25519MLKEM768", ID: 0x11ec, PostQuantum: true}
+	x25519 = output.JSONKeyExchangeGroup{Name: "X25519", ID: 0x001d}
+	p256   = output.JSONKeyExchangeGroup{Name: "P-256", ID: 0x0017}
+)
+
+func TestCompareKeyExchangeGroups(t *testing.T) {
+	base := tls13(hybrid, x25519)
+
+	t.Run("unchanged is silent", func(t *testing.T) {
+		got := Compare(base, *tls13(x25519, hybrid))
+		if len(got.Failures) != 0 || len(got.Notes) != 0 {
+			t.Fatalf("got %+v, want nothing (order does not matter)", got)
+		}
+	})
+	t.Run("losing the post-quantum group fails", func(t *testing.T) {
+		got := Compare(base, *tls13(x25519))
+		if m := failureMessages(got); !strings.Contains(m, "TLS 1.3 no longer accepts post-quantum key exchange group X25519MLKEM768") {
+			t.Fatalf("failures = %q", m)
+		}
+	})
+	t.Run("losing a classical group is a note", func(t *testing.T) {
+		got := Compare(tls13(hybrid, x25519, p256), *tls13(hybrid, x25519))
+		if len(got.Failures) != 0 || !strings.Contains(notes(got), "TLS 1.3 no longer accepts key exchange group P-256") {
+			t.Fatalf("got failures %q notes %q", failureMessages(got), notes(got))
+		}
+	})
+	t.Run("gaining the post-quantum group is a note", func(t *testing.T) {
+		got := Compare(tls13(x25519), *tls13(x25519, hybrid))
+		if len(got.Failures) != 0 || !strings.Contains(notes(got), "now accepts key exchange group X25519MLKEM768 (post-quantum)") {
+			t.Fatalf("got failures %q notes %q", failureMessages(got), notes(got))
+		}
+	})
+	t.Run("incomplete evidence became a failure and removals are not claimed", func(t *testing.T) {
+		current := tls13(x25519)
+		current.Results[0].KeyExchangeGroupsIncomplete = true
+		got := Compare(base, *current)
+		if m := failureMessages(got); !strings.Contains(m, "key exchange group evidence is incomplete") || strings.Contains(m, "no longer accepts") {
+			t.Fatalf("failures = %q, want only the incomplete evidence failure", m)
+		}
+	})
+	t.Run("a baseline without groups says so once the scan has them", func(t *testing.T) {
+		got := Compare(tls13(), *tls13(hybrid))
+		if len(got.Failures) != 0 || !strings.Contains(notes(got), "were not compared: the baseline has none") {
+			t.Fatalf("got failures %q notes %q", failureMessages(got), notes(got))
+		}
+		quiet := Compare(tls13(), *tls13())
+		if len(quiet.Notes) != 0 {
+			t.Fatalf("notes = %q, want none when neither side enumerated groups", notes(quiet))
+		}
+	})
+	t.Run("a scan that did not enumerate is not a regression", func(t *testing.T) {
+		got := Compare(base, *tls13())
+		if len(got.Failures) != 0 || !strings.Contains(notes(got), "the current scan did not enumerate them") {
+			t.Fatalf("got failures %q notes %q", failureMessages(got), notes(got))
+		}
+	})
+}
+
+func TestNeedsGroupProbe(t *testing.T) {
+	if !NeedsGroupProbe(tls13(hybrid)) {
+		t.Fatal("NeedsGroupProbe() = false for a baseline that lists groups")
+	}
+	if NeedsGroupProbe(tls13()) || NeedsGroupProbe(nil) {
+		t.Fatal("NeedsGroupProbe() = true without groups in the baseline")
+	}
+}

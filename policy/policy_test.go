@@ -406,3 +406,91 @@ func TestEvaluateFailsWeakCipherOnIncompleteCipherEvidence(t *testing.T) {
 		t.Fatalf("Failures = %+v, want a pass on complete evidence", result.Failures)
 	}
 }
+
+func tls13WithGroups(incomplete bool, groups ...scan.KeyExchangeGroupResult) scan.TLSScanResult {
+	return scan.TLSScanResult{
+		Version:                     "TLS 1.3",
+		VersionID:                   tls.VersionTLS13,
+		Supported:                   true,
+		KeyExchangeGroups:           groups,
+		KeyExchangeGroupsIncomplete: incomplete,
+	}
+}
+
+var (
+	groupHybrid = scan.KeyExchangeGroupResult{ID: 0x11ec, Name: "X25519MLKEM768", PostQuantum: true}
+	groupX25519 = scan.KeyExchangeGroupResult{ID: 0x001d, Name: "X25519"}
+	groupP256   = scan.KeyExchangeGroupResult{ID: 0x0017, Name: "P-256"}
+)
+
+func TestEvaluateRequirePostQuantum(t *testing.T) {
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	config := Config{RequirePostQuantum: true}
+
+	tests := []struct {
+		name        string
+		results     []scan.TLSScanResult
+		wantPass    bool
+		wantMessage string
+	}{
+		{
+			name:     "hybrid group accepted",
+			results:  []scan.TLSScanResult{tls13WithGroups(false, groupX25519, groupHybrid)},
+			wantPass: true,
+		},
+		{
+			name:        "classical groups only",
+			results:     []scan.TLSScanResult{tls13WithGroups(false, groupX25519, groupP256)},
+			wantMessage: "TLS 1.3 accepts no post-quantum key exchange group (groups found: X25519, P-256)",
+		},
+		{
+			name:        "no group evidence at all",
+			results:     []scan.TLSScanResult{tls13WithGroups(false)},
+			wantMessage: "(groups found: none)",
+		},
+		{
+			name:        "incomplete evidence cannot confirm support",
+			results:     []scan.TLSScanResult{tls13WithGroups(true, groupX25519)},
+			wantMessage: "key exchange group evidence is incomplete",
+		},
+		{
+			name:     "a hybrid that was found is proof even when the rest is incomplete",
+			results:  []scan.TLSScanResult{tls13WithGroups(true, groupHybrid)},
+			wantPass: true,
+		},
+		{
+			name: "TLS 1.3 not supported",
+			results: []scan.TLSScanResult{
+				{Version: "TLS 1.3", VersionID: tls.VersionTLS13, Status: scan.ScanStatusUnsupported},
+				{Version: "TLS 1.2", VersionID: tls.VersionTLS12, Supported: true},
+			},
+			wantMessage: "post-quantum key exchange requires TLS 1.3, which is not supported",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Evaluate(tt.results, config, now)
+			if !result.Enabled {
+				t.Fatal("Enabled = false, want --require-pq to enable the policy")
+			}
+			if result.Passed != tt.wantPass {
+				t.Fatalf("Passed = %t, want %t; failures %+v", result.Passed, tt.wantPass, result.Failures)
+			}
+			if tt.wantPass {
+				return
+			}
+			if len(result.Failures) != 1 || result.Failures[0].Check != CheckRequirePQ || !strings.Contains(result.Failures[0].Message, tt.wantMessage) {
+				t.Fatalf("Failures = %+v, want one %s failure containing %q", result.Failures, CheckRequirePQ, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestRequiresGroupProbe(t *testing.T) {
+	if !RequiresGroupProbe(Config{RequirePostQuantum: true}) {
+		t.Fatal("RequiresGroupProbe() = false for --require-pq")
+	}
+	if RequiresGroupProbe(Config{Name: NameModern}) {
+		t.Fatal("RequiresGroupProbe() = true for the modern policy, which does not need groups")
+	}
+}
