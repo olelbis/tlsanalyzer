@@ -1,5 +1,7 @@
 # P24 Readiness Audit
 
+> Historical audit. Feature work has resumed since `v0.32.0`; see the [changelog](https://github.com/olelbis/tlsanalyzer/blob/main/CHANGELOG.md) and the [compatibility policy](compatibility-policy.md) for the current contracts.
+
 Date: 2026-05-19
 
 This audit checks whether `tlsanalyzer` is ready to move from preview feature growth

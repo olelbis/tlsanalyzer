@@ -26,6 +26,8 @@ creates a temporary output directory and removes it when it exits.
 | TLS 1.3 normal handshake | `www.example.com` with SNI `example.com` | `--min-version 1.3 --no-clear` | TLS 1.3 supported, certificate valid, one negotiated cipher line. |
 | TLS 1.3 raw probing | `www.example.com` with SNI `example.com` | `--min-version 1.3 --force-ciphers --no-clear` | Raw-probed cipher list and ClientHello-only summary. |
 | JSON shape | `www.example.com` with SNI `example.com` | `--min-version 1.3 --force-ciphers --json` | `schema_version`, `scanner_version`, `cipher_discovery` and raw probe evidence are present. |
+| Key exchange groups | `www.example.com` with SNI `example.com` | `--min-version 1.3 --enum-groups --json` | `key_exchange_groups` contains at least the negotiated group and `key_exchange_groups_incomplete` is absent. |
+| Baseline self-check | `www.example.com` with SNI `example.com` | `--force-ciphers --json > base.json`, then `--baseline base.json` | The second run exits `0` with no `baseline` policy failure. |
 | Markdown report | `www.example.com` with SNI `example.com` | `--markdown <tempfile>` | Markdown report contains summary, TLS table and cipher section. |
 | Policy pass smoke | `www.example.com` with SNI `example.com` | `--min-version 1.3 --policy modern --json` | Command exits successfully and emits JSON policy evidence. |
 | Certificate validation failure | `expired.badssl.com` | `--min-version 1.2 --json` | JSON reports invalid certificate evidence separately from TLS support. |

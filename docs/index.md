@@ -16,11 +16,12 @@
 </div>
 
 <div class="notice">
-  <strong>Project status:</strong> beta-readiness review on the <code>v0.31.x</code>
-  line. Feature growth is paused; patch releases are limited to bug fixes,
-  documentation updates and compatibility-preserving hardening while the project
-  gathers real-world usage before a future beta/v1 decision. Endpoint
-  compatibility reports and automation feedback are welcome.
+  <strong>Project status:</strong> preview software on the <code>v0.33.x</code>
+  line. Feature work has resumed, focused on raw cipher probing, post-quantum
+  key exchange group enumeration and baseline comparison; the compatibility
+  policy still applies and a beta/v1 decision stays open until there is more
+  real-world usage. Endpoint compatibility reports and automation feedback are
+  welcome.
 </div>
 
 ## Quick Start
@@ -55,7 +56,7 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.33.0 --host example.com --no-clea
   </a>
   <a class="doc-card" href="tlsprobe-package.html">
     <span>TLS probe package</span>
-    Preview Go API for ClientHello-only TLS 1.3 cipher evidence.
+    Preview Go API for ClientHello-only cipher evidence and TLS 1.3 group enumeration.
   </a>
   <a class="doc-card" href="example-report.html">
     <span>Sample report</span>
@@ -90,6 +91,9 @@ docker run --rm ghcr.io/olelbis/tlsanalyzer:v0.33.0 --host example.com --no-clea
 | TLS protocol support | TLS 1.0 through TLS 1.3 support, status and attempt duration. |
 | Cipher suites | Negotiated, probed, raw-probed or observed cipher evidence depending on TLS version and scan mode. |
 | TLS 1.3 raw probes | ClientHello-only ServerHello evidence with selected key share group, HelloRetryRequest and alert metadata. |
+| Legacy raw probes | TLS 1.0 to 1.2 version and cipher suite detection for suites Go cannot offer (RC4, DHE, anonymous, EXPORT and more). |
+| Key exchange groups | TLS 1.3 groups the server accepts, post-quantum hybrids marked, with `--enum-groups` and the `--require-pq` gate. |
+| Regression checks | `--baseline` compares a scan with an earlier JSON report and fails only on security regressions. |
 | Certificates | Trust status, issuer, subject, SANs, expiry, public key and signature details. |
 | CI policy | Exit codes, modern policy checks, SARIF output and JUnit XML output. |
 
@@ -108,4 +112,6 @@ Go's standard TLS API does not allow a caller to force individual TLS 1.3 cipher
 suites in a full handshake. `tlsanalyzer` therefore uses a minimal raw
 ClientHello probe when cipher probing is enabled. Reports label this evidence
 explicitly as ClientHello-only and do not claim full-handshake completion for
-raw TLS 1.3 probes.
+raw TLS 1.3 probes. The same applies to the raw probes for TLS 1.0 to 1.2 and
+to key exchange group enumeration, which reads the group the server names in a
+HelloRetryRequest without completing any handshake.
