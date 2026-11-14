@@ -494,3 +494,62 @@ func TestRequiresGroupProbe(t *testing.T) {
 		t.Fatal("RequiresGroupProbe() = true for the modern policy, which does not need groups")
 	}
 }
+
+func TestEvaluateRequirePostQuantumRejectsUnconfirmedHybrid(t *testing.T) {
+	failed := groupHybrid
+	failed.Evidence = scan.GroupEvidenceHandshakeFailed
+	result := Evaluate([]scan.TLSScanResult{tls13WithGroups(false, groupX25519, failed)}, Config{RequirePostQuantum: true}, time.Now())
+	if result.Passed || len(result.Failures) != 1 || !strings.Contains(result.Failures[0].Message, "handshake offering only that group failed") {
+		t.Fatalf("result = %+v, want a failure about the unconfirmed hybrid", result)
+	}
+
+	confirmed := groupHybrid
+	confirmed.Evidence = scan.GroupEvidenceHandshake
+	if result := Evaluate([]scan.TLSScanResult{tls13WithGroups(false, groupX25519, confirmed)}, Config{RequirePostQuantum: true}, time.Now()); !result.Passed {
+		t.Fatalf("Failures = %+v, want a confirmed hybrid to pass", result.Failures)
+	}
+}
+
+func TestEvaluateRequirePostQuantumPreferred(t *testing.T) {
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	config := Config{RequirePostQuantumPreferred: true}
+
+	withPreference := func(preference string, incomplete bool, groups ...scan.KeyExchangeGroupResult) scan.TLSScanResult {
+		r := tls13WithGroups(incomplete, groups...)
+		r.KeyExchangeGroupPreference = preference
+		return r
+	}
+	tests := []struct {
+		name        string
+		results     []scan.TLSScanResult
+		wantMessage string
+	}{
+		{"server prefers post-quantum", []scan.TLSScanResult{withPreference(scan.PreferencePostQuantum, false, groupHybrid, groupX25519)}, ""},
+		{"server prefers classical", []scan.TLSScanResult{withPreference(scan.PreferenceClassical, false, groupHybrid, groupX25519)}, "prefers a classical key exchange group"},
+		{"server follows the client", []scan.TLSScanResult{withPreference(scan.PreferenceClient, false, groupHybrid, groupX25519)}, "follows the client's group order"},
+		{"inconclusive probes", []scan.TLSScanResult{withPreference(scan.PreferenceInconclusive, false, groupHybrid, groupX25519)}, "could not be determined"},
+		{"no post-quantum group", []scan.TLSScanResult{withPreference("", false, groupX25519)}, "accepts no post-quantum key exchange group"},
+		{"incomplete evidence", []scan.TLSScanResult{withPreference("", true, groupX25519)}, "preference cannot be confirmed"},
+		{"TLS 1.3 not supported", []scan.TLSScanResult{{Version: "TLS 1.3", VersionID: tls.VersionTLS13, Status: scan.ScanStatusUnsupported}, {Version: "TLS 1.2", VersionID: tls.VersionTLS12, Supported: true}}, "requires TLS 1.3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Evaluate(tt.results, config, now)
+			if !result.Enabled {
+				t.Fatal("Enabled = false, want --require-pq-preferred to enable the policy")
+			}
+			if tt.wantMessage == "" {
+				if !result.Passed {
+					t.Fatalf("Failures = %+v, want a pass", result.Failures)
+				}
+				return
+			}
+			if result.Passed || len(result.Failures) != 1 || result.Failures[0].Check != CheckRequirePQPreferred || !strings.Contains(result.Failures[0].Message, tt.wantMessage) {
+				t.Fatalf("Failures = %+v, want one %s failure containing %q", result.Failures, CheckRequirePQPreferred, tt.wantMessage)
+			}
+		})
+	}
+	if !RequiresGroupProbe(config) {
+		t.Fatal("RequiresGroupProbe() = false for --require-pq-preferred")
+	}
+}

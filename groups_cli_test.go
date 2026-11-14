@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -40,6 +42,9 @@ func TestRunEnumGroupsPrintsAndReportsGroups(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Accepted Key Exchange Groups: X25519MLKEM768 (post-quantum)") {
 		t.Fatalf("stdout does not list the accepted groups:\n%s", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "Key Exchange Group Preference: post-quantum first (server preference)") {
+		t.Fatalf("stdout does not report the group preference:\n%s", stdout.String())
+	}
 
 	stdout.Reset()
 	code = run([]string{"--host", host, "--port", port, "--min-version", "1.3", "--skip-verify", "--enum-groups", "--json", "--no-clear"}, &stdout, &stderr)
@@ -53,8 +58,10 @@ func TestRunEnumGroupsPrintsAndReportsGroups(t *testing.T) {
 				Name        string `json:"name"`
 				ID          int    `json:"id"`
 				PostQuantum bool   `json:"post_quantum"`
+				Evidence    string `json:"evidence"`
 			} `json:"key_exchange_groups"`
-			Incomplete bool `json:"key_exchange_groups_incomplete"`
+			Incomplete bool   `json:"key_exchange_groups_incomplete"`
+			Preference string `json:"key_exchange_group_preference"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
@@ -65,12 +72,15 @@ func TestRunEnumGroupsPrintsAndReportsGroups(t *testing.T) {
 	}
 	hybrid := false
 	for _, group := range report.Results[0].Groups {
-		if group.Name == "X25519MLKEM768" && group.ID == 0x11ec && group.PostQuantum {
+		if group.Name == "X25519MLKEM768" && group.ID == 0x11ec && group.PostQuantum && group.Evidence == "handshake" {
 			hybrid = true
 		}
 	}
 	if !hybrid {
-		t.Fatalf("groups = %+v, want X25519MLKEM768 (id 4588, post_quantum)", report.Results[0].Groups)
+		t.Fatalf("groups = %+v, want X25519MLKEM768 (id 4588, post_quantum, evidence handshake)", report.Results[0].Groups)
+	}
+	if report.Results[0].Preference != "post-quantum" {
+		t.Fatalf("key_exchange_group_preference = %q, want post-quantum", report.Results[0].Preference)
 	}
 }
 
@@ -107,5 +117,61 @@ func TestRunRequirePQUsesPolicyExitCode(t *testing.T) {
 				t.Fatalf("stdout does not name the failed check:\n%s", stdout.String())
 			}
 		})
+	}
+}
+
+func TestRunRequirePQPreferred(t *testing.T) {
+	tests := []struct {
+		name     string
+		curves   []tls.CurveID
+		wantCode int
+	}{
+		{"hybrid endpoint", []tls.CurveID{tls.X25519MLKEM768, tls.X25519}, exitCodeOK},
+		{"classical endpoint", []tls.CurveID{tls.X25519, tls.CurveP256}, exitCodePolicyFailure},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, port := newGroupTLSServer(t, tt.curves...)
+			var stdout, stderr bytes.Buffer
+			code := run([]string{"--host", host, "--port", port, "--min-version", "1.3", "--skip-verify", "--require-pq-preferred", "--no-clear"}, &stdout, &stderr)
+			if code != tt.wantCode {
+				t.Fatalf("run() exit code = %d, want %d\nstdout:\n%s\nstderr:\n%s", code, tt.wantCode, stdout.String(), stderr.String())
+			}
+			if tt.wantCode == exitCodePolicyFailure && !strings.Contains(stdout.String(), "[require-pq-preferred]") {
+				t.Fatalf("stdout does not name the failed check:\n%s", stdout.String())
+			}
+		})
+	}
+}
+
+func TestBuildPolicyConfigRequirePQPreferred(t *testing.T) {
+	config, err := buildPolicyConfig(cliConfig{requirePQPref: true})
+	if err != nil || !config.RequirePostQuantumPreferred {
+		t.Fatalf("buildPolicyConfig() = %+v, %v, want RequirePostQuantumPreferred", config, err)
+	}
+}
+
+func TestConfigFileSetsRequirePQPreferred(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(`{"require_pq_preferred": true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := loadFileConfig(path)
+	if err != nil {
+		t.Fatalf("loadFileConfig() error = %v", err)
+	}
+	var cfg cliConfig
+	if err := applyFileConfig(&cfg, file, "", ""); err != nil {
+		t.Fatalf("applyFileConfig() error = %v", err)
+	}
+	if !cfg.requirePQPref {
+		t.Fatal("require_pq_preferred was not applied")
+	}
+
+	var dst cliConfig
+	dst.requirePQPref = true
+	overlayExplicitCLIValues(&dst, cliConfig{}, map[string]bool{"require-pq-preferred": true})
+	if dst.requirePQPref {
+		t.Fatal("an explicit CLI value must override the config file")
 	}
 }

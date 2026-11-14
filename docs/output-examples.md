@@ -38,8 +38,10 @@ order the server selected them, with post-quantum groups marked:
    Accepted Key Exchange Groups: X25519MLKEM768 (post-quantum), X25519, P-256
 ```
 
-A group counts when the server names it in a HelloRetryRequest; no handshake is
-completed with it. When the enumeration could not finish, the console warns that
+A group counts when the server names it in a HelloRetryRequest; `X25519MLKEM768`
+is also confirmed with a complete handshake (`evidence` in the JSON report). A
+further line, `Key Exchange Group Preference`, says whether the server prefers a
+post-quantum group or follows the client's order. When the enumeration could not finish, the console warns that
 the list may be missing groups and the JSON report sets
 `key_exchange_groups_incomplete`.
 
@@ -96,6 +98,7 @@ Important fields:
 | `cipher_suites` | Cipher suites found under the evidence mode. |
 | `cipher_probe_results[].evidence` | Raw ClientHello evidence level. |
 | `key_exchange_groups` | TLS 1.3 groups the server accepts (`name`, `id`, `post_quantum`), only with `--enum-groups`. |
+| `key_exchange_group_preference` | `post-quantum`, `classical`, `client-order` or `inconclusive`; omitted when no post-quantum group was found. |
 | `key_exchange_groups_incomplete` | `true` when the group list may be missing groups. |
 | `certificate_validation_status` | Certificate trust status, separate from protocol support. |
 

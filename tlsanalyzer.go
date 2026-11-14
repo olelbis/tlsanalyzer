@@ -65,6 +65,7 @@ type cliConfig struct {
 	startTLS        string
 	portSet         bool
 	requirePQ       bool
+	requirePQPref   bool
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -386,6 +387,7 @@ func newFlagSet(cfg *cliConfig, stderr io.Writer) *flag.FlagSet {
 	fs.IntVar(&cfg.minCertDays, "min-cert-days", 0, "Minimum number of days before certificate expiry")
 	fs.BoolVar(&cfg.enumGroups, "enum-groups", false, "Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids")
 	fs.BoolVar(&cfg.requirePQ, "require-pq", false, "Fail when TLS 1.3 accepts no post-quantum key exchange group (implies --enum-groups)")
+	fs.BoolVar(&cfg.requirePQPref, "require-pq-preferred", false, "Fail unless the TLS 1.3 server itself prefers a post-quantum key exchange group over classical ones (implies --enum-groups)")
 	fs.StringVar(&cfg.baseline, "baseline", "", "Compare with a JSON report recorded earlier with --json; regressions fail the run (exit 3)")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "Usage of tlsanalyzer:")
@@ -404,15 +406,16 @@ func buildPolicyConfig(cfg cliConfig) (policy.Config, error) {
 		return policy.Config{}, err
 	}
 	return policy.Config{
-		Name:                       cfg.policy,
-		FailOn:                     policy.ParseFailOn(cfg.failOn),
-		RequiredTLSVersions:        requiredTLS,
-		ForbiddenTLSVersions:       forbiddenTLS,
-		RequiredALPNProtocols:      policy.ParseALPNProtocols(cfg.requireALPN),
-		ForbiddenALPNProtocols:     policy.ParseALPNProtocols(cfg.forbidALPN),
-		MinCertificateKeyBits:      cfg.minCertKeyBits,
-		MinCertificateValidityDays: cfg.minCertDays,
-		RequirePostQuantum:         cfg.requirePQ,
+		Name:                        cfg.policy,
+		FailOn:                      policy.ParseFailOn(cfg.failOn),
+		RequiredTLSVersions:         requiredTLS,
+		ForbiddenTLSVersions:        forbiddenTLS,
+		RequiredALPNProtocols:       policy.ParseALPNProtocols(cfg.requireALPN),
+		ForbiddenALPNProtocols:      policy.ParseALPNProtocols(cfg.forbidALPN),
+		MinCertificateKeyBits:       cfg.minCertKeyBits,
+		MinCertificateValidityDays:  cfg.minCertDays,
+		RequirePostQuantum:          cfg.requirePQ,
+		RequirePostQuantumPreferred: cfg.requirePQPref,
 	}, nil
 }
 

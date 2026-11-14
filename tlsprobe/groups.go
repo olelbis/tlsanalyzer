@@ -240,6 +240,15 @@ func removeGroup(groups []uint16, group uint16) []uint16 {
 	return kept
 }
 
+// SelectTLS13Group sends one TLS 1.3 ClientHello that offers groups, in the
+// given order, with an empty key_share, and reports the HelloRetryRequest the
+// server answers with. Result.SelectedGroup is the group the server chose; a
+// server that honours its own preference picks the same group whatever the
+// order, while one that follows the client picks the first group it supports.
+func SelectTLS13Group(ctx context.Context, opts Options, groups []uint16) Result {
+	return selectTLS13Group(ctx, opts, groups)
+}
+
 // selectTLS13Group sends one TLS 1.3 ClientHello that offers groups with an
 // empty key_share and reports the HelloRetryRequest, alert or closure that
 // answers it.

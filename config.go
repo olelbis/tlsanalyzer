@@ -36,6 +36,7 @@ type fileConfig struct {
 	EnumGroups     *bool                        `json:"enum_groups,omitempty"`
 	StartTLS       *string                      `json:"starttls,omitempty"`
 	RequirePQ      *bool                        `json:"require_pq,omitempty"`
+	RequirePQPref  *bool                        `json:"require_pq_preferred,omitempty"`
 	Target         *string                      `json:"target,omitempty"`
 	Profile        *string                      `json:"profile,omitempty"`
 	TargetsFile    *string                      `json:"targets_file,omitempty"`
@@ -63,6 +64,7 @@ type filePolicyProfile struct {
 	MinCertKeyBits *int    `json:"min_cert_key_bits,omitempty"`
 	MinCertDays    *int    `json:"min_cert_days,omitempty"`
 	RequirePQ      *bool   `json:"require_pq,omitempty"`
+	RequirePQPref  *bool   `json:"require_pq_preferred,omitempty"`
 }
 
 type cliInputError struct {
@@ -158,6 +160,7 @@ func applyFileConfigValues(cfg *cliConfig, file fileConfig) {
 	applyString(&cfg.baseline, file.Baseline)
 	applyBool(&cfg.enumGroups, file.EnumGroups)
 	applyBool(&cfg.requirePQ, file.RequirePQ)
+	applyBool(&cfg.requirePQPref, file.RequirePQPref)
 	applyString(&cfg.targetsFile, file.TargetsFile)
 	applyInt(&cfg.concurrency, file.Concurrency)
 	applyInt(&cfg.retries, file.Retries)
@@ -182,6 +185,7 @@ func applyPolicyProfile(cfg *cliConfig, profile filePolicyProfile) {
 	applyInt(&cfg.minCertKeyBits, profile.MinCertKeyBits)
 	applyInt(&cfg.minCertDays, profile.MinCertDays)
 	applyBool(&cfg.requirePQ, profile.RequirePQ)
+	applyBool(&cfg.requirePQPref, profile.RequirePQPref)
 }
 
 func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string]bool) {
@@ -272,6 +276,9 @@ func overlayExplicitCLIValues(dst *cliConfig, src cliConfig, explicit map[string
 	}
 	if explicit["require-pq"] {
 		dst.requirePQ = src.requirePQ
+	}
+	if explicit["require-pq-preferred"] {
+		dst.requirePQPref = src.requirePQPref
 	}
 	if explicit["target"] {
 		dst.targetName = src.targetName

@@ -383,3 +383,34 @@ func TestNeedsGroupProbe(t *testing.T) {
 		t.Fatal("NeedsGroupProbe() = true without groups in the baseline")
 	}
 }
+
+func TestCompareKeyExchangeGroupPreference(t *testing.T) {
+	withPreference := func(preference string, groups ...output.JSONKeyExchangeGroup) *Report {
+		r := tls13(groups...)
+		r.Results[0].KeyExchangeGroupPreference = preference
+		return r
+	}
+	base := withPreference(scan.PreferencePostQuantum, hybrid, x25519)
+
+	for _, preference := range []string{scan.PreferenceClassical, scan.PreferenceClient} {
+		got := Compare(base, *withPreference(preference, hybrid, x25519))
+		if m := failureMessages(got); !strings.Contains(m, "TLS 1.3 no longer prefers post-quantum key exchange groups") {
+			t.Errorf("preference %q: failures = %q", preference, m)
+		}
+	}
+	for _, preference := range []string{scan.PreferencePostQuantum, scan.PreferenceInconclusive, ""} {
+		if got := Compare(base, *withPreference(preference, hybrid, x25519)); len(got.Failures) != 0 {
+			t.Errorf("preference %q: failures = %q, want none", preference, failureMessages(got))
+		}
+	}
+	if got := Compare(withPreference(scan.PreferenceClassical, hybrid, x25519), *withPreference(scan.PreferenceClient, hybrid, x25519)); len(got.Failures) != 0 {
+		t.Errorf("a baseline that never preferred post-quantum must not regress: %q", failureMessages(got))
+	}
+
+	failed := hybrid
+	failed.Evidence = scan.GroupEvidenceHandshakeFailed
+	got := Compare(base, *withPreference(scan.PreferencePostQuantum, failed, x25519))
+	if m := failureMessages(got); !strings.Contains(m, "a handshake with it now fails") {
+		t.Errorf("failures = %q, want the failing hybrid handshake reported", m)
+	}
+}

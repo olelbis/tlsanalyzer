@@ -181,6 +181,8 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
         Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids
   --require-pq
         Fail when TLS 1.3 accepts no post-quantum key exchange group (implies --enum-groups)
+  --require-pq-preferred
+        Fail unless the TLS 1.3 server itself prefers a post-quantum key exchange group over classical ones (implies --enum-groups)
   --baseline string
         Compare with a JSON report recorded earlier with --json; regressions fail the run (exit 3)
   --markdown string
@@ -570,17 +572,35 @@ tlsanalyzer --host example.com --min-version 1.3 --enum-groups
 
 ```
    Accepted Key Exchange Groups: X25519MLKEM768 (post-quantum), X25519, P-256
+   Key Exchange Group Preference: post-quantum first (server preference)
 ```
 
 The 17 groups of the catalog are classical (P-256, P-384, P-521, X25519, X448, ffdhe2048 to ffdhe8192), hybrid (`X25519MLKEM768`, `SecP256r1MLKEM768`, `SecP384r1MLKEM1024`), pure ML-KEM (`MLKEM512`, `MLKEM768`, `MLKEM1024`) and the pre-standard `X25519Kyber768Draft00`. Groups marked `post_quantum` in the JSON report are the ones that include a post-quantum KEM.
 
-How it works matters for reading the result. Each probe is a ClientHello that offers the remaining groups with an empty key share; the server answers with a HelloRetryRequest naming the group it wants. The group is recorded and removed, and the probe repeats until the server refuses, so an endpoint with three groups costs four connections. No handshake is completed with any group: "supported" means the server selected the group, not that a full key exchange was verified. The list is in the order the server selected the groups; it is the server's preference only if the server applies its own preference order rather than the client's.
+How it works matters for reading the result. Each probe is a ClientHello that offers the remaining groups with an empty key share; the server answers with a HelloRetryRequest naming the group it wants. The group is recorded and removed, and the probe repeats until the server refuses, so an endpoint with three groups costs four connections. A HelloRetryRequest shows that the server selects a group, not that a key exchange works with it. For `X25519MLKEM768`, the hybrid current browsers offer, the scan therefore also completes a TLS 1.3 handshake that offers only that group. The JSON field `evidence` of each group is `hello-retry-request`, `handshake` (confirmed by a complete handshake) or `handshake-failed` (the server selected the group but the handshake failed; the console marks it `[handshake failed]` and it does not count as post-quantum support). The other groups, including the other hybrids, are not confirmed by a handshake because the scanner's TLS library cannot offer them.
+
+The order of the list is the order in which the probes found the groups; it says nothing about preference. The preference is measured separately.
+
+#### Server group preference
+
+When the server accepts post-quantum and classical groups, the scan sends two more ClientHellos that list the same groups with the post-quantum ones first and last, and compares what the server selects:
+
+| `key_exchange_group_preference` | Meaning |
+| --- | --- |
+| `post-quantum` | The server picks a post-quantum group whatever the client's order. |
+| `classical` | The server picks a classical group even when the client lists a post-quantum group first. |
+| `client-order` | The server follows the client's order: it uses a post-quantum group only when the client lists one first. |
+| `inconclusive` | The probes were not answered or contradicted each other. |
+
+The field is omitted when no post-quantum group was found. A server that accepts a hybrid but follows the client's order protects only clients that list the hybrid first, which current browsers do.
 
 The enumeration is checked against the handshake: the group the version handshake negotiated has to be in the list. When it is not, or when probes went unanswered, `key_exchange_groups_incomplete` is set and the console warns that the list may be missing groups.
 
 Only TLS 1.3 is enumerated. TLS 1.2 ECDHE curves are not.
 
 `--require-pq` turns it into a gate: the run fails (exit 3, check `require-pq`) when TLS 1.3 accepts no post-quantum group, when TLS 1.3 is not supported, or when the enumeration is incomplete and no post-quantum group was found. It implies `--enum-groups`, and `require_pq` can be set in a config file or a policy profile. With a [baseline](#baseline-comparison) that lists groups, losing a post-quantum group is a regression.
+
+`--require-pq-preferred` is the stricter gate: the run fails (exit 3, check `require-pq-preferred`) unless the server's group preference is `post-quantum`, and also when TLS 1.3 is not supported, no post-quantum group was found or the preference is inconclusive. It implies `--enum-groups`, and `require_pq_preferred` can be set in a config file or a policy profile. A baseline that recorded a `post-quantum` preference fails when the server now prefers `classical` or follows the client, or when its hybrid handshake now fails.
 
 ### Baseline comparison
 

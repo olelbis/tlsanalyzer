@@ -15,7 +15,7 @@ releases unless a changelog entry explicitly calls out a breaking change.
 | --- | --- |
 | CLI exit codes | `0`, `1`, `2` and `3` keep their documented meanings. |
 | JSON schema v1 | Existing documented fields, types and enum meanings are preserved. |
-| Policy checks | Built-in check names, including `baseline` and `require-pq`, and policy failure exit behavior are preserved. |
+| Policy checks | Built-in check names, including `baseline`, `require-pq` and `require-pq-preferred`, and policy failure exit behavior are preserved. |
 | Report separation | TLS protocol support remains separate from certificate validation status. |
 | Evidence labels | Raw-probed, observed and negotiated evidence, and the `clienthello-serverhello` version and cipher evidence, remain explicitly labeled. |
 | Baseline input | `--baseline` reads an ordinary `--json` report. A report with a different JSON schema major version is an input error (exit 1), never a silent pass. |

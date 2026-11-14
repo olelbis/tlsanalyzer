@@ -17,7 +17,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `go_version` | string | no | Go toolchain version the scanner binary was built with, for example `go1.27.3`. Certificate verdicts depend on that toolchain's `crypto/x509`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
 | `generated_at` | string | yes | UTC RFC3339 timestamp for report generation. |
-| `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits`, `--min-cert-days`, `--require-pq` or `--baseline`. |
+| `policy` | object | no | Policy result when any policy gate is enabled, including `--policy`, `--fail-on`, `--require-*`, `--forbid-*`, `--min-cert-key-bits`, `--min-cert-days`, `--require-pq`, `--require-pq-preferred` or `--baseline`. |
 | `results` | array | yes | Per-TLS-version scan results. |
 
 ## Batch Top-Level Object
@@ -66,7 +66,8 @@ Single-target scans and batch scans share the same schema version but use differ
 | `duration_millis` | number | yes | Scan duration for the TLS version. |
 | `handshake_attempts` | number | yes | Handshake attempts used for this result. |
 | `key_exchange_group` | string | no | Negotiated key exchange group, for example `X25519`; omitted when unavailable or when legacy RSA key exchange does not expose a group. |
-| `key_exchange_groups` | array | no | TLS 1.3 key exchange groups the endpoint accepts, in the order it selected them. Only present with `--enum-groups` (or `--require-pq`, or a baseline that lists groups) on a supported TLS 1.3 result. Each item is `{"name", "id", "post_quantum"}`: `id` is the IANA named group number and `post_quantum` is `true` for groups that include ML-KEM or Kyber. A group is listed when the server selected it in a HelloRetryRequest; no handshake is completed with it. |
+| `key_exchange_groups` | array | no | TLS 1.3 key exchange groups the endpoint accepts, in the order it selected them. Only present with `--enum-groups` (or `--require-pq`, or a baseline that lists groups) on a supported TLS 1.3 result. Each item is `{"name", "id", "post_quantum", "evidence"}`: `id` is the IANA named group number and `post_quantum` is `true` for groups that include ML-KEM or Kyber. A group is listed when the server selected it in a HelloRetryRequest. `evidence` is `hello-retry-request`, `handshake` (`X25519MLKEM768` confirmed by a complete handshake offering only that group) or `handshake-failed` (selected, but the handshake failed). |
+| `key_exchange_group_preference` | string | no | Whether the server picks a post-quantum group whatever order the client lists the groups in: `post-quantum`, `classical`, `client-order` (follows the client) or `inconclusive`. Omitted when no post-quantum group was found. |
 | `key_exchange_groups_incomplete` | boolean | no | `true` when the enumeration could not classify every group or did not find the group the version handshake negotiated, so `key_exchange_groups` may be missing groups. Omitted when the evidence is complete. |
 | `alpn_protocol` | string | no | Negotiated ALPN application protocol, for example `h2` or `http/1.1`. |
 | `version_evidence` | string | no | Omitted when the version was established by a full TLS handshake. `clienthello-serverhello` when the full handshake failed and the version was detected from the ServerHello answering a raw ClientHello; `certificate` is then absent, `certificate_validation_status` is `unavailable` and `error_message` holds the reason the full handshake failed. |
@@ -127,7 +128,7 @@ Single-target scans and batch scans share the same schema version but use differ
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits`, `min-cert-days`, `cert-key`, `cert-lifespan`, `cipher-allowlist` (the last three only with the Mozilla presets), `require-pq` or `baseline` (a regression found by `--baseline`). |
+| `check` | string | yes | Policy check identifier, for example `legacy-tls`, `weak-cipher`, `invalid-cert`, `expired-cert`, `required-tls`, `forbidden-tls`, `required-alpn`, `forbidden-alpn`, `min-cert-key-bits`, `min-cert-days`, `cert-key`, `cert-lifespan`, `cipher-allowlist` (the last three only with the Mozilla presets), `require-pq`, `require-pq-preferred` or `baseline` (a regression found by `--baseline`). |
 | `version` | string | no | TLS version associated with the failure when applicable. |
 | `message` | string | yes | Human-readable failure detail. Message wording is useful for humans, but automation should prefer `check` and `version`. |
 

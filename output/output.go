@@ -166,12 +166,15 @@ func writeMarkdownKeyExchangeGroups(sb *strings.Builder, results []scan.TLSScanR
 		}
 		if !header {
 			sb.WriteString("\n## Key Exchange Groups\n\n")
-			sb.WriteString("Enumerated with ClientHello-only HelloRetryRequest probes; no handshake is completed with any group.\n\n")
+			sb.WriteString("Enumerated with ClientHello-only HelloRetryRequest probes; X25519MLKEM768 is also confirmed with a complete handshake.\n\n")
 			header = true
 		}
 		sb.WriteString(fmt.Sprintf("- **%s**: %s", r.Version, emptyDash(scan.FormatKeyExchangeGroups(r.KeyExchangeGroups))))
 		if r.KeyExchangeGroupsIncomplete {
 			sb.WriteString(" (incomplete: the list may be missing groups)")
+		}
+		if preference := scan.FormatKeyExchangePreference(r.KeyExchangeGroupPreference); preference != "" {
+			sb.WriteString(fmt.Sprintf("; preference: %s", preference))
 		}
 		sb.WriteString("\n")
 	}
@@ -506,6 +509,9 @@ func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
 	}
 	if len(result.KeyExchangeGroups) > 0 {
 		fmt.Fprintf(w, "   Accepted Key Exchange Groups: %s\n", scan.FormatKeyExchangeGroups(result.KeyExchangeGroups))
+	}
+	if preference := scan.FormatKeyExchangePreference(result.KeyExchangeGroupPreference); preference != "" {
+		fmt.Fprintf(w, "   Key Exchange Group Preference: %s\n", preference)
 	}
 	if result.KeyExchangeGroupsIncomplete {
 		fmt.Fprintln(w, "   ⚠️  Key exchange group evidence is incomplete: the list may be missing groups")

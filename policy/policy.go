@@ -36,6 +36,10 @@ const (
 	// exchange group (--require-pq).
 	CheckRequirePQ = "require-pq"
 
+	// CheckRequirePQPreferred fails when the TLS 1.3 server does not itself
+	// prefer a post-quantum key exchange group (--require-pq-preferred).
+	CheckRequirePQPreferred = "require-pq-preferred"
+
 	// CheckBaseline marks failures found by comparing a scan with a recorded
 	// baseline report (--baseline). It is not selectable with --fail-on.
 	CheckBaseline = "baseline"
@@ -53,6 +57,10 @@ type Config struct {
 	// RequirePostQuantum fails the run unless TLS 1.3 accepts at least one
 	// post-quantum or hybrid key exchange group. It needs group enumeration.
 	RequirePostQuantum bool
+	// RequirePostQuantumPreferred fails the run unless the TLS 1.3 server
+	// picks a post-quantum group even when the client lists classical groups
+	// first. It needs group enumeration.
+	RequirePostQuantumPreferred bool
 }
 
 type Result struct {
@@ -181,7 +189,7 @@ func ScanRangeNotes(config Config, requested uint16) []string {
 // RequiresGroupProbe reports whether config can only be evaluated on a scan
 // that enumerated the TLS 1.3 key exchange groups.
 func RequiresGroupProbe(config Config) bool {
-	return config.RequirePostQuantum
+	return config.RequirePostQuantum || config.RequirePostQuantumPreferred
 }
 
 func RequiresCipherProbe(config Config) bool {
@@ -267,6 +275,11 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 				result.Failures = append(result.Failures, failure)
 			}
 		}
+		if config.RequirePostQuantumPreferred && r.VersionID == tls.VersionTLS13 {
+			if failure, ok := postQuantumPreferenceFailure(r); ok {
+				result.Failures = append(result.Failures, failure)
+			}
+		}
 		if containsTLSVersion(config.ForbiddenTLSVersions, r.VersionID) {
 			result.Failures = append(result.Failures, Failure{
 				Check:   CheckForbiddenTLS,
@@ -305,6 +318,14 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 			Check:   CheckRequirePQ,
 			Version: tlsVersionName(tls.VersionTLS13),
 			Message: "post-quantum key exchange requires TLS 1.3, which is not supported",
+		})
+	}
+
+	if config.RequirePostQuantumPreferred && !supportedVersions[tls.VersionTLS13] {
+		result.Failures = append(result.Failures, Failure{
+			Check:   CheckRequirePQPreferred,
+			Version: tlsVersionName(tls.VersionTLS13),
+			Message: "a post-quantum key exchange preference requires TLS 1.3, which is not supported",
 		})
 	}
 
@@ -366,10 +387,22 @@ func isKnownCheck(check string) bool {
 // enumeration could not classify; without one, an incomplete enumeration
 // cannot prove the absence.
 func postQuantumFailure(r scan.TLSScanResult) (Failure, bool) {
+	unconfirmed := ""
 	for _, group := range r.KeyExchangeGroups {
-		if group.PostQuantum {
+		if !group.PostQuantum {
+			continue
+		}
+		if group.Evidence != scan.GroupEvidenceHandshakeFailed {
 			return Failure{}, false
 		}
+		unconfirmed = group.Name
+	}
+	if unconfirmed != "" {
+		return Failure{
+			Check:   CheckRequirePQ,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s selected %s but a handshake offering only that group failed; post-quantum support is not confirmed", r.Version, unconfirmed),
+		}, true
 	}
 	if r.KeyExchangeGroupsIncomplete {
 		return Failure{
@@ -385,6 +418,28 @@ func postQuantumFailure(r scan.TLSScanResult) (Failure, bool) {
 	}, true
 }
 
+// postQuantumPreferenceFailure judges one supported TLS 1.3 result against
+// --require-pq-preferred.
+func postQuantumPreferenceFailure(r scan.TLSScanResult) (Failure, bool) {
+	failure := func(format string, args ...any) (Failure, bool) {
+		return Failure{Check: CheckRequirePQPreferred, Version: r.Version, Message: fmt.Sprintf(format, args...)}, true
+	}
+	switch r.KeyExchangeGroupPreference {
+	case scan.PreferencePostQuantum:
+		return Failure{}, false
+	case scan.PreferenceClassical:
+		return failure("%s prefers a classical key exchange group over post-quantum ones", r.Version)
+	case scan.PreferenceClient:
+		return failure("%s follows the client's group order: it uses a post-quantum group only when the client lists one first", r.Version)
+	case scan.PreferenceInconclusive:
+		return failure("%s key exchange group preference could not be determined (probes went unanswered)", r.Version)
+	}
+	if r.KeyExchangeGroupsIncomplete {
+		return failure("%s key exchange group evidence is incomplete (probes went unanswered); the group preference cannot be confirmed", r.Version)
+	}
+	return failure("%s accepts no post-quantum key exchange group (groups found: %s), so none is preferred", r.Version, groupList(r.KeyExchangeGroups))
+}
+
 func groupList(groups []scan.KeyExchangeGroupResult) string {
 	if len(groups) == 0 {
 		return "none"
@@ -394,6 +449,7 @@ func groupList(groups []scan.KeyExchangeGroupResult) string {
 
 func policyEnabled(config Config, checks map[string]bool) bool {
 	return config.RequirePostQuantum ||
+		config.RequirePostQuantumPreferred ||
 		len(checks) > 0 ||
 		len(config.RequiredTLSVersions) > 0 ||
 		len(config.ForbiddenTLSVersions) > 0 ||
