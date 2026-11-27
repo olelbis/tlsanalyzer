@@ -207,6 +207,7 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 	}
 	if opts.Baseline != nil {
 		current := output.NewJSONReport(opts.Host, opts.Port, opts.ServerName, "", now, results)
+		current.StartTLS = string(opts.StartTLS)
 		baseline.Compare(opts.Baseline, current).Apply(&policyResult)
 	}
 

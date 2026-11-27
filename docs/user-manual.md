@@ -634,6 +634,8 @@ Then compare later scans with it:
 tlsanalyzer --host example.com --baseline baseline.json
 ```
 
+A report records the `--starttls` protocol it was made with (`starttls` in the JSON). When the baseline and the scan differ, for example a baseline recorded on a web port and a scan of a mail server, the comparison adds a note because the results may differ for that reason; it does not fail the run. Reports written before v0.38.0 carry no record.
+
 The baseline is an ordinary report, single-target or batch, so it can be committed next to the infrastructure it describes and replaced by recording a new one. `baseline` can also be set in a [config file](#json-config-file).
 
 A scan fails (exit 3, check `baseline`) when security got worse:

@@ -22,8 +22,10 @@ type TargetReport struct {
 	Attempts       int
 	Results        []scan.TLSScanResult
 	Policy         *policy.Result
-	Error          string
-	ExitCode       int
+	// StartTLS is the STARTTLS protocol of the run, empty for plain TLS.
+	StartTLS string
+	Error    string
+	ExitCode int
 }
 
 // BatchRunMetadata describes the operational settings used by a batch run.
@@ -66,7 +68,9 @@ func BuildJSONBatchReport(scannerVersion string, generatedAt time.Time, reports 
 		Targets:        make([]JSONBatchTarget, 0, len(reports)),
 	}
 	for _, report := range reports {
-		data, err := BuildJSONReport(report.Host, report.Port, report.ServerName, report.ScannerVersion, generatedAt, report.Results, report.Policy)
+		jsonReport := NewJSONReport(report.Host, report.Port, report.ServerName, report.ScannerVersion, generatedAt, report.Results, report.Policy)
+		jsonReport.StartTLS = report.StartTLS
+		data, err := MarshalJSONReport(jsonReport)
 		if err != nil {
 			return nil, err
 		}

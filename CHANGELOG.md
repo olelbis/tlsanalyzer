@@ -4,6 +4,11 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Added
+
+- The JSON report has an optional `starttls` field (`smtp`, `imap` or `pop3`) when the scan used `--starttls`, in single-target and batch reports. It is omitted for a plain TLS port.
+- `--baseline` notes when the baseline and the scan differ in STARTTLS (for example a baseline recorded on port 443 compared with a scan of an SMTP server), because the results may differ for that reason. It is a note, not a failure. Reports written before this release carry no record, and the note says so.
+
 ## v0.37.0 - 2026-11-27
 
 ### Added

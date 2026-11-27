@@ -425,3 +425,39 @@ func TestCompareWeakCurveFails(t *testing.T) {
 		t.Fatalf("failures = %q, want none for a curve the baseline already had", failureMessages(got))
 	}
 }
+
+func TestCompareStartTLSMismatch(t *testing.T) {
+	withStartTLS := func(protocol string) *Report {
+		r := tls13(x25519)
+		r.StartTLS = protocol
+		return r
+	}
+	tests := []struct {
+		name      string
+		base, cur string
+		want      string
+	}{
+		{"same protocol is silent", "smtp", "smtp", ""},
+		{"plain on both sides is silent", "", "", ""},
+		{"baseline without a record", "", "smtp", "the baseline does not record one"},
+		{"baseline with STARTTLS, scan without", "smtp", "", "this scan runs without it"},
+		{"different protocols", "smtp", "imap", "this scan uses imap"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Compare(withStartTLS(tt.base), *withStartTLS(tt.cur))
+			if len(got.Failures) != 0 {
+				t.Fatalf("failures = %q, a STARTTLS difference must not fail the run", failureMessages(got))
+			}
+			if tt.want == "" {
+				if len(got.Notes) != 0 {
+					t.Fatalf("notes = %q, want none", notes(got))
+				}
+				return
+			}
+			if !strings.Contains(notes(got), tt.want) {
+				t.Fatalf("notes = %q, want one containing %q", notes(got), tt.want)
+			}
+		})
+	}
+}

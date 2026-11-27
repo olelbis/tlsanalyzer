@@ -12,9 +12,12 @@ import (
 const JSONSchemaVersion = "1.1"
 
 type JSONReport struct {
-	Host           string           `json:"host"`
-	Port           string           `json:"port"`
-	ServerName     string           `json:"server_name,omitempty"`
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	ServerName string `json:"server_name,omitempty"`
+	// StartTLS is the protocol (smtp, imap or pop3) the connections were
+	// upgraded with before TLS started. It is omitted for a plain TLS port.
+	StartTLS       string           `json:"starttls,omitempty"`
 	SchemaVersion  string           `json:"schema_version"`
 	ScannerVersion string           `json:"scanner_version"`
 	GoVersion      string           `json:"go_version,omitempty"`
@@ -92,6 +95,12 @@ type JSONCertificate struct {
 
 func BuildJSONReport(host, port, serverName, scannerVersion string, generatedAt time.Time, results []scan.TLSScanResult, policyResults ...*policy.Result) ([]byte, error) {
 	report := NewJSONReport(host, port, serverName, scannerVersion, generatedAt, results, policyResults...)
+	return MarshalJSONReport(report)
+}
+
+// MarshalJSONReport serializes a report the way BuildJSONReport does. Callers
+// that set fields NewJSONReport does not take, such as StartTLS, use it.
+func MarshalJSONReport(report JSONReport) ([]byte, error) {
 	return json.MarshalIndent(report, "", "  ")
 }
 

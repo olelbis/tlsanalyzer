@@ -103,7 +103,8 @@ func TestRunStartTLSScansEveryProbeThroughSMTP(t *testing.T) {
 		t.Fatalf("run() exit code = %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 	var report struct {
-		Results []struct {
+		StartTLS string `json:"starttls"`
+		Results  []struct {
 			Version    string     `json:"version"`
 			Supported  bool       `json:"supported"`
 			Ciphers    []string   `json:"cipher_suites"`
@@ -114,6 +115,9 @@ func TestRunStartTLSScansEveryProbeThroughSMTP(t *testing.T) {
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
+	}
+	if report.StartTLS != "smtp" {
+		t.Fatalf("starttls = %q, want smtp", report.StartTLS)
 	}
 	if len(report.Results) != 2 {
 		t.Fatalf("results = %d, want TLS 1.2 and 1.3", len(report.Results))
