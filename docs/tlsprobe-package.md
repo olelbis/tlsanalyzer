@@ -81,6 +81,13 @@ Public entry points:
 - `IsPostQuantumGroup`
 - `GroupEnumeration`
 - `EnumerateTLS13Groups`
+- `SelectTLS13Group`
+- `ECDHECurve`
+- `ECDHECurves`
+- `ECDHECurveIDs`
+- `LookupECDHECurve`
+- `EnumerateTLS12Curves`
+- `SelectTLS12Curve`
 - `ProbeLegacyCipherSuite`
 - `ProbeLegacyCipherSuites`
 - `Summarize`
@@ -179,6 +186,30 @@ groups that were not classified when the enumeration could not finish (other
 alerts, unanswered ClientHellos after one retry, or a group that was not
 offered). A caller that also has a full handshake should check that the group it
 negotiated is in `Supported`.
+
+## TLS 1.2 ECDHE Curves
+
+`EnumerateTLS12Curves` finds which elliptic curves a TLS 1.2 server uses for
+ECDHE, and returns the same `GroupEnumeration` as the TLS 1.3 enumeration:
+
+```go
+enumeration, err := tlsprobe.EnumerateTLS12Curves(ctx, opts, tlsprobe.ECDHECurveIDs())
+for _, curve := range enumeration.Supported {
+	fmt.Println(curve.Name)
+}
+```
+
+Each ClientHello offers every ECDHE cipher suite and the remaining curves. The
+server names its curve in the ServerKeyExchange (RFC 8422 section 5.4); the
+probe reads the server's flight up to that message, reassembling handshake
+messages that span records, and drops the connection. `SelectTLS12Curve` is the
+single step: on `StatusSupported`, `Result.SelectedGroup` is the curve and
+`Result.CipherSuite` the suite the server chose. `ECDHECurve.Weak` is true for
+curves under `WeakECDHECurveBits` (224). A curve the server announces that was
+not offered, a ServerHello on another version and a flight without a
+ServerKeyExchange are not classified, so the enumeration ends with those curves
+in `Unresolved`. Only the curves used for the certificate the server selects
+are seen.
 
 ## Status Values
 

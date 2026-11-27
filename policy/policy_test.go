@@ -553,3 +553,35 @@ func TestEvaluateRequirePostQuantumPreferred(t *testing.T) {
 		t.Fatal("RequiresGroupProbe() = false for --require-pq-preferred")
 	}
 }
+
+func TestEvaluateWeakCurve(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
+	config := Config{FailOn: []string{CheckWeakCurve}}
+	weak := scan.KeyExchangeGroupResult{ID: 16, Name: "secp160r1", Bits: 160, Weak: true}
+	tls12 := func(incomplete bool, groups ...scan.KeyExchangeGroupResult) scan.TLSScanResult {
+		return scan.TLSScanResult{Version: "TLS 1.2", VersionID: tls.VersionTLS12, Supported: true, KeyExchangeGroups: groups, KeyExchangeGroupsIncomplete: incomplete}
+	}
+
+	if err := ValidateConfig(config); err != nil {
+		t.Fatalf("ValidateConfig() error = %v, want weak-curve to be a known check", err)
+	}
+	if !RequiresGroupProbe(config) {
+		t.Fatal("RequiresGroupProbe() = false for weak-curve")
+	}
+
+	result := Evaluate([]scan.TLSScanResult{tls12(false, groupX25519, weak)}, config, now)
+	if result.Passed || len(result.Failures) != 1 || result.Failures[0].Check != CheckWeakCurve || !strings.Contains(result.Failures[0].Message, "secp160r1 (160 bits)") {
+		t.Fatalf("result = %+v, want a weak-curve failure naming secp160r1", result)
+	}
+	if result := Evaluate([]scan.TLSScanResult{tls12(false, groupX25519, groupP256)}, config, now); !result.Passed {
+		t.Fatalf("Failures = %+v, want a pass without weak curves", result.Failures)
+	}
+	result = Evaluate([]scan.TLSScanResult{tls12(true, groupX25519)}, config, now)
+	if result.Passed || !strings.Contains(result.Failures[0].Message, "curve evidence is incomplete") {
+		t.Fatalf("result = %+v, want incomplete evidence to fail", result)
+	}
+	// TLS 1.3 groups are not curves of the TLS 1.2 key exchange.
+	if result := Evaluate([]scan.TLSScanResult{tls13WithGroups(true, groupX25519)}, config, now); !result.Passed {
+		t.Fatalf("Failures = %+v, want TLS 1.3 to be ignored", result.Failures)
+	}
+}

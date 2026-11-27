@@ -414,3 +414,14 @@ func TestCompareKeyExchangeGroupPreference(t *testing.T) {
 		t.Errorf("failures = %q, want the failing hybrid handshake reported", m)
 	}
 }
+
+func TestCompareWeakCurveFails(t *testing.T) {
+	weak := output.JSONKeyExchangeGroup{Name: "secp160r1", ID: 16, Bits: 160, Weak: true, Evidence: scan.GroupEvidenceKeyExchange}
+	got := Compare(tls13(x25519), *tls13(x25519, weak))
+	if m := failureMessages(got); !strings.Contains(m, "now uses weak ECDHE curve secp160r1 (160 bits)") {
+		t.Fatalf("failures = %q, want the weak curve reported", m)
+	}
+	if got := Compare(tls13(x25519, weak), *tls13(x25519, weak)); len(got.Failures) != 0 {
+		t.Fatalf("failures = %q, want none for a curve the baseline already had", failureMessages(got))
+	}
+}

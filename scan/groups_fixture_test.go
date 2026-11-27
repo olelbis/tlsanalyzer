@@ -220,3 +220,124 @@ func TestProbeKeyExchangeGroupsPreferenceInconclusiveWhenProbesGoUnanswered(t *t
 		t.Fatalf("Warnings = %v, want the unanswered probes reported", result.Warnings)
 	}
 }
+
+// curveFixtureServer imitates a TLS 1.2 server that announces the first
+// offered curve that is in preference in its ServerKeyExchange.
+func curveFixtureServer(t *testing.T, preference []uint16) (host, port string) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	var wg sync.WaitGroup
+	t.Cleanup(func() {
+		_ = listener.Close()
+		wg.Wait()
+	})
+
+	message := func(kind byte, body []byte) []byte {
+		out := []byte{kind, byte(len(body) >> 16), byte(len(body) >> 8), byte(len(body))}
+		return append(out, body...)
+	}
+	record := func(payload []byte) []byte {
+		out := []byte{22, 3, 3, byte(len(payload) >> 8), byte(len(payload))}
+		return append(out, payload...)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+				_, offered, ok := readClientHelloGroups(conn)
+				if !ok {
+					return
+				}
+				chosen, found := pickGroup(offered, preference, false)
+				if !found {
+					_, _ = conn.Write([]byte{21, 3, 3, 0, 2, 2, 40})
+					return
+				}
+				suite := uint16(tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
+				hello := []byte{3, 3}
+				hello = append(hello, make([]byte, 32)...)
+				hello = append(hello, 0, byte(suite>>8), byte(suite), 0, 0, 0)
+				exchange := append([]byte{3, byte(chosen >> 8), byte(chosen)}, make([]byte, 40)...)
+				var flight []byte
+				flight = append(flight, record(message(2, hello))...)
+				flight = append(flight, record(message(11, make([]byte, 20)))...)
+				flight = append(flight, record(message(12, exchange))...)
+				flight = append(flight, record(message(14, nil))...)
+				_, _ = conn.Write(flight)
+				time.Sleep(50 * time.Millisecond)
+			}()
+		}
+	}()
+
+	host, port, err = net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatalf("split address: %v", err)
+	}
+	return host, port
+}
+
+func TestProbeTLS12CurvesFlagsWeakCurves(t *testing.T) {
+	host, port := curveFixtureServer(t, []uint16{16, 0x0017, 0x001d})
+	result := ProbeTLS12Curves(Options{Host: host, Port: port, Timeout: 3 * time.Second}, "CurveP256")
+	if result.Incomplete {
+		t.Fatalf("Incomplete = true, warnings %v", result.Warnings)
+	}
+	if got := strings.Join(KeyExchangeGroupNames(result.Groups), ","); !strings.Contains(got, "secp160r1") || !strings.Contains(got, "P-256") || !strings.Contains(got, "X25519") || len(result.Groups) != 3 {
+		t.Fatalf("groups = %q, want secp160r1, P-256 and X25519", got)
+	}
+	for _, group := range result.Groups {
+		if group.Evidence != GroupEvidenceKeyExchange {
+			t.Errorf("%s evidence = %q, want %q", group.Name, group.Evidence, GroupEvidenceKeyExchange)
+		}
+		if weak := group.ID == 16; group.Weak != weak || (weak && group.Bits != 160) {
+			t.Errorf("%s weak = %t bits = %d", group.Name, group.Weak, group.Bits)
+		}
+	}
+	if rendered := FormatKeyExchangeGroups(result.Groups); !strings.Contains(rendered, "secp160r1 (weak)") || strings.Contains(rendered, "P-256 (weak)") {
+		t.Fatalf("FormatKeyExchangeGroups() = %q, want only secp160r1 marked weak", rendered)
+	}
+	if result.Preference != "" {
+		t.Fatalf("Preference = %q, want none for TLS 1.2", result.Preference)
+	}
+}
+
+func TestProbeTLS12CurvesAgainstCryptoTLS(t *testing.T) {
+	server, host, port := newLocalTLSServerWithConfig(t, &tls.Config{
+		MinVersion:       tls.VersionTLS12,
+		MaxVersion:       tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP384},
+	})
+	defer server.Close()
+
+	result := ProbeTLS12Curves(Options{Host: host, Port: port, Timeout: 3 * time.Second}, "")
+	if result.Incomplete || len(result.Groups) != 2 || result.Connections != 3 {
+		t.Fatalf("result = %+v, want X25519 and P-384 in 3 connections", result)
+	}
+}
+
+func TestProbeTLS12CurvesContradictedByVersionHandshakeIsIncomplete(t *testing.T) {
+	server, host, port := newLocalTLSServerWithConfig(t, &tls.Config{
+		MinVersion:       tls.VersionTLS12,
+		MaxVersion:       tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{tls.X25519},
+	})
+	defer server.Close()
+
+	result := ProbeTLS12Curves(Options{Host: host, Port: port, Timeout: 3 * time.Second}, "CurveP384")
+	if !result.Incomplete || !strings.Contains(strings.Join(result.Warnings, " "), "negotiated CurveP384 but the curve enumeration did not find it") {
+		t.Fatalf("result = %+v, want the contradiction reported", result)
+	}
+}

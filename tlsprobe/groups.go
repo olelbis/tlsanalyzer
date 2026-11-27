@@ -143,6 +143,28 @@ type GroupEnumeration struct {
 // Configuration errors are returned as errors. If ctx ends, the groups found
 // so far are returned together with ctx.Err().
 func EnumerateTLS13Groups(ctx context.Context, opts Options, groups []uint16) (GroupEnumeration, error) {
+	return enumerateGroupSelections(ctx, opts, groups, groupSelector{
+		selected: StatusHelloRetryRequest,
+		pick:     selectTLS13Group,
+		lookup: func(id uint16) KeyExchangeGroup {
+			if group, ok := keyExchangeGroupByID[id]; ok {
+				return group
+			}
+			return KeyExchangeGroup{ID: id, Name: keyShareGroupName(id)}
+		},
+	})
+}
+
+// groupSelector is the single probe step an enumeration repeats: pick sends
+// one ClientHello offering the remaining groups and returns the answer, which
+// names the group the server chose when its Status is selected.
+type groupSelector struct {
+	selected Status
+	pick     func(ctx context.Context, opts Options, groups []uint16) Result
+	lookup   func(id uint16) KeyExchangeGroup
+}
+
+func enumerateGroupSelections(ctx context.Context, opts Options, groups []uint16, selector groupSelector) (GroupEnumeration, error) {
 	var enumeration GroupEnumeration
 	if err := ValidateOptions(opts); err != nil {
 		return enumeration, err
@@ -167,17 +189,13 @@ func EnumerateTLS13Groups(ctx context.Context, opts Options, groups []uint16) (G
 			return enumeration, err
 		}
 
-		result := selectTLS13Group(ctx, opts, remaining)
+		result := selector.pick(ctx, opts, remaining)
 		enumeration.Connections++
 		enumeration.Last = result
 
 		switch {
-		case result.Status == StatusHelloRetryRequest && result.ErrorCode == "" && containsGroup(remaining, result.SelectedGroup):
-			group, ok := keyExchangeGroupByID[result.SelectedGroup]
-			if !ok {
-				group = KeyExchangeGroup{ID: result.SelectedGroup, Name: keyShareGroupName(result.SelectedGroup)}
-			}
-			enumeration.Supported = append(enumeration.Supported, group)
+		case result.Status == selector.selected && result.ErrorCode == "" && containsGroup(remaining, result.SelectedGroup):
+			enumeration.Supported = append(enumeration.Supported, selector.lookup(result.SelectedGroup))
 			remaining = removeGroup(remaining, result.SelectedGroup)
 			continue
 		case result.Status == StatusAlert && isNoCommonGroupAlert(result.AlertDescription):

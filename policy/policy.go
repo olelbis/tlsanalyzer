@@ -25,6 +25,10 @@ const (
 	CheckInvalidCert = "invalid-cert"
 	CheckExpiredCert = "expired-cert"
 
+	// CheckWeakCurve fails when a TLS 1.2 server uses an ECDHE curve smaller
+	// than 224 bits. It needs curve enumeration.
+	CheckWeakCurve = "weak-curve"
+
 	CheckRequiredTLS    = "required-tls"
 	CheckForbiddenTLS   = "forbidden-tls"
 	CheckRequiredALPN   = "required-alpn"
@@ -189,7 +193,7 @@ func ScanRangeNotes(config Config, requested uint16) []string {
 // RequiresGroupProbe reports whether config can only be evaluated on a scan
 // that enumerated the TLS 1.3 key exchange groups.
 func RequiresGroupProbe(config Config) bool {
-	return config.RequirePostQuantum || config.RequirePostQuantumPreferred
+	return config.RequirePostQuantum || config.RequirePostQuantumPreferred || checksForConfig(config)[CheckWeakCurve]
 }
 
 func RequiresCipherProbe(config Config) bool {
@@ -254,6 +258,9 @@ func Evaluate(results []scan.TLSScanResult, config Config, now time.Time) Result
 					result.Failures = append(result.Failures, failure)
 				}
 			}
+		}
+		if checks[CheckWeakCurve] && r.VersionID == tls.VersionTLS12 {
+			result.Failures = append(result.Failures, weakCurveFailures(r)...)
 		}
 		if checks[CheckCipherAllowlist] {
 			if failure, ok := cipherAllowlistFailure(r); ok {
@@ -375,7 +382,7 @@ func checksForConfig(config Config) map[string]bool {
 
 func isKnownCheck(check string) bool {
 	switch check {
-	case CheckLegacyTLS, CheckWeakCipher, CheckInvalidCert, CheckExpiredCert:
+	case CheckLegacyTLS, CheckWeakCipher, CheckInvalidCert, CheckExpiredCert, CheckWeakCurve:
 		return true
 	default:
 		return false
@@ -416,6 +423,33 @@ func postQuantumFailure(r scan.TLSScanResult) (Failure, bool) {
 		Version: r.Version,
 		Message: fmt.Sprintf("%s accepts no post-quantum key exchange group (groups found: %s)", r.Version, groupList(r.KeyExchangeGroups)),
 	}, true
+}
+
+// weakCurveFailures judges one TLS 1.2 result against weak-curve. Like
+// weak-cipher it fails when the enumeration is incomplete: a gate that passes
+// without having looked protects nobody.
+func weakCurveFailures(r scan.TLSScanResult) []Failure {
+	var weak []string
+	for _, group := range r.KeyExchangeGroups {
+		if group.Weak {
+			weak = append(weak, fmt.Sprintf("%s (%d bits)", group.Name, group.Bits))
+		}
+	}
+	if len(weak) > 0 {
+		return []Failure{{
+			Check:   CheckWeakCurve,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s uses ECDHE curves below %d bits: %s", r.Version, scan.WeakCurveBits, strings.Join(weak, ", ")),
+		}}
+	}
+	if r.KeyExchangeGroupsIncomplete {
+		return []Failure{{
+			Check:   CheckWeakCurve,
+			Version: r.Version,
+			Message: fmt.Sprintf("%s ECDHE curve evidence is incomplete (probes went unanswered); weak curves cannot be ruled out", r.Version),
+		}}
+	}
+	return nil
 }
 
 // postQuantumPreferenceFailure judges one supported TLS 1.3 result against

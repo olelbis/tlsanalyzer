@@ -56,8 +56,12 @@ type JSONKeyExchangeGroup struct {
 	Name        string `json:"name"`
 	ID          uint16 `json:"id"`
 	PostQuantum bool   `json:"post_quantum"`
-	// Evidence is hello-retry-request, handshake or handshake-failed.
+	// Evidence is hello-retry-request, handshake, handshake-failed or, for a
+	// TLS 1.2 curve, server-key-exchange.
 	Evidence string `json:"evidence,omitempty"`
+	// Bits and Weak describe TLS 1.2 ECDHE curves only.
+	Bits int  `json:"bits,omitempty"`
+	Weak bool `json:"weak,omitempty"`
 }
 
 type JSONProbeResult struct {
@@ -163,7 +167,7 @@ func buildJSONKeyExchangeGroups(groups []scan.KeyExchangeGroupResult) []JSONKeyE
 	}
 	out := make([]JSONKeyExchangeGroup, len(groups))
 	for i, group := range groups {
-		out[i] = JSONKeyExchangeGroup{Name: group.Name, ID: group.ID, PostQuantum: group.PostQuantum, Evidence: group.Evidence}
+		out[i] = JSONKeyExchangeGroup{Name: group.Name, ID: group.ID, PostQuantum: group.PostQuantum, Evidence: group.Evidence, Bits: group.Bits, Weak: group.Weak}
 	}
 	return out
 }

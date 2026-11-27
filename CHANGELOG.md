@@ -4,6 +4,13 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+### Added
+
+- `--enum-groups` now also enumerates the elliptic curves a TLS 1.2 server uses for ECDHE. Each probe offers every ECDHE cipher suite and the remaining curves, reads the curve from the ServerKeyExchange and repeats until the server refuses; no key exchange is completed. The console prints `Accepted ECDHE Curves`, and the curves appear in `key_exchange_groups` of the TLS 1.2 result with `evidence: server-key-exchange` and the new `bits` and `weak` fields. The catalog covers the 30 IANA elliptic curves.
+- `--fail-on weak-curve` (policy check `weak-curve`) fails the run when a TLS 1.2 server uses an ECDHE curve smaller than 224 bits, or when the enumeration is incomplete and none was ruled out. It enables curve enumeration by itself.
+- `--baseline` fails when the scan finds a weak ECDHE curve the baseline did not have.
+- `tlsprobe` exports `EnumerateTLS12Curves`, `SelectTLS12Curve`, the `ECDHECurve` catalog (`ECDHECurves`, `ECDHECurveIDs`, `LookupECDHECurve`).
+
 ## v0.36.0 - 2026-11-14
 
 ### Added

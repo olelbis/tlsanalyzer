@@ -170,8 +170,13 @@ func Run(opts Options, hooks Hooks) (Result, error) {
 			}
 		}
 
-		if probeGroups && version == tls.VersionTLS13 {
-			groups := scan.ProbeKeyExchangeGroups(scanOptions, result.KeyExchangeGroup)
+		if probeGroups && (version == tls.VersionTLS13 || version == tls.VersionTLS12) {
+			var groups scan.GroupProbeResult
+			if version == tls.VersionTLS13 {
+				groups = scan.ProbeKeyExchangeGroups(scanOptions, result.KeyExchangeGroup)
+			} else {
+				groups = scan.ProbeTLS12Curves(scanOptions, result.KeyExchangeGroup)
+			}
 			result.KeyExchangeGroups = groups.Groups
 			result.KeyExchangeGroupsIncomplete = groups.Incomplete
 			result.KeyExchangeGroupPreference = groups.Preference

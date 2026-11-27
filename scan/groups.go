@@ -18,16 +18,22 @@ type KeyExchangeGroupResult struct {
 	Name        string
 	PostQuantum bool
 	// Evidence says how the group was established: GroupEvidenceHRR when the
-	// server selected it in a HelloRetryRequest, GroupEvidenceHandshake when
+	// server selected it in a HelloRetryRequest, GroupEvidenceKeyExchange
+	// when a TLS 1.2 server announced it in its ServerKeyExchange, GroupEvidenceHandshake when
 	// a complete TLS 1.3 handshake was also made with it, and
 	// GroupEvidenceHandshakeFailed when the server selected it but the
 	// handshake then failed.
 	Evidence string
+	// Bits is the size of a TLS 1.2 ECDHE curve; it is 0 for TLS 1.3 groups.
+	Bits int
+	// Weak is true for a TLS 1.2 curve smaller than 224 bits.
+	Weak bool
 }
 
 // Evidence levels of a key exchange group.
 const (
 	GroupEvidenceHRR             = "hello-retry-request"
+	GroupEvidenceKeyExchange     = "server-key-exchange"
 	GroupEvidenceHandshake       = "handshake"
 	GroupEvidenceHandshakeFailed = "handshake-failed"
 )
@@ -105,33 +111,99 @@ func ProbeKeyExchangeGroups(opts Options, negotiatedGroup string) GroupProbeResu
 		DialContext: opts.probeDialContext(),
 	}
 	enumeration, err := tlsprobe.EnumerateTLS13Groups(context.Background(), probeOpts, tlsprobe.KeyExchangeGroupIDs())
-	result.Connections = enumeration.Connections
+	result.absorbEnumeration(enumeration, err, groupEnumerationKind{
+		label:      "TLS 1.3 key exchange group",
+		evidence:   GroupEvidenceHRR,
+		total:      len(tlsprobe.KeyExchangeGroupIDs()),
+		catalogIDs: tlsprobe.KeyExchangeGroupIDs(),
+		missing:    "the TLS 1.3 handshake negotiated %s but the group enumeration did not find it; the endpoint may not answer key-share-less ClientHellos, so the group list is incomplete.",
+	}, negotiatedGroup)
+
+	result.confirmHybridHandshake(opts)
+	result.probePreference(probeOpts)
+
+	result.DurationMillis = time.Since(start).Milliseconds()
+	return result
+}
+
+// WeakCurveBits is the size below which a TLS 1.2 ECDHE curve is weak.
+const WeakCurveBits = tlsprobe.WeakECDHECurveBits
+
+// groupEnumerationKind describes one enumeration for absorbEnumeration.
+type groupEnumerationKind struct {
+	// label starts the warnings, for example "TLS 1.3 key exchange group".
+	label    string
+	evidence string
+	total    int
+	// catalogIDs are the IDs crypto/tls names are matched against.
+	catalogIDs []uint16
+	// curves makes the entries carry the size and weakness of a TLS 1.2
+	// curve.
+	curves bool
+	// missing is the warning for a negotiated group the enumeration did not
+	// find; it takes the group name.
+	missing string
+}
+
+// absorbEnumeration copies an enumeration into r and marks it incomplete when
+// it could not finish or contradicts the group the version handshake
+// negotiated.
+func (r *GroupProbeResult) absorbEnumeration(enumeration tlsprobe.GroupEnumeration, err error, kind groupEnumerationKind, negotiatedGroup string) {
+	r.Connections += enumeration.Connections
 	for _, group := range enumeration.Supported {
-		result.Groups = append(result.Groups, KeyExchangeGroupResult{
-			ID: group.ID, Name: group.Name, PostQuantum: group.PostQuantum, Evidence: GroupEvidenceHRR,
-		})
+		entry := KeyExchangeGroupResult{ID: group.ID, Name: group.Name, PostQuantum: group.PostQuantum, Evidence: kind.evidence}
+		if curve, ok := tlsprobe.LookupECDHECurve(group.ID); ok && kind.curves {
+			entry.Bits, entry.Weak = curve.Bits, curve.Weak()
+		}
+		r.Groups = append(r.Groups, entry)
 	}
 
 	switch {
 	case err != nil:
-		result.Incomplete = true
-		result.Warnings = append(result.Warnings, "TLS 1.3 key exchange group enumeration failed: "+err.Error())
+		r.Incomplete = true
+		r.Warnings = append(r.Warnings, kind.label+" enumeration failed: "+err.Error())
 	case !enumeration.Complete:
-		result.Incomplete = true
-		result.Warnings = append(result.Warnings, fmt.Sprintf(
-			"TLS 1.3 key exchange group enumeration could not finish (%s); %d of %d groups were not classified, so the group list is incomplete.",
-			describeGroupEnumerationEnd(enumeration.Last), len(enumeration.Unresolved), len(tlsprobe.KeyExchangeGroupIDs())))
+		r.Incomplete = true
+		r.Warnings = append(r.Warnings, fmt.Sprintf(
+			"%s enumeration could not finish (%s); %d of %d groups were not classified, so the group list is incomplete.",
+			kind.label, describeGroupEnumerationEnd(enumeration.Last), len(enumeration.Unresolved), kind.total))
 	}
 
-	if id, ok := groupIDForCryptoTLSName(negotiatedGroup); ok && !containsKeyExchangeGroup(result.Groups, id) {
-		result.Incomplete = true
-		result.Warnings = append(result.Warnings, fmt.Sprintf(
-			"the TLS 1.3 handshake negotiated %s but the group enumeration did not find it; the endpoint may not answer key-share-less ClientHellos, so the group list is incomplete.",
-			negotiatedGroup))
+	if id, ok := groupIDForCryptoTLSName(negotiatedGroup, kind.catalogIDs); ok && !containsKeyExchangeGroup(r.Groups, id) {
+		r.Incomplete = true
+		r.Warnings = append(r.Warnings, fmt.Sprintf(kind.missing, negotiatedGroup))
+	}
+}
+
+// ProbeTLS12Curves finds the elliptic curves an endpoint uses for TLS 1.2
+// ECDHE. Each probe offers every ECDHE cipher suite and the remaining curves;
+// the server names the curve it picked in its ServerKeyExchange, which is read
+// and then dropped, so no handshake is completed. negotiatedGroup is the
+// curve the version handshake negotiated, as crypto/tls spells it (it may be
+// empty); the enumeration has to contain it.
+func ProbeTLS12Curves(opts Options, negotiatedGroup string) GroupProbeResult {
+	start := time.Now()
+	result := GroupProbeResult{
+		Warnings: []string{
+			"TLS 1.2 ECDHE curves were enumerated by reading the ServerKeyExchange of ClientHello-only probes; no key exchange is completed. Only the curves a server uses for the certificate it selects are seen.",
+		},
 	}
 
-	result.confirmHybridHandshake(opts)
-	result.probePreference(probeOpts)
+	enumeration, err := tlsprobe.EnumerateTLS12Curves(context.Background(), tlsprobe.Options{
+		Address:     net.JoinHostPort(opts.Host, opts.Port),
+		ServerName:  opts.tlsServerName(),
+		Timeout:     opts.Timeout,
+		ALPN:        DefaultALPNProtocols(),
+		DialContext: opts.probeDialContext(),
+	}, tlsprobe.ECDHECurveIDs())
+	result.absorbEnumeration(enumeration, err, groupEnumerationKind{
+		label:      "TLS 1.2 ECDHE curve",
+		evidence:   GroupEvidenceKeyExchange,
+		curves:     true,
+		total:      len(tlsprobe.ECDHECurveIDs()),
+		catalogIDs: tlsprobe.ECDHECurveIDs(),
+		missing:    "the TLS 1.2 handshake negotiated %s but the curve enumeration did not find it; the server may use another curve for another certificate or suite, so the curve list is incomplete.",
+	}, negotiatedGroup)
 
 	result.DurationMillis = time.Since(start).Milliseconds()
 	return result
@@ -265,11 +337,11 @@ func containsKeyExchangeGroup(groups []KeyExchangeGroupResult, id uint16) bool {
 
 // groupIDForCryptoTLSName maps the group name crypto/tls reports for a
 // connection (tls.CurveID.String) to a catalog group ID.
-func groupIDForCryptoTLSName(name string) (uint16, bool) {
+func groupIDForCryptoTLSName(name string, ids []uint16) (uint16, bool) {
 	if name == "" {
 		return 0, false
 	}
-	for _, id := range tlsprobe.KeyExchangeGroupIDs() {
+	for _, id := range ids {
 		if tls.CurveID(id).String() == name {
 			return id, true
 		}
@@ -310,6 +382,9 @@ func FormatKeyExchangeGroups(groups []KeyExchangeGroupResult) string {
 		parts[i] = group.Name
 		if group.PostQuantum {
 			parts[i] += " (post-quantum)"
+		}
+		if group.Weak {
+			parts[i] += " (weak)"
 		}
 		if group.Evidence == GroupEvidenceHandshakeFailed {
 			parts[i] += " [handshake failed]"
