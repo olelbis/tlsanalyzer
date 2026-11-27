@@ -4,6 +4,8 @@ All notable changes to `tlsanalyzer` are documented here.
 
 ## Unreleased
 
+## v0.37.0 - 2026-11-27
+
 ### Added
 
 - `--enum-groups` now also enumerates the elliptic curves a TLS 1.2 server uses for ECDHE. Each probe offers every ECDHE cipher suite and the remaining curves, reads the curve from the ServerKeyExchange and repeats until the server refuses; no key exchange is completed. The console prints `Accepted ECDHE Curves`, and the curves appear in `key_exchange_groups` of the TLS 1.2 result with `evidence: server-key-exchange` and the new `bits` and `weak` fields. The catalog covers the 30 IANA elliptic curves.
