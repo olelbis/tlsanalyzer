@@ -91,6 +91,7 @@ func runBatch(cfg cliConfig, stdout io.Writer, stderr io.Writer) int {
 			Attempts:       result.Attempts,
 			Results:        result.Results,
 			Policy:         policyResultPointer(result.Policy),
+			StartTLS:       string(settings.startTLS),
 			Error:          result.Error,
 			ExitCode:       exitCode,
 		}

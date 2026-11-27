@@ -271,7 +271,9 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if cfg.outputJSON {
-		jsonReport, err := output.BuildJSONReport(h, port, serverName, build.Version, time.Now(), results, reportPolicy)
+		report := output.NewJSONReport(h, port, serverName, build.Version, time.Now(), results, reportPolicy)
+		report.StartTLS = string(inputs.startTLS)
+		jsonReport, err := output.MarshalJSONReport(report)
 		if err != nil {
 			fmt.Fprintf(stderr, "❌ Failed to build JSON report: %v\n", err)
 			return exitCodeInputRuntimeFailure

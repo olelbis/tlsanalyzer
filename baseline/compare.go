@@ -76,6 +76,15 @@ func NeedsGroupProbe(base *Report) bool {
 // determined on either side is never a regression; it is a note.
 func Compare(base *Report, current Report) Comparison {
 	var c comparison
+	switch {
+	case base.StartTLS == current.StartTLS:
+	case base.StartTLS == "":
+		c.note("this scan runs with STARTTLS (%s); the baseline does not record one, as reports written before v0.38.0 do not, so the results may differ for that reason", current.StartTLS)
+	case current.StartTLS == "":
+		c.note("the baseline was recorded with STARTTLS (%s); this scan runs without it, so the results may differ for that reason", base.StartTLS)
+	default:
+		c.note("the baseline was recorded with STARTTLS (%s); this scan uses %s, so the results may differ for that reason", base.StartTLS, current.StartTLS)
+	}
 	baseByVersion := make(map[uint16]output.JSONScanResult, len(base.Results))
 	for _, r := range base.Results {
 		baseByVersion[r.VersionID] = r

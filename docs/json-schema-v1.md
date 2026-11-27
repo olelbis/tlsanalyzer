@@ -13,6 +13,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `host` | string | yes | TCP host or IP address scanned. |
 | `port` | string | yes | TCP port scanned. |
 | `server_name` | string | no | TLS SNI and certificate validation name when `--sni` is used. |
+| `starttls` | string | no | `smtp`, `imap` or `pop3` when the scan upgraded every connection with `--starttls`. Omitted for a plain TLS port, and in reports written before v0.38.0. |
 | `schema_version` | string | yes | JSON schema version. Current value is `1.1`. |
 | `go_version` | string | no | Go toolchain version the scanner binary was built with, for example `go1.27.3`. Certificate verdicts depend on that toolchain's `crypto/x509`. |
 | `scanner_version` | string | yes | Scanner version embedded at build time. |
@@ -49,6 +50,7 @@ Single-target scans and batch scans share the same schema version but use differ
 | `host` | string | yes | TCP host or IP address scanned. |
 | `port` | string | yes | TCP port scanned. |
 | `server_name` | string | no | TLS SNI and certificate validation name when set. |
+| `starttls` | string | no | STARTTLS protocol of the target's report, as in the single-target report. |
 | `attempts` | number | yes | Full target scan attempts, including retries. |
 | `exit_code` | number | yes | Per-target exit evidence: `0`, `1` or `3`. |
 | `error` | string | no | Target-level setup or execution error when available. |
