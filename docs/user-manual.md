@@ -162,7 +162,7 @@ tlsanalyzer --config tlsanalyzer.json --target production --profile modern-ci
   --policy string
         Policy to evaluate: modern, mozilla-modern or mozilla-intermediate
   --fail-on string
-        Comma-separated checks that fail the run: legacy-tls, weak-cipher, invalid-cert, expired-cert
+        Comma-separated checks that fail the run: legacy-tls, weak-cipher, weak-curve, invalid-cert, expired-cert
   --require-tls string
         Comma-separated TLS versions that must be supported, such as 1.3
   --forbid-tls string
@@ -525,6 +525,7 @@ Available checks are:
 
 - `legacy-tls`
 - `weak-cipher`
+- `weak-curve`: a TLS 1.2 server uses an ECDHE curve smaller than 224 bits (see [TLS 1.2 ECDHE curves](#tls-12-ecdhe-curves)); it enables curve enumeration
 - `invalid-cert`
 - `expired-cert`
 
@@ -596,7 +597,22 @@ The field is omitted when no post-quantum group was found. A server that accepts
 
 The enumeration is checked against the handshake: the group the version handshake negotiated has to be in the list. When it is not, or when probes went unanswered, `key_exchange_groups_incomplete` is set and the console warns that the list may be missing groups.
 
-Only TLS 1.3 is enumerated. TLS 1.2 ECDHE curves are not.
+TLS 1.3 groups and TLS 1.2 ECDHE curves are enumerated; TLS 1.0 and 1.1 are not.
+
+#### TLS 1.2 ECDHE curves
+
+With `--enum-groups` a supported TLS 1.2 result also lists the elliptic curves the server uses for ECDHE:
+
+```
+ TLS 1.2
+   Accepted ECDHE Curves: X25519, P-256, P-384
+```
+
+Each probe is a TLS 1.2 ClientHello that offers every ECDHE cipher suite and the remaining curves of the catalog (the 30 IANA elliptic curves, from X25519 down to `sect163k1`). The server picks a suite and names its curve in the ServerKeyExchange (RFC 8422 section 5.4); the scan reads it, drops the connection, removes the curve from the offer and repeats until the server refuses, so k curves cost k+1 connections. No key exchange is completed, and the JSON `evidence` of each curve is `server-key-exchange`.
+
+Curves smaller than 224 bits are marked `(weak)` in the console, and have `weak: true` and `bits` in the JSON report. `--fail-on weak-curve` fails the run (exit 3) when a TLS 1.2 server uses one, and also when the enumeration is incomplete and none was found; it enables curve enumeration by itself. With a [baseline](#baseline-comparison) that lists groups, a weak curve that the baseline did not have is a regression.
+
+Only what the server does for the certificate it selects is seen: a server that holds an RSA and an ECDSA certificate can use different curves for each, and the scan reports the curves of the certificate the server picks for the offered suites. The server's curve preference is not measured for TLS 1.2.
 
 `--require-pq` turns it into a gate: the run fails (exit 3, check `require-pq`) when TLS 1.3 accepts no post-quantum group, when TLS 1.3 is not supported, or when the enumeration is incomplete and no post-quantum group was found. It implies `--enum-groups`, and `require_pq` can be set in a config file or a policy profile. With a [baseline](#baseline-comparison) that lists groups, losing a post-quantum group is a regression.
 

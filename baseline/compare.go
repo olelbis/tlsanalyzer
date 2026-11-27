@@ -189,6 +189,10 @@ func (c *comparison) groups(b, cur output.JSONScanResult) {
 		if _, ok := baseGroups[group.ID]; ok {
 			continue
 		}
+		if group.Weak {
+			c.fail(cur.Version, "%s now uses weak ECDHE curve %s (%d bits); the baseline did not", cur.Version, group.Name, group.Bits)
+			continue
+		}
 		c.note("%s now accepts key exchange group %s%s", cur.Version, group.Name, postQuantumSuffix(group))
 	}
 	if cur.KeyExchangeGroupsIncomplete {

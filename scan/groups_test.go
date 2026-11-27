@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/olelbis/tlsanalyzer/tlsprobe"
 )
 
 func TestProbeKeyExchangeGroupsFindsPostQuantumHybrid(t *testing.T) {
@@ -103,13 +105,13 @@ func TestGroupIDForCryptoTLSName(t *testing.T) {
 		"X25519MLKEM768": 0x11ec,
 	}
 	for name, want := range tests {
-		got, ok := groupIDForCryptoTLSName(name)
+		got, ok := groupIDForCryptoTLSName(name, tlsprobe.KeyExchangeGroupIDs())
 		if !ok || got != want {
 			t.Errorf("groupIDForCryptoTLSName(%q) = 0x%04x, %t, want 0x%04x", name, got, ok, want)
 		}
 	}
 	for _, name := range []string{"", "NotAGroup"} {
-		if _, ok := groupIDForCryptoTLSName(name); ok {
+		if _, ok := groupIDForCryptoTLSName(name, tlsprobe.KeyExchangeGroupIDs()); ok {
 			t.Errorf("groupIDForCryptoTLSName(%q) matched", name)
 		}
 	}

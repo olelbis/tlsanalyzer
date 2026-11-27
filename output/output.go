@@ -166,7 +166,7 @@ func writeMarkdownKeyExchangeGroups(sb *strings.Builder, results []scan.TLSScanR
 		}
 		if !header {
 			sb.WriteString("\n## Key Exchange Groups\n\n")
-			sb.WriteString("Enumerated with ClientHello-only HelloRetryRequest probes; X25519MLKEM768 is also confirmed with a complete handshake.\n\n")
+			sb.WriteString("TLS 1.3 groups are enumerated with ClientHello-only HelloRetryRequest probes (X25519MLKEM768 is also confirmed with a complete handshake); TLS 1.2 ECDHE curves are read from the ServerKeyExchange of ClientHello-only probes.\n\n")
 			header = true
 		}
 		sb.WriteString(fmt.Sprintf("- **%s**: %s", r.Version, emptyDash(scan.FormatKeyExchangeGroups(r.KeyExchangeGroups))))
@@ -508,13 +508,17 @@ func PrintTLSPosture(w io.Writer, result scan.TLSScanResult) {
 		fmt.Fprintf(w, "   Key Exchange Group: %s\n", result.KeyExchangeGroup)
 	}
 	if len(result.KeyExchangeGroups) > 0 {
-		fmt.Fprintf(w, "   Accepted Key Exchange Groups: %s\n", scan.FormatKeyExchangeGroups(result.KeyExchangeGroups))
+		label := "Accepted Key Exchange Groups"
+		if result.VersionID == tls.VersionTLS12 {
+			label = "Accepted ECDHE Curves"
+		}
+		fmt.Fprintf(w, "   %s: %s\n", label, scan.FormatKeyExchangeGroups(result.KeyExchangeGroups))
 	}
 	if preference := scan.FormatKeyExchangePreference(result.KeyExchangeGroupPreference); preference != "" {
 		fmt.Fprintf(w, "   Key Exchange Group Preference: %s\n", preference)
 	}
 	if result.KeyExchangeGroupsIncomplete {
-		fmt.Fprintln(w, "   ⚠️  Key exchange group evidence is incomplete: the list may be missing groups")
+		fmt.Fprintln(w, "   ⚠️  Key exchange group evidence is incomplete: the list may be missing groups or curves")
 	}
 	if result.ALPNProtocol != "" {
 		fmt.Fprintf(w, "   ALPN: %s\n", result.ALPNProtocol)

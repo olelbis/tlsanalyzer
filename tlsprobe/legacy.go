@@ -519,6 +519,12 @@ func legacyVersionName(version uint16) string {
 // suites. It carries no supported_versions extension, so a server can only
 // answer with the probed version or a lower one.
 func buildLegacyClientHello(opts Options, version uint16, cipherSuites []uint16) ([]byte, error) {
+	return buildLegacyClientHelloWithGroups(opts, version, cipherSuites, normalizedKeyShareGroups(opts))
+}
+
+// buildLegacyClientHelloWithGroups is buildLegacyClientHello with an explicit
+// supported_groups list, which may name any registered curve.
+func buildLegacyClientHelloWithGroups(opts Options, version uint16, cipherSuites []uint16, groups []uint16) ([]byte, error) {
 	if len(cipherSuites) == 0 {
 		return nil, errors.New("no cipher suite to offer")
 	}
@@ -537,7 +543,7 @@ func buildLegacyClientHello(opts Options, version uint16, cipherSuites []uint16)
 	}
 	body = append(body, 1, 0) // null compression only
 
-	extensions := buildLegacyClientHelloExtensions(opts, version)
+	extensions := buildLegacyClientHelloExtensions(opts, version, groups)
 	// Some old TLS stacks hang on ClientHello messages of 256 to 511 bytes;
 	// like browsers, pad such a message to 512 bytes (RFC 7685).
 	if unpadded := 4 + len(body) + 2 + len(extensions); unpadded >= 256 && unpadded < 512 {
@@ -562,7 +568,7 @@ func buildLegacyClientHello(opts Options, version uint16, cipherSuites []uint16)
 	return record, nil
 }
 
-func buildLegacyClientHelloExtensions(opts Options, version uint16) []byte {
+func buildLegacyClientHelloExtensions(opts Options, version uint16, groups []uint16) []byte {
 	var extensions []byte
 	if opts.ServerName != "" && !isIPLiteral(opts.ServerName) {
 		var serverName []byte
@@ -579,7 +585,7 @@ func buildLegacyClientHelloExtensions(opts Options, version uint16) []byte {
 
 	// ECDHE suites are only selected when the client names curves it supports.
 	var supportedGroups []byte
-	for _, group := range normalizedKeyShareGroups(opts) {
+	for _, group := range groups {
 		supportedGroups = appendUint16(supportedGroups, group)
 	}
 	extensions = appendExtension(extensions, extensionSupportedGroups, appendOpaque16(nil, supportedGroups))

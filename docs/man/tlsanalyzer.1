@@ -112,6 +112,7 @@ suite list, the certificate key type and size, and the certificate lifespan.
 Comma-separated checks that fail the run. Supported checks:
 .BR legacy-tls ,
 .BR weak-cipher ,
+.BR weak-curve ,
 .BR invalid-cert ,
 and
 .BR expired-cert .
@@ -143,7 +144,7 @@ or
 on every connection before the TLS handshake. Without --port the protocol's port is used (25, 143 or 110). A server that does not offer STARTTLS ends the run with exit status 1.
 .TP
 .B --enum-groups
-Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids such as X25519MLKEM768. Groups are found with ClientHello-only probes; X25519MLKEM768 is also confirmed with a complete handshake, and the server's group preference is measured with two more probes.
+Enumerate the TLS 1.3 key exchange groups the server accepts, including post-quantum hybrids such as X25519MLKEM768, and the elliptic curves a TLS 1.2 server uses for ECDHE. Groups are found with ClientHello-only probes; X25519MLKEM768 is also confirmed with a complete handshake, and the server's group preference is measured with two more probes.
 .TP
 .B --require-pq
 Fail with exit status 3 when TLS 1.3 accepts no post-quantum key exchange group. Implies --enum-groups.

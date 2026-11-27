@@ -175,3 +175,75 @@ func TestConfigFileSetsRequirePQPreferred(t *testing.T) {
 		t.Fatal("an explicit CLI value must override the config file")
 	}
 }
+
+func newTLS12CurveServer(t *testing.T, curves ...tls.CurveID) (host, port string) {
+	t.Helper()
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	server.TLS = &tls.Config{MinVersion: tls.VersionTLS12, MaxVersion: tls.VersionTLS12, CurvePreferences: curves}
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	host, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatalf("split server address: %v", err)
+	}
+	return host, port
+}
+
+func TestRunEnumGroupsListsTLS12Curves(t *testing.T) {
+	host, port := newTLS12CurveServer(t, tls.X25519, tls.CurveP256)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--host", host, "--port", port, "--min-version", "1.2", "--skip-verify", "--enum-groups", "--no-clear"}, &stdout, &stderr)
+	if code != exitCodeOK {
+		t.Fatalf("run() exit code = %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Accepted ECDHE Curves: ") || !strings.Contains(out, "X25519") || !strings.Contains(out, "P-256") {
+		t.Fatalf("stdout does not list the TLS 1.2 curves:\n%s", out)
+	}
+	if strings.Contains(out, "Key Exchange Group Preference") {
+		t.Fatalf("stdout reports a group preference for TLS 1.2:\n%s", out)
+	}
+
+	stdout.Reset()
+	code = run([]string{"--host", host, "--port", port, "--min-version", "1.2", "--skip-verify", "--enum-groups", "--json", "--no-clear"}, &stdout, &stderr)
+	if code != exitCodeOK {
+		t.Fatalf("run() --json exit code = %d\n%s", code, stdout.String())
+	}
+	var report struct {
+		Results []struct {
+			Version string `json:"version"`
+			Groups  []struct {
+				Name     string `json:"name"`
+				Evidence string `json:"evidence"`
+				Weak     bool   `json:"weak"`
+			} `json:"key_exchange_groups"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
+	}
+	if len(report.Results) != 2 || report.Results[0].Version != "TLS 1.2" || len(report.Results[0].Groups) != 2 || len(report.Results[1].Groups) != 0 {
+		t.Fatalf("results = %+v, want two curves on TLS 1.2 and none on the unsupported TLS 1.3", report.Results)
+	}
+	for _, group := range report.Results[0].Groups {
+		if group.Evidence != "server-key-exchange" || group.Weak {
+			t.Errorf("group = %+v, want server-key-exchange evidence and not weak", group)
+		}
+	}
+}
+
+func TestRunFailOnWeakCurvePassesWithoutWeakCurves(t *testing.T) {
+	host, port := newTLS12CurveServer(t, tls.X25519, tls.CurveP256)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--host", host, "--port", port, "--min-version", "1.2", "--skip-verify", "--fail-on", "weak-curve", "--no-clear"}, &stdout, &stderr)
+	if code != exitCodeOK {
+		t.Fatalf("run() exit code = %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Accepted ECDHE Curves: ") {
+		t.Fatalf("weak-curve did not enumerate the curves:\n%s", stdout.String())
+	}
+}
